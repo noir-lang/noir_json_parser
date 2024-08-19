@@ -1,0 +1,1 @@
+nargo compile --force && bb gates -b ./target/noir_json.json > ./out.txt

@@ -1,0 +1,8 @@
+[package]
+name = "noir_json"
+type = "bin"
+authors = [""]
+compiler_version = ">=0.32.0"
+
+[dependencies]
+noir_sort = {path = "../noir_sort"}

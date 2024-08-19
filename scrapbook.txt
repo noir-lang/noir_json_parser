@@ -1,0 +1,2736 @@
+
+use crate::tables::{ASCII_TO_NUMBER, START_CHARACTERS, END_CHARACTERS, VALUE_CHARACTERS, JSON_BITFLAGS};
+
+global OBJECT_START = 0;
+global OBJECT_END = 1;
+global ARRAY_START = 2;
+global ARRAY_END = 3;
+global COMMA = 4;
+global COLON = 5;
+global KEY_CAPTURE = 6;
+global STRING_CAPTURE = 7;
+global NUMERIC_CAPTURE = 8;
+global BOOL_CAPTURE = 9;
+
+struct TestStructInner {
+    foo: u64,
+    bar: bool,
+}
+struct TestStruct {
+    foo: u64,
+    bar: TestStructInner,
+    baz: [u8; 5],
+}
+
+trait JsonParserTrait {
+    fn parse_key<let KeyLen: u32>(self, key: str<KeyLen>, idx: Field);
+    fn parse_numeric(self, idx: Field) -> u64;
+    fn parse_literal(self, idx: Field) -> bool;
+    fn parse_string_as_u8<let StrLen: u32>(self, idx: Field) -> [u8; StrLen];
+}
+// global ASCII_TO_NUMBER: [Field; 128] = [0; 128];
+impl TestStruct {
+
+    // TODO: support escape characters
+    // TODO: add method to parse string and output string
+
+    fn construct_from_json<Parser>(parser: Parser) -> Self where Parser: JsonParserTrait {
+        let mut result: Self = TestStruct { foo: 0, bar: TestStructInner { foo: 0, bar: false }, baz: [0; 5] };
+
+        parser.parse_key("fo\\bo", 0);
+        result.foo = parser.parse_numeric(1);
+        parser.parse_key("bar", 2);
+        parser.parse_key("foo", 3);
+        result.bar.foo = parser.parse_numeric(4);
+        parser.parse_key("bar", 5);
+        result.bar.bar = parser.parse_literal(6);
+        parser.parse_key("baz", 7);
+        result.baz = parser.parse_string_as_u8(8);
+        result
+    }
+}
+
+// (search... { = object start, : = next term is value)
+// if value. next term is comma or object close
+// 
+global TestStructJsonTranscript: [Field;20] = [
+    OBJECT_START,
+    KEY_CAPTURE,
+    COLON,
+    NUMERIC_CAPTURE,
+    COMMA,
+    KEY_CAPTURE,
+    COLON, 
+    OBJECT_START,
+    KEY_CAPTURE,
+    COLON,
+    NUMERIC_CAPTURE,
+    COMMA,
+    KEY_CAPTURE,
+    COLON,
+    BOOL_CAPTURE,
+    OBJECT_END,
+    KEY_CAPTURE,
+    COLON,
+    STRING_CAPTURE,
+    OBJECT_END
+];
+
+// ascii combination
+
+/*
+
+searching: objectopen, keystart or blank (array?)
+
+
+if in search: { = objectopen, [ = array, " = keystart
+
+objectopen: keystart or blank
+
+keystart: keyval or keyend (handle escape sequence)
+
+keyend: colon or blank
+
+colon: stringstart, numericstart, literalstart, objectopen, arrayopen or blank
+
+stringstart: stringval or stringend
+
+numericstart: numericval or numericend (inclusive?)
+
+literalstart: literalval or literalend (inclusive?)
+
+stringend: comma, arrayclose or objectclose or blank
+
+numericend: comma, arrayclose or objectclose or blank
+
+literalend: comma, arrayclose or objectclose or blank
+
+comma + array mode: stringstart, numericstart, literalstart or blank (or arrayopen?)
+
+comma + !array mode: keystart or blank
+
+arrayopen: stringstart, numericstart, literalstart or blank (or arrayopen?)
+
+arrayclose: comma, objectclose or blank (or arrayclose?)
+
+
+numeric mode, ascii is blank: exit numeric mode, next search = comma, arrayclose, objectclose or blank
+numeric mode, ascii is objectclose: exit numeric mode, enter objectclose mode
+numeric mode, ascii is arrayclose: exit numeric mode, enter arrayclose mode
+numeric mode, ascii is comma: exit numeric mode, enter commamode
+
+Mode entry tasks: (list?)
+
+
+
+What are we tracking?
+
+1. build a transcript
+2. build a list of pointers for where each transcript entry is located
+3. build a list of lengths for how large each transcript entry is
+3. (nothing else?) 
+
+erm
+| current mode | next token | token_length | transcript actions |
+| INIT         | objectopen |              | push transcript, push pointer, push length (1) |
+| INIT         | arrayopen  |              | ^^ |
+| INIT         | KEYSTART   | 0            | push transcript, push pointer, mode = KEYSCAN |
+| KEYSCAN      | KEYSCAN    | increase token length | mode = KEYSCAN |
+| KEYSCAN      | KEYEND     | -            | push length |
+
+our lookup table can have....
+1. do we push into transcript
+2. what are we pushing into transcript
+3. do we reset length param
+4. what do we increment length param by?
+
+modes:
+
+ `BEGIN_OBJECT`    | Left curly brace     | `{` | 0x7B
+ `END_OBJECT`      | Right curly brace    | `}` | 0x7D
+ `BEGIN_ARRAY`     | Left square bracket  | `[` | 0x5B
+ `END_ARRAY`       | Right square bracket | `]` | 0x5D
+ `KEY_DELIMITER`   | Colon                | `:` | 0x3A
+ `VALUE_DELIMITER` | Comma                | `,` | 0x2C
+ `QUOTATION_MARK`  | Double quote         | `"` | 0x22
+
+INIT
+OBJECT_SCAN
+ARRAY_SCAN
+KEY_SCAN
+KEY_DELIMITER_SCAN
+VALUE_DELIMITER_SCAN
+STRING_SCAN
+NUMERIC_SCAN
+LITERAL_SCAN
+
+OBJECT_SCAN. token = ", new mode = KEY_SCAN
+OBJECT_SCAN. token = }, new mode = INIT_SCAN
+
+KEY_SCAN. token = ", new mode = KEY_DELIMITER_PRE_SCAN
+KEY_DELIMITER_PRE_SCAN. token = ":", new mode = KEY_DELIMITER_POST_SCAN 
+KEY_DELIMITER_POST_SCAN. token = "f/a/l/s/e/n/u/t/r",  new mode = LITERAL_SCAN
+KEY_DELIMITER_POST_SCAN. token = 0-9, new mode = NUMERIC_SCAN
+KEY_DELIMITER_POST_SCAN. token = ", new mode = STRING_SCAN
+KEY_DELIMITER_POST_SCAN. token = {, new mode = OBJECT_SCAN
+KEY_DELIMITER_POST_SCAN. token = [, new mode = ARRAY_SCAN
+
+ARRAY_SCAN. token = [value], new mode = NUMERIC_SCAN STRING_SCAN or LITERAL_SCAN
+ARRAY_SCAN. token = ], parent context = Array, new mode = ARRAY_SCAN
+ARRAY_SCAN. token = ], parent context = Object, new mode = OBJECT_SCAN
+ARRAY_SCAN. token = {, new mode = OBJECT_SCAN
+ARRAY_SCAN. token = [, new mode = ARRAY_SCAN
+
+STRING_SCAN. token = string, mode = STRING_SCAN
+STRING_SCAN. token = ", new mode = VALUE_DELIMITER_PRE_SCAN (comma, arrayclose or objectclose)
+
+NUMERIC_SCAN. token = number, mode = NUMERIC_SCAN
+NUMERIC_SCAN. token = blank, mode = VALUE_DELIMITER_PRE_SCAN
+NUMERIC_SCAN. token = comma, mode = VALUE_DELIMITER_POST_SCAN
+
+NUMERIC_SCAN. token = ], new context = Array, mode = ARRAY_SCAN
+NUMERIC_SCAN. token = }, new context = Object, mode = OBJECT_SCAN
+
+VALUE_DELIMITER_PRE_SCAN. token = ",", mode = VALUE_DELIMITER_POST_SCAN
+VALUE_DELIMITER_PRE_SCAN. token = ], mode = VALUE_DELIMITER_PRE_SCAN
+VALUE_DELIMITER_PRE_SCAN. token = }, mode = OBJECT_SCAN
+
+
+VALUE_DELIMITER_POST_SCAN. token = "f/a/l/s/e/n/u/t/r", context = Array, new mode = LITERAL_SCAN
+VALUE_DELIMITER_POST_SCAN. token = 0-9, context = Array, new mode = NUMERIC_SCAN
+VALUE_DELIMITER_POST_SCAN. token = ", context = Array, new mode = STRING_SCAN 
+VALUE_DELIMITER_POST_SCAN. token = ", context = Object, new mode = KEY_SCAN
+VALUE_DELIMITER_POST_SCAN. token = {, context = Array, new mode = OBJECT_SCAN
+VALUE_DELIMITER_POST_SCAN. token = [, context = Array, new mode = ARRAY_SCAN
+
+(maybe we can combine string and key scans)
+
+INIT_SCAN. token = {, mode = OBJECT_SCAN
+INIT_SCAN. token = [, mode = ARRAY_SCAN
+INIT_SCAN. token = ", mode = KEY_SCAN
+literal scan is the same as numeric scan except number
+
+###
+################################
+################################
+
+
+what about a simplification: are we capturing a value or are we not capturing a value?
+
+GRAMMAR_SCAN. token = ", new mode = STRING_SCAN
+GRAMMAR_SCAN. token = 0-9, new mode = NUMERIC_SCAN
+GRAMMAR_SCAN. token = "f/a/l/s/e/n/u/t/r", new mode = LITERAL_SCAN
+
+GRAMMAR_SCAN. token = '{ } [ ] , :', new mode = GRAMMAR_SCAN (but write into transcript)
+
+STRING_SCAN. token = string. mode = STRING_SCAN but update length
+STRING_SCAN. token = ". mode = GRAMMAR_SCAN
+
+NUMERIC_SCAN. token = 0-9. mode = NUMERIC_SCAN but update length
+NUMERIC_SCAN. token = , } ] . mode = GRAMMAR_SCAN (but write into transcript)
+NUMERIC_SCAN. token = blank . mode = GRAMMAR_SCAN
+
+LITERAL_SCAN. token = 0-9. mode = LITERAL_SCAN but update length
+LITERAL_SCAN. token = , } ] . mode = GRAMMAR_SCAN (but write into transcript)
+LITERAL_SCAN. token = blank . mode = GRAMMAR_SCAN
+
+
+
+
+| mode switch | action |
+| into keystart | 
+*/
+unconstrained fn get_transcript_depths<let NumTranscriptEntries: u32>(transcript: [Field; NumTranscriptEntries]) -> [Field; NumTranscriptEntries] {
+    let mut depths: [Field; NumTranscriptEntries] = [0; NumTranscriptEntries];
+
+    let mut object_count = 0;
+    // what todo with 0th entry? should be { or [ 
+    for i in 1..NumTranscriptEntries {
+        object_count += (transcript[i] == OBJECT_START) as Field;
+        object_count -= (transcript[i] == OBJECT_END) as Field;
+
+        depths[i] = object_count;
+    }
+    depths
+}
+unconstrained fn get_transcript_to_value_pointers<let NumTranscriptEntries: u32>(transcript: [Field; NumTranscriptEntries]) -> [Field; NumTranscriptEntries] {
+    let mut transcript_to_value_pointers: [Field; NumTranscriptEntries] = [0; NumTranscriptEntries];
+    let mut value_pointer = 0;
+    for i in 0..NumTranscriptEntries {
+        if (IS_KEY_OR_VALUE_CAPTURE[transcript[i]]) {
+            transcript_to_value_pointers[i] = value_pointer as Field;
+            value_pointer += 1;
+            println(f"value pointer = {value_pointer}");
+        } else {
+            transcript_to_value_pointers[i] = -1;
+        }
+    }
+    transcript_to_value_pointers
+}
+
+unconstrained fn get_value_to_transcript_pointers<let NumEntries: u32, let NumTranscriptEntries: u32>(transcript: [Field; NumTranscriptEntries]) -> [Field; NumEntries] {
+    let mut value_to_transcript_pointers: [Field; NumEntries] = [0; NumEntries];
+    let mut value_pointer = 0;
+    for i in 0..NumTranscriptEntries {
+        if (IS_KEY_OR_VALUE_CAPTURE[transcript[i]]) {
+            value_to_transcript_pointers[value_pointer] = i as Field;
+            value_pointer += 1;
+            println(f"value pointer = {value_pointer}");
+        }
+    }
+    value_to_transcript_pointers
+}
+
+global TestStructJsonPointers: [Field; 3] = get_value_to_transcript_pointers(TestStructJsonTranscript);
+
+unconstrained fn parse_key<let N: u32>(input: str<N>) -> Field {
+    let s = input.as_bytes();
+    let mut result: Field = 0;
+    for i in 0..N {
+        {
+            result *= 256;
+            result += s[i] as Field;
+        }
+    }
+    result
+}
+
+global SINGLE_CHARACTER_TOKEN: [bool; 10] = [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    false,
+    false,
+    false,
+    false
+];
+global CAPTURE_START_INCLUSIVE: [bool; 10] = [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true,
+    true
+];
+
+global IS_KEY_OR_VALUE_CAPTURE: [bool; 10] = [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true,
+    true,
+    true,
+    true
+];
+
+global IS_VALUE_CAPTURE: [bool; 10] = [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true,
+    true,
+    true
+];
+
+// global ESCAPE_CHARACTERS
+/*
+
+    when parsing JSON, we track "active character"
+    we stop constructing "active character" when we reach a transition boundary
+*/
+
+/*
+            valid_search_token,
+            valid_start_token,
+            valid_end_token,
+            valid_value_token,
+            valid_grammar_token
+*/
+
+struct JSON<let N: u32, let NumEntries: u32, let NumTranscriptEntries: u32> {
+    json: [u8; N],
+    transcript: [Field; NumTranscriptEntries],
+    value_indices: [Field; NumEntries],
+    value_lengths: [u32; NumEntries],
+}
+impl<let N: u32, let NumEntries: u32, let NumTranscriptEntries: u32> JSON<N, NumEntries, NumTranscriptEntries> {
+    fn new() -> Self {
+        Self {
+            json: [0; N],
+            transcript: [0; NumTranscriptEntries],
+            value_indices: [0; NumEntries],
+            value_lengths: [0; NumEntries]
+        }
+    }
+
+    fn parse(
+        json: [u8; N],
+        transcript: [Field; NumTranscriptEntries] // &mut self // json: [u8; N],
+        // transcript: [Field; TranscriptEntries]
+    ) -> Self {
+        let mut json: Self = JSON { json, transcript, value_indices: [0; NumEntries], value_lengths: [0; NumEntries] };
+        let mut transcript_ptr: Field = 0;
+        let mut capture_in_progress: bool = false;
+        let mut value_ptr = 0;
+
+        let mut capture_in_progress = false;
+        let mut search_in_progress = true;
+        let mut grammar_token_found = false;
+
+        let mut value_indices: [Field; NumEntries] = [0; NumEntries];
+        let mut value_lengths: [u32; NumEntries] = [0; NumEntries];
+        let mut ascii = json.json[0];
+
+        let mut entry_length = 0;
+        for i in 0..N {
+            let mut transcript_capture = json.transcript[transcript_ptr];
+
+            let mut new_ascii = 0;
+            if (i < N - 1) {
+                new_ascii = json.json[i + 1];
+            }
+
+            let flags_raw = JSON_BITFLAGS[transcript_capture][ascii];
+
+            let flags: [u1; 6] = flags_raw.to_be_bits(6).as_array();
+
+            let valid_search_token = flags[3] as bool;
+            let valid_start_token = flags[2] as bool;
+            let valid_end_token = flags[1] as bool;
+            let valid_value_token = flags[0] as bool;
+            /*
+        | search | capture | start_token | end_token | value_token | inclusive | singlechar | escape_flag_trigger | outcome |
+        | ---    | ---     | ---         | ---       | ---         | ---       | ---        | ---                 | ---     |
+        | 1      | 0       | 1           | -         | -           | 0         | 0          | -                   | search = 0, capture = 1, length = 0
+        | 1      | 0       | 1           | -         | -           | 0         | 1          | -                   | search = 1, capture = 0, advance token ptr
+        | 1      | 0       | 1           | -         | 0           | 1         | 0          | -                   | error (inclusive but no value token)
+        | 1      | 0       | 1           | -         | 1           | 1         | 0          | -                   | search = 0, capture = 1, length = 1
+        | 1      | 0       | 1           | -         | -           | 1         | 1          | -                   | search = 1, capture = 0, advance token ptr
+        | 0      | 1       | -           | 0         | 1           | 0         | -          | 0                   | search = 0, capture = 1, length += 1
+        | 0      | 1       | -           | 1         | 0           | 0         | -          | 0                   | write. search = 1, capture = 0, advance token ptr
+        | 0      | 1       | -           | 1         | 0           | 1         | -          | 0                   | write. search = 1, capture = 0, advance token ptr, scan next token
+        | 0      | 1       | -           | 0         | 1           | 0         | -          | 1                   | search = 0, capture = 1, length += 1
+        | 0      | 1       | -           | 1         | 0           | 0         | -          | 1                   | error (no value token, end token not valid due to escape flag)
+        | 0      | 1       | -           | 1         | 0           | 1         | -          | 1                   | error (no value token, end token not valid due to escape flag)
+        | 0      | 1       | -           | 1         | 1           | 0         | -          | 1                   | search = 0, capture = 1, length += 1
+        | 0      | 1       | -           | 1         | 1           | 1         | -          | 1                   | search = 0, capture = 1, length += 1
+
+        note: in a stringcapture, escape characters ignored i.e. \" not an end character
+        // (x - 86) * is_eq + (1 - is_eq) * ((x - 86) * I - 1) = 0 => 2 gates hmm
+        */
+            {
+                let searching_check = search_in_progress & (valid_search_token | valid_start_token);
+                let capture_check = capture_in_progress & (valid_value_token | valid_end_token);
+                assert(searching_check | capture_check, "invalid token");
+
+                if (search_in_progress & valid_start_token) {
+                    if (IS_VALUE_CAPTURE[transcript_capture] | (transcript_capture == KEY_CAPTURE)) {
+                        let inclusive = CAPTURE_START_INCLUSIVE[transcript_capture] as Field;
+                        value_indices[value_ptr] = i as Field + 1 - inclusive;
+                        value_ptr += 1;
+                        entry_length = inclusive;
+                    }
+                }
+
+                if (capture_in_progress & !valid_end_token) {
+                    entry_length += 1;
+                }
+                if (search_in_progress & valid_start_token) {
+                    if (SINGLE_CHARACTER_TOKEN[transcript_capture]) {
+                        transcript_ptr += 1;
+                    } else {
+                        search_in_progress = false;
+                        capture_in_progress = true;
+                    }
+                } else if (capture_in_progress & valid_end_token) {
+                    search_in_progress = true;
+                    capture_in_progress = false;
+                    grammar_token_found = false;
+                    // if this is a value
+
+                    // if (transcript_capture == KEY_CAPTURE) {
+                    //     let ff = json_keys[key_ptr];
+                    //     println(f"json key val = {ff}");
+                    //     println(f"key capture_field = {capture_field}");
+                    //     assert(
+                    //         capture_field == json_keys[key_ptr], "JSON key does not match expected transcript value!"
+                    //     );
+                    //     key_ptr += 1;
+                    // }
+                    transcript_ptr += 1;
+                    let inclusive = CAPTURE_START_INCLUSIVE[transcript_capture];
+                    value_lengths[value_ptr - 1] = entry_length as u32;
+                    if (inclusive) {
+                        let mut next_capture = json.transcript[transcript_ptr];
+                        let valid_start_token = START_CHARACTERS[next_capture][ascii as Field];
+                        if (valid_start_token) {
+                            transcript_ptr += 1;
+                        }
+                    }
+                }
+
+                ascii = new_ascii;
+            }
+        }
+        // }
+        json.value_indices = value_indices;
+        json.value_lengths = value_lengths;
+        json
+    }
+
+    unconstrained fn find_key_and_value_transcript_index_for_key<let KeyLen: u32>(self, key: str<KeyLen>) -> (Field, Field) {
+        let mut result_transcript_value_index: Field = -1;
+        let mut result_transcript_key_index: Field = -1;
+        assert(KeyLen > 0, "cannot have empty key");
+        let transcript_to_value_pointers: [Field; NumTranscriptEntries] = get_transcript_to_value_pointers(self.transcript);
+        // let value_to_transcript_pointers: [Field; NumEntries] = get_value_to_transcript_pointers(self.transcript);
+
+        let key_bytes = key.as_bytes();
+        for i in 0..NumTranscriptEntries {
+            if (self.transcript[i] == KEY_CAPTURE) {
+                let value_index = self.value_indices[transcript_to_value_pointers[i]];
+                let correct_length = self.value_lengths[transcript_to_value_pointers[i]] == KeyLen;
+                let mut found = false;
+                if (correct_length) {
+                    found = true;
+                    for j in 0..KeyLen {
+                        let ascii = self.json[value_index + j as Field];
+                        let key_byte = key_bytes[j];
+                        found = found & (ascii == key_byte);
+                    }
+                }
+                if (found) {
+                    let value_index_of_key = transcript_to_value_pointers[i];
+
+                    assert(self.transcript[i + 1] == COLON, "malformed transcript? missing COLON");
+                    let key_is_array = self.transcript[i + 2] == ARRAY_START;
+                    let key_is_object = self.transcript[i + 2] == OBJECT_START;
+                    let key_is_string = self.transcript[i + 2] == STRING_CAPTURE;
+                    let key_is_numeric = self.transcript[i + 2] == NUMERIC_CAPTURE;
+                    let key_is_bool = self.transcript[i + 2] == BOOL_CAPTURE;
+
+                    result_transcript_key_index = i as Field;
+                    result_transcript_value_index = i as Field + 2; // self.transcript[i + 2];
+                    // let transcript_index_of_next_value_entry = value_to_transcript_pointers[value_index_of_key + 1];
+                    // let value_index_of_next_value_entry = transcript_to_value_pointers[transcript_index_of_next_value_entry];
+                    // result_transcript_index = transcript_index_of_next_value_entry;
+                    // result_value_index = value_index_of_next_value_entry;
+                }
+            }
+        }
+
+        assert(result_transcript_value_index != -1, "cannot find key");
+        (result_transcript_key_index, result_transcript_value_index)
+    }
+
+    // TODO: missing constraints that validate key is correct
+    // fn get_string<let KeyLen: u32>(self, key: str<KeyLen>) -> str<5> {
+    //     "hello"
+    // }
+    fn get_string<let KeyLen: u32, let ValueLen: u32>(self, key: str<KeyLen>) -> [u8; ValueLen] {
+        let transcript_to_value_pointers: [Field; NumTranscriptEntries] = get_transcript_to_value_pointers(self.transcript);
+        let key_bytes = key.as_bytes();
+        let (key_transcript_index, value_transcript_index) = self.find_key_and_value_transcript_index_for_key(key);
+        assert(self.transcript[key_transcript_index] == KEY_CAPTURE, "error transcript?");
+        assert(self.transcript[key_transcript_index + 1] == COLON, "error colon?");
+        assert(self.transcript[key_transcript_index + 2] == STRING_CAPTURE, "entry is not a string");
+        let key_idx = self.value_indices[transcript_to_value_pointers[key_transcript_index]];
+        assert(
+            self.value_lengths[transcript_to_value_pointers[key_transcript_index]] == KeyLen, "key invalid length"
+        );
+        for i in 0..KeyLen {
+            assert(self.json[key_idx + i as Field] == key_bytes[i], "bad key");
+        }
+        let value_index = transcript_to_value_pointers[value_transcript_index];
+        let len = self.value_lengths[value_index];
+        let start_idx = self.value_indices[value_index];
+
+        self.parse_string_as_u8(value_index)
+    }
+
+    fn get_u64<let KeyLen: u32, let ValueLen: u32>(self, key: str<KeyLen>) -> u64 {
+        let transcript_to_value_pointers: [Field; NumTranscriptEntries] = get_transcript_to_value_pointers(self.transcript);
+        let key_bytes = key.as_bytes();
+        let (key_transcript_index, value_transcript_index) = self.find_key_and_value_transcript_index_for_key(key);
+        assert(self.transcript[key_transcript_index] == KEY_CAPTURE, "error transcript?");
+        assert(self.transcript[key_transcript_index + 1] == COLON, "error colon?");
+        assert(self.transcript[key_transcript_index + 2] == NUMERIC_CAPTURE, "entry is not a number");
+        let key_idx = self.value_indices[transcript_to_value_pointers[key_transcript_index]];
+        assert(
+            self.value_lengths[transcript_to_value_pointers[key_transcript_index]] == KeyLen, "key invalid length"
+        );
+        for i in 0..KeyLen {
+            assert(self.json[key_idx + i as Field] == key_bytes[i], "bad key");
+        }
+        let value_index = transcript_to_value_pointers[value_transcript_index];
+
+        self.parse_numeric(value_index)
+    }
+
+    fn get_literal<let KeyLen: u32, let ValueLen: u32>(self, key: str<KeyLen>) -> bool {
+        let transcript_to_value_pointers: [Field; NumTranscriptEntries] = get_transcript_to_value_pointers(self.transcript);
+        let key_bytes = key.as_bytes();
+        let (key_transcript_index, value_transcript_index) = self.find_key_and_value_transcript_index_for_key(key);
+        assert(self.transcript[key_transcript_index] == KEY_CAPTURE, "error transcript?");
+        assert(self.transcript[key_transcript_index + 1] == COLON, "error colon?");
+        assert(self.transcript[key_transcript_index + 2] == BOOL_CAPTURE, "entry is not a literal");
+        let key_idx = self.value_indices[transcript_to_value_pointers[key_transcript_index]];
+        assert(
+            self.value_lengths[transcript_to_value_pointers[key_transcript_index]] == KeyLen, "key invalid length"
+        );
+        for i in 0..KeyLen {
+            assert(self.json[key_idx + i as Field] == key_bytes[i], "bad key");
+        }
+        let value_index = transcript_to_value_pointers[value_transcript_index];
+
+        self.parse_literal(value_index)
+    }
+}
+
+impl<let N: u32, let NumEntries: u32, let NumTranscriptEntries: u32> JsonParserTrait for JSON<N, NumEntries, NumTranscriptEntries> {
+
+    fn parse_string_as_u8<let MaxArrLen: u32>(self, idx: Field) -> [u8; MaxArrLen] {
+        let mut result: [u8; MaxArrLen] = [0; MaxArrLen];
+        let start_idx = self.value_indices[idx];
+        let len = self.value_lengths[idx];
+        for i in 0..MaxArrLen {
+            let valid = i < len;
+            if valid {
+                result[i] = self.json[start_idx + i as Field];
+            }
+        }
+        result
+    }
+
+    fn parse_key<let KeyLen: u32>(self, key: str<KeyLen>, idx: Field) {
+        let mut json_field = 0;
+        let key_field = parse_key(key);
+        let start_idx = self.value_indices[idx];
+        let len = self.value_lengths[idx];
+        assert(len == KeyLen, "parse key incorrect length");
+        for i in 0..KeyLen {
+            let ascii = self.json[start_idx + i as Field];
+            json_field *= 256;
+            json_field += ascii as Field;
+        }
+        assert(json_field == key_field, "error, json key does not match expected");
+    }
+
+    // TODO: support scientific notation
+    fn parse_numeric(self, idx: Field) -> u64 {
+        let mut result: Field = 0;
+        let start_idx = self.value_indices[idx];
+        let len = self.value_lengths[idx];
+
+        for i in 0..8 {
+            let valid = i < len;
+
+            let ascii = self.json[start_idx + i as Field];
+            let num = ASCII_TO_NUMBER[ascii];
+
+            let multiplicand = valid as Field * 10 + (1 - valid as Field) * 1;
+            let addend = valid as Field * num as Field;
+
+            result *= multiplicand;
+            result += addend;
+        }
+
+        result as u64
+    }
+
+    fn parse_literal(self, idx: Field) -> bool {
+        // false = 66 61 6C 73 65
+        // true = 74 72 75 65
+        // null = 6E 75 6C 6C
+        let start_idx = self.value_indices[idx];
+        let len = self.value_lengths[idx];
+
+        let false_field = 0x66616c7365;
+        let true_field = 0x74727565;
+        let null_field = 0x6e756c6c;
+
+        let mut json_field = 0;
+        for i in 0..5 {
+            let valid = i < len;
+            let ascii = self.json[start_idx + i as Field];
+
+            json_field *= (256 * valid as Field + (1 - valid as Field));
+            json_field += (ascii as Field * valid as Field);
+        }
+
+        let is_false = json_field == false_field;
+        let is_null = json_field == null_field;
+        let is_true = json_field == true_field;
+
+        assert(is_false as Field + is_null as Field + is_true as Field != 0, "error parsing literal");
+
+        is_true
+    }
+}
+
+fn main(x: Field, y: pub Field) {
+    assert(x != y);
+}
+
+/*
+how to test for escape characters
+\n
+
+
+end of numeric, the next token can be part of the next grammar
+*/
+
+/*
+#[test]
+fn test_json() {
+    // compute_tables();
+    println("a");
+    //  "{ "fo\bo": 1234, "bar": { "foo": 9876, "bar": false }, "baz": "hello world" }"
+
+    let json = "{ \"fo\\bo\": 1234, \"bar\": { \"foo\": 9876, \"bar\": true }, \"baz\": \"hello\" }";
+    let mut parser: JSON<70, 9, 20> = JSON::parse(json.as_bytes(), TestStructJsonTranscript);
+    // let (result, result_lengths): ([Field; 9], [u32; 9]) = parse_JSON(json.as_bytes(), TestStructJsonTranscript);
+    // println(f"result lengths = {result_lengths}");
+
+    let baz_entry: [u8; 5] = parser.get_string("baz");
+    assert(baz_entry == "hello".as_bytes());
+    let mut test: TestStruct = TestStruct::construct_from_json(parser);
+
+    assert(test.foo == 1234);
+    assert(test.bar.foo == 9876);
+    assert(test.bar.bar == true);
+    assert(test.baz == "hello".as_bytes());
+    // println(f"res = {result}");
+    assert(parser.value_indices[0] == 3);
+    assert(parser.value_indices[1] == 11);
+    assert(parser.value_indices[2] == 18);
+    assert(parser.value_indices[3] == 27);
+    assert(parser.value_indices[4] == 33);
+    assert(parser.value_indices[5] == 40);
+    assert(parser.value_indices[6] == 46);
+    assert(parser.value_indices[7] == 55);
+    assert(parser.value_indices[8] == 62);
+    //main(1, 2);
+    // Uncomment to make test fail
+    // main(1, 1);
+}
+*/
+
+global NUMERIC_START_CHARACTERS: [bool; 128] = [
+        false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,
+        /*   */ false,
+        /*"!"*/ false,
+        /* " */ false,   // a string
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ false,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ true,   // numeric value
+        /*"1"*/ true,   // numeric value
+        /*"2"*/ true,   // numeric value
+        /*"3"*/ true,   // numeric value
+        /*"4"*/ true,   // numeric value
+        /*"5"*/ true,   // numeric value
+        /*"6"*/ true,   // numeric value
+        /*"7"*/ true,   // numeric value
+        /*"8"*/ true,   // numeric value
+        /*"9"*/ true,   // numeric value
+        /*":"*/ false,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,   // an array
+        /*"\"*/ false,
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ false,
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ false,   // "false"
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ false,
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ false,
+        /*"s"*/ false,
+        /*"t"*/ false,   // "true"
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ true,   // an object
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global NUMERIC_VALUE_CHARACTERS: [bool; 128] =  NUMERIC_START_CHARACTERS;
+global NUMERIC_END_CHARACTERS: [bool; 128] = [
+        true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,
+        /*   */ true,
+        /*"!"*/ true,
+        /* " */ false,   // a string
+        /*"#"*/ true,
+        /*"$"*/ true,
+        /*"%"*/ true,
+        /*"&"*/ true,
+        /*"'"*/ true,
+        /*"("*/ true,
+        /*")"*/ true,
+        /*"*"*/ true,
+        /*"+"*/ true,
+        /*","*/ true,
+        /*"-"*/ true,
+        /*"."*/ true,
+        /*"/"*/ true,
+        /*"0"*/ false,   // numeric value
+        /*"1"*/ false,   // numeric value
+        /*"2"*/ false,   // numeric value
+        /*"3"*/ false,   // numeric value
+        /*"4"*/ false,   // numeric value
+        /*"5"*/ false,   // numeric value
+        /*"6"*/ false,   // numeric value
+        /*"7"*/ false,   // numeric value
+        /*"8"*/ false,   // numeric value
+        /*"9"*/ false,   // numeric value
+        /*":"*/ true,
+        /*";"*/ true,
+        /*"<"*/ true,
+        /*"="*/ true,
+        /*">"*/ true,
+        /*"?"*/ true,
+        /*"@"*/ true,
+        /*"A"*/ true,
+        /*"B"*/ true,
+        /*"C"*/ true,
+        /*"D"*/ true,
+        /*"E"*/ true,
+        /*"F"*/ true,
+        /*"G"*/ true,
+        /*"H"*/ true,
+        /*"I"*/ true,
+        /*"J"*/ true,
+        /*"K"*/ true,
+        /*"L"*/ true,
+        /*"M"*/ true,
+        /*"N"*/ true,
+        /*"O"*/ true,
+        /*"P"*/ true,
+        /*"Q"*/ true,
+        /*"R"*/ true,
+        /*"S"*/ true,
+        /*"T"*/ true,
+        /*"U"*/ true,
+        /*"V"*/ true,
+        /*"W"*/ true,
+        /*"X"*/ true,
+        /*"Y"*/ true,
+        /*"Z"*/ true,
+        /*"["*/ true,   // an array
+        /*"\"*/ true,
+        /*"]"*/ true,
+        /*"^"*/ true,
+        /*"_"*/ true,
+        /*"`"*/ true,
+        /*"a"*/ true,
+        /*"b"*/ true,
+        /*"c"*/ true,
+        /*"d"*/ true,
+        /*"e"*/ true,
+        /*"f"*/ true,   // "true"
+        /*"g"*/ true,
+        /*"h"*/ true,
+        /*"i"*/ true,
+        /*"j"*/ true,
+        /*"k"*/ true,
+        /*"l"*/ true,
+        /*"m"*/ true,
+        /*"n"*/ true,
+        /*"o"*/ true,
+        /*"p"*/ true,
+        /*"q"*/ true,
+        /*"r"*/ true,
+        /*"s"*/ true,
+        /*"t"*/ true,   // "false"
+        /*"u"*/ true,
+        /*"v"*/ true,
+        /*"w"*/ true,
+        /*"x"*/ true,
+        /*"y"*/ true,
+        /*"z"*/ true,
+        /*"{"*/ false,   // an object
+        /*"|"*/ true,
+        /*"}"*/ true,
+        /*"~"*/ true,
+        /*DEL*/ true,
+    ];
+
+global SEARCH_CHARACTERS: [bool; 128] = [
+        /* NULL */ false,
+        /* SOH */ false,
+        /* TXT */ false,
+        /* ETX */ false,
+        /* EOT */ false,
+        /* ENQ */ false,
+        /* ACK */ false,
+        /* BEL */ false,
+        /* BS */ false,
+        /* TAB */ true,
+        /* NL */ true,
+        /* VT */ true,
+        /* FF */ true,
+        /* CR */ true,
+        /* SI */ false,
+        /* SO */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /* SPACE */ true,
+        /*"!"*/ false,
+        /* " */ false,   // a string
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ true, // TODO REMOVE AND REPLACE WITH COMMA SEARCH
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,   // numeric value
+        /*"1"*/ false,   // numeric value
+        /*"2"*/ false,   // numeric value
+        /*"3"*/ false,   // numeric value
+        /*"4"*/ false,   // numeric value
+        /*"5"*/ false,   // numeric value
+        /*"6"*/ false,   // numeric value
+        /*"7"*/ false,   // numeric value
+        /*"8"*/ false,   // numeric value
+        /*"9"*/ false,   // numeric value
+        /*":"*/ true, // TODO REMOVE AND REPLACE WITH SPECIAL COLON SEARCH
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,   // an array
+        /*"\"*/ false,
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ false,
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ false,   // "false"
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ false,
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ false,
+        /*"s"*/ false,
+        /*"t"*/ false,   // "true"
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ false,   // an object
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global ESCAPE_SEQUENCE_REPLACEMENT: [u8; 128] = [
+        /* NULL */ 0,
+        /* SOH */ 0,
+        /* TXT */ 0,
+        /* ETX */ 0,
+        /* EOT */ 0,
+        /* ENQ */ 0,
+        /* ACK */ 0,
+        /* BEL */ 0,
+        /* BS */ 0,
+        /* TAB */ 0,
+        /* NL */ 0,
+        /* VT */ 0,
+        /* FF */ 0,
+        /* CR */ 0,
+        /* SI */ 0,
+        /* SO */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /*  */ 0,
+        /* SPACE */ 0,
+        /*"!"*/ 0,
+        /* " */ 34,   // replace \" with double quote
+        /*"#"*/ 0,
+        /*"$"*/ 0,
+        /*"%"*/ 0,
+        /*"&"*/ 0,
+        /*"'"*/ 0,
+        /*"("*/ 0,
+        /*")"*/ 0,
+        /*"*"*/ 0,
+        /*"+"*/ 0,
+        /*","*/ 0,
+        /*"-"*/ 0,
+        /*"."*/ 0,
+        /*"/"*/ 0,
+        /*"0"*/ 0,
+        /*"1"*/ 0,
+        /*"2"*/ 0,
+        /*"3"*/ 0,
+        /*"4"*/ 0,
+        /*"5"*/ 0,
+        /*"6"*/ 0,
+        /*"7"*/ 0,
+        /*"8"*/ 0,
+        /*"9"*/ 0,
+        /*":"*/ 0,
+        /*";"*/ 0,
+        /*"<"*/ 0,
+        /*"="*/ 0,
+        /*">"*/ 0,
+        /*"?"*/ 0,
+        /*"@"*/ 0,
+        /*"A"*/ 0,
+        /*"B"*/ 0,
+        /*"C"*/ 0,
+        /*"D"*/ 0,
+        /*"E"*/ 0,
+        /*"F"*/ 0,
+        /*"G"*/ 0,
+        /*"H"*/ 0,
+        /*"I"*/ 0,
+        /*"J"*/ 0,
+        /*"K"*/ 0,
+        /*"L"*/ 0,
+        /*"M"*/ 0,
+        /*"N"*/ 0,
+        /*"O"*/ 0,
+        /*"P"*/ 0,
+        /*"Q"*/ 0,
+        /*"R"*/ 0,
+        /*"S"*/ 0,
+        /*"T"*/ 0,
+        /*"U"*/ 0,
+        /*"V"*/ 0,
+        /*"W"*/ 0,
+        /*"X"*/ 0,
+        /*"Y"*/ 0,
+        /*"Z"*/ 0,
+        /*"["*/ 0,
+        /*"\"*/ 92, // replace \\ with \
+        /*"]"*/ 0,
+        /*"^"*/ 0,
+        /*"_"*/ 0,
+        /*"`"*/ 0,
+        /*"a"*/ 0,
+        /*"b"*/ 8,  // replace \b with backspace
+        /*"c"*/ 0,
+        /*"d"*/ 0,
+        /*"e"*/ 0,
+        /*"f"*/ 12, // replace \f with form feed
+        /*"g"*/ 0,
+        /*"h"*/ 0,
+        /*"i"*/ 0,
+        /*"j"*/ 0,
+        /*"k"*/ 0,
+        /*"l"*/ 0,
+        /*"m"*/ 0,
+        /*"n"*/ 10, // replace \n with line feed
+        /*"o"*/ 0,
+        /*"p"*/ 0,
+        /*"q"*/ 0,
+        /*"r"*/ 13, // replace \r with carriage return
+        /*"s"*/ 0,
+        /*"t"*/ 9,  // replace \t with tab
+        /*"u"*/ 0,
+        /*"v"*/ 0,
+        /*"w"*/ 0,
+        /*"x"*/ 0,
+        /*"y"*/ 0,
+        /*"z"*/ 0,
+        /*"{"*/ 0,
+        /*"|"*/ 0,
+        /*"}"*/ 0,
+        /*"~"*/ 0,
+        /*DEL*/ 0,
+    ];
+
+global ESCAPE_SEQUENCE_END_CHARS: [bool; 128] = [
+        /* NULL */ false,
+        /* SOH */ false,
+        /* TXT */ false,
+        /* ETX */ false,
+        /* EOT */ false,
+        /* ENQ */ false,
+        /* ACK */ false,
+        /* BEL */ false,
+        /* BS */ false,
+        /* TAB */ false,
+        /* NL */ false,
+        /* VT */ false,
+        /* FF */ false,
+        /* CR */ false,
+        /* SI */ false,
+        /* SO */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /* SPACE */ false,
+        /*"!"*/ false,
+        /* " */ true,   // replace \" with double quote
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ false,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,
+        /*"1"*/ false,
+        /*"2"*/ false,
+        /*"3"*/ false,
+        /*"4"*/ false,
+        /*"5"*/ false,
+        /*"6"*/ false,
+        /*"7"*/ false,
+        /*"8"*/ false,
+        /*"9"*/ false,
+        /*":"*/ false,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,
+        /*"\"*/ true, // replace \\ with \
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ true,  // replace \b with backspace
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ true, // replace \f with form feed
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ true, // replace \n with line feed
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ true, // replace \r with carriage return
+        /*"s"*/ false,
+        /*"t"*/ true,  // replace \t with tab
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ false,
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global ESCAPE_SEQUENCE_START_CHARS: [bool; 128] = [
+        /* NULL */ false,
+        /* SOH */ false,
+        /* TXT */ false,
+        /* ETX */ false,
+        /* EOT */ false,
+        /* ENQ */ false,
+        /* ACK */ false,
+        /* BEL */ false,
+        /* BS */ false,
+        /* TAB */ false,
+        /* NL */ false,
+        /* VT */ false,
+        /* FF */ false,
+        /* CR */ false,
+        /* SI */ false,
+        /* SO */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /* SPACE */ false,
+        /*"!"*/ false,
+        /* " */ false,
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ false,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,
+        /*"1"*/ false,
+        /*"2"*/ false,
+        /*"3"*/ false,
+        /*"4"*/ false,
+        /*"5"*/ false,
+        /*"6"*/ false,
+        /*"7"*/ false,
+        /*"8"*/ false,
+        /*"9"*/ false,
+        /*":"*/ false,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,
+        /*"\"*/ true, // replace \\ with \
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ false, 
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ false,
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ false,
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ false,
+        /*"s"*/ false,
+        /*"t"*/ false,
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ false,
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global COMMA_START_CHARACTERS: [bool; 128] = [
+        /* NULL */ false,
+        /* SOH */ false,
+        /* TXT */ false,
+        /* ETX */ false,
+        /* EOT */ false,
+        /* ENQ */ false,
+        /* ACK */ false,
+        /* BEL */ false,
+        /* BS */ false,
+        /* TAB */ false,
+        /* NL */ false,
+        /* VT */ false,
+        /* FF */ false,
+        /* CR */ false,
+        /* SI */ false,
+        /* SO */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /* SPACE */ false,
+        /*"!"*/ false,
+        /* " */ false,   // replace \" with double quote
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ true,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,
+        /*"1"*/ false,
+        /*"2"*/ false,
+        /*"3"*/ false,
+        /*"4"*/ false,
+        /*"5"*/ false,
+        /*"6"*/ false,
+        /*"7"*/ false,
+        /*"8"*/ false,
+        /*"9"*/ false,
+        /*":"*/ false,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,
+        /*"\"*/ false, // replace \\ with \
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ false,  // replace \b with backspace
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ false, // replace \f with form feed
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ false, // replace \n with line feed
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ false, // replace \r with carriage return
+        /*"s"*/ false,
+        /*"t"*/ false,  // replace \t with tab
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ false,
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global COMMA_END_CHARACTERS: [bool; 128]  = COMMA_START_CHARACTERS;
+global COMMA_VALUE_CHARACTERS: [bool; 128]  = COMMA_START_CHARACTERS;
+
+global COLON_START_CHARACTERS: [bool; 128] = [
+        /* NULL */ false,
+        /* SOH */ false,
+        /* TXT */ false,
+        /* ETX */ false,
+        /* EOT */ false,
+        /* ENQ */ false,
+        /* ACK */ false,
+        /* BEL */ false,
+        /* BS */ false,
+        /* TAB */ false,
+        /* NL */ false,
+        /* VT */ false,
+        /* FF */ false,
+        /* CR */ false,
+        /* SI */ false,
+        /* SO */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /*  */ false,
+        /* SPACE */ false,
+        /*"!"*/ false,
+        /* " */ false,   // replace \" with double quote
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ false,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,
+        /*"1"*/ false,
+        /*"2"*/ false,
+        /*"3"*/ false,
+        /*"4"*/ false,
+        /*"5"*/ false,
+        /*"6"*/ false,
+        /*"7"*/ false,
+        /*"8"*/ false,
+        /*"9"*/ false,
+        /*":"*/ true,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,
+        /*"\"*/ false, // replace \\ with \
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ false,  // replace \b with backspace
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ false, // replace \f with form feed
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ false, // replace \n with line feed
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ false, // replace \r with carriage return
+        /*"s"*/ false,
+        /*"t"*/ false,  // replace \t with tab
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ false,
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global COLON_END_CHARACTERS: [bool; 128]  = COLON_START_CHARACTERS;
+global COLON_VALUE_CHARACTERS: [bool; 128]  = COLON_START_CHARACTERS;
+
+global STRING_START_CHARACTERS: [bool; 128] = [
+        false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,
+        /*   */ false,
+        /*"!"*/ false,
+        /* " */ true,   // a string
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ false,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,   // numeric value
+        /*"1"*/ false,   // numeric value
+        /*"2"*/ false,   // numeric value
+        /*"3"*/ false,   // numeric value
+        /*"4"*/ false,   // numeric value
+        /*"5"*/ false,   // numeric value
+        /*"6"*/ false,   // numeric value
+        /*"7"*/ false,   // numeric value
+        /*"8"*/ false,   // numeric value
+        /*"9"*/ false,   // numeric value
+        /*":"*/ false,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,   // an array
+        /*"\"*/ false,
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ false,
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ false,   // "false"
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ false,
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ false,
+        /*"s"*/ false,
+        /*"t"*/ false,   // "false"
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ false,   // an object
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global ASCII_TO_NUMBER: [u8; 128] = [
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        /*   */ 0,
+        /*"!"*/ 0,
+        /* " */ 0,
+        /*"#"*/ 0,
+        /*"$"*/ 0,
+        /*"%"*/ 0,
+        /*"&"*/ 0,
+        /*"'"*/ 0,
+        /*"("*/ 0,
+        /*")"*/ 0,
+        /*"*"*/ 0,
+        /*"+"*/ 0,
+        /*","*/ 0,
+        /*"-"*/ 0,
+        /*"."*/ 0,
+        /*"/"*/ 0,
+        /*"0"*/ 0,   // numeric value
+        /*"1"*/ 1,   // numeric value
+        /*"2"*/ 2,   // numeric value
+        /*"3"*/ 3,   // numeric value
+        /*"4"*/ 4,   // numeric value
+        /*"5"*/ 5,   // numeric value
+        /*"6"*/ 6,   // numeric value
+        /*"7"*/ 7,   // numeric value
+        /*"8"*/ 8,   // numeric value
+        /*"9"*/ 9,   // numeric value
+        /*":"*/ 0,
+        /*";"*/ 0,
+        /*"<"*/ 0,
+        /*"="*/ 0,
+        /*">"*/ 0,
+        /*"?"*/ 0,
+        /*"@"*/ 0,
+        /*"A"*/ 0,
+        /*"B"*/ 0,
+        /*"C"*/ 0,
+        /*"D"*/ 0,
+        /*"E"*/ 0,
+        /*"F"*/ 0,
+        /*"G"*/ 0,
+        /*"H"*/ 0,
+        /*"I"*/ 0,
+        /*"J"*/ 0,
+        /*"K"*/ 0,
+        /*"L"*/ 0,
+        /*"M"*/ 0,
+        /*"N"*/ 0,
+        /*"O"*/ 0,
+        /*"P"*/ 0,
+        /*"Q"*/ 0,
+        /*"R"*/ 0,
+        /*"S"*/ 0,
+        /*"T"*/ 0,
+        /*"U"*/ 0,
+        /*"V"*/ 0,
+        /*"W"*/ 0,
+        /*"X"*/ 0,
+        /*"Y"*/ 0,
+        /*"Z"*/ 0,
+        /*"["*/ 0,   // an array
+        /*"\"*/ 0,
+        /*"]"*/ 0,
+        /*"^"*/ 0,
+        /*"_"*/ 0,
+        /*"`"*/ 0,
+        /*"a"*/ 0,
+        /*"b"*/ 0,
+        /*"c"*/ 0,
+        /*"d"*/ 0,
+        /*"e"*/ 0,
+        /*"f"*/ 0,   // "0"
+        /*"g"*/ 0,
+        /*"h"*/ 0,
+        /*"i"*/ 0,
+        /*"j"*/ 0,
+        /*"k"*/ 0,
+        /*"l"*/ 0,
+        /*"m"*/ 0,
+        /*"n"*/ 0,
+        /*"o"*/ 0,
+        /*"p"*/ 0,
+        /*"q"*/ 0,
+        /*"r"*/ 0,
+        /*"s"*/ 0,
+        /*"t"*/ 0,   // "0"
+        /*"u"*/ 0,
+        /*"v"*/ 0,
+        /*"w"*/ 0,
+        /*"x"*/ 0,
+        /*"y"*/ 0,
+        /*"z"*/ 0,
+        /*"{"*/ 0,   // an object
+        /*"|"*/ 0,
+        /*"}"*/ 0,
+        /*"~"*/ 0,
+        /*DEL*/ 0,
+    ];
+
+global STRING_END_CHARACTERS: [bool; 128] =  STRING_START_CHARACTERS;
+
+global STRING_VALUE_CHARACTERS: [bool; 128] = [
+        /* NULL */ false,
+        /* SOH */ false,
+        /* TXT */ false,
+        /* ETX */ false,
+        /* EOT */ false,
+        /* ENQ */ false,
+        /* ACK */ false,
+        /* BEL */ false,
+        /* BS */  true,
+        /* TAB */ true,
+        /* NL */  true,
+        /* VT */  true,
+        /* FF */  true,
+        /* CR */  true,
+        /* SI */  false,
+        /* SO */  false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        /*   */ true,
+        /*"!"*/ true,
+        /* " */ false,   // a string
+        /*"#"*/ true,
+        /*"$"*/ true,
+        /*"%"*/ true,
+        /*"&"*/ true,
+        /*"'"*/ true,
+        /*"("*/ true,
+        /*")"*/ true,
+        /*"*"*/ true,
+        /*"+"*/ true,
+        /*","*/ true,
+        /*"-"*/ true,
+        /*"."*/ true,
+        /*"/"*/ true,
+        /*"0"*/ true,   // numeric value
+        /*"1"*/ true,   // numeric value
+        /*"2"*/ true,   // numeric value
+        /*"3"*/ true,   // numeric value
+        /*"4"*/ true,   // numeric value
+        /*"5"*/ true,   // numeric value
+        /*"6"*/ true,   // numeric value
+        /*"7"*/ true,   // numeric value
+        /*"8"*/ true,   // numeric value
+        /*"9"*/ true,   // numeric value
+        /*":"*/ true,
+        /*";"*/ true,
+        /*"<"*/ true,
+        /*"="*/ true,
+        /*">"*/ true,
+        /*"?"*/ true,
+        /*"@"*/ true,
+        /*"A"*/ true,
+        /*"B"*/ true,
+        /*"C"*/ true,
+        /*"D"*/ true,
+        /*"E"*/ true,
+        /*"F"*/ true,
+        /*"G"*/ true,
+        /*"H"*/ true,
+        /*"I"*/ true,
+        /*"J"*/ true,
+        /*"K"*/ true,
+        /*"L"*/ true,
+        /*"M"*/ true,
+        /*"N"*/ true,
+        /*"O"*/ true,
+        /*"P"*/ true,
+        /*"Q"*/ true,
+        /*"R"*/ true,
+        /*"S"*/ true,
+        /*"T"*/ true,
+        /*"U"*/ true,
+        /*"V"*/ true,
+        /*"W"*/ true,
+        /*"X"*/ true,
+        /*"Y"*/ true,
+        /*"Z"*/ true,
+        /*"["*/ true,   // an array
+        /*"\"*/ true,
+        /*"]"*/ true,
+        /*"^"*/ true,
+        /*"_"*/ true,
+        /*"`"*/ true,
+        /*"a"*/ true,
+        /*"b"*/ true,
+        /*"c"*/ true,
+        /*"d"*/ true,
+        /*"e"*/ true,
+        /*"f"*/ true,   // "true"
+        /*"g"*/ true,
+        /*"h"*/ true,
+        /*"i"*/ true,
+        /*"j"*/ true,
+        /*"k"*/ true,
+        /*"l"*/ true,
+        /*"m"*/ true,
+        /*"n"*/ true,
+        /*"o"*/ true,
+        /*"p"*/ true,
+        /*"q"*/ true,
+        /*"r"*/ true,
+        /*"s"*/ true,
+        /*"t"*/ true,   // "true"
+        /*"u"*/ true,
+        /*"v"*/ true,
+        /*"w"*/ true,
+        /*"x"*/ true,
+        /*"y"*/ true,
+        /*"z"*/ true,
+        /*"{"*/ true,   // an object
+        /*"|"*/ true,
+        /*"}"*/ true,
+        /*"~"*/ true,
+        /*DEL*/ false,
+    ];
+
+global BOOL_START_CHARACTERS: [bool; 128] = [
+        false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,
+        /*   */ false,
+        /*"!"*/ false,
+        /* " */ false,   // a string
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ false,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,   // numeric value
+        /*"1"*/ false,   // numeric value
+        /*"2"*/ false,   // numeric value
+        /*"3"*/ false,   // numeric value
+        /*"4"*/ false,   // numeric value
+        /*"5"*/ false,   // numeric value
+        /*"6"*/ false,   // numeric value
+        /*"7"*/ false,   // numeric value
+        /*"8"*/ false,   // numeric value
+        /*"9"*/ false,   // numeric value
+        /*":"*/ false,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ true,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ true,
+        /*"F"*/ true,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ true,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ true,
+        /*"S"*/ true,
+        /*"T"*/ true,
+        /*"U"*/ true,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,   // an array
+        /*"\"*/ false,
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ true,
+        /*"b"*/ false,
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ true,
+        /*"f"*/ true,   // "false"
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ true,   // "null", "false"
+        /*"m"*/ false,
+        /*"n"*/ true,   // "null"
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ true,
+        /*"s"*/ true,
+        /*"t"*/ true,   // "false"
+        /*"u"*/ true,   // "null", "true"
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ false,
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global BOOL_VALUE_CHARACTERS: [bool; 128] = BOOL_START_CHARACTERS;
+
+global BOOL_END_CHARACTERS: [bool; 128] = [
+        true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,
+        /*   */ true,
+        /*"!"*/ true,
+        /* " */ true,   // a string
+        /*"#"*/ true,
+        /*"$"*/ true,
+        /*"%"*/ true,
+        /*"&"*/ true,
+        /*"'"*/ true,
+        /*"("*/ true,
+        /*")"*/ true,
+        /*"*"*/ true,
+        /*"+"*/ true,
+        /*","*/ true,
+        /*"-"*/ true,
+        /*"."*/ true,
+        /*"/"*/ true,
+        /*"0"*/ true,   // numeric value
+        /*"1"*/ true,   // numeric value
+        /*"2"*/ true,   // numeric value
+        /*"3"*/ true,   // numeric value
+        /*"4"*/ true,   // numeric value
+        /*"5"*/ true,   // numeric value
+        /*"6"*/ true,   // numeric value
+        /*"7"*/ true,   // numeric value
+        /*"8"*/ true,   // numeric value
+        /*"9"*/ true,   // numeric value
+        /*":"*/ true,
+        /*";"*/ true,
+        /*"<"*/ true,
+        /*"="*/ true,
+        /*">"*/ true,
+        /*"?"*/ true,
+        /*"@"*/ true,
+        /*"A"*/ false,
+        /*"B"*/ true,
+        /*"C"*/ true,
+        /*"D"*/ true,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ true,
+        /*"H"*/ true,
+        /*"I"*/ true,
+        /*"J"*/ true,
+        /*"K"*/ true,
+        /*"L"*/ false,
+        /*"M"*/ true,
+        /*"N"*/ true,
+        /*"O"*/ true,
+        /*"P"*/ true,
+        /*"Q"*/ true,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ true,
+        /*"W"*/ true,
+        /*"X"*/ true,
+        /*"Y"*/ true,
+        /*"Z"*/ true,
+        /*"["*/ true,   // an array
+        /*"\"*/ true,
+        /*"]"*/ true,
+        /*"^"*/ true,
+        /*"_"*/ true,
+        /*"`"*/ true,
+        /*"a"*/ false,
+        /*"b"*/ true,
+        /*"c"*/ true,
+        /*"d"*/ true,
+        /*"e"*/ false,
+        /*"f"*/ false,   // "true"
+        /*"g"*/ true,
+        /*"h"*/ true,
+        /*"i"*/ true,
+        /*"j"*/ true,
+        /*"k"*/ true,
+        /*"l"*/ false,
+        /*"m"*/ true,
+        /*"n"*/ true,
+        /*"o"*/ true,
+        /*"p"*/ true,
+        /*"q"*/ true,
+        /*"r"*/ false,
+        /*"s"*/ false,
+        /*"t"*/ false,   // "true"
+        /*"u"*/ false,
+        /*"v"*/ true,
+        /*"w"*/ true,
+        /*"x"*/ true,
+        /*"y"*/ true,
+        /*"z"*/ true,
+        /*"{"*/ true,   // an object
+        /*"|"*/ true,
+        /*"}"*/ true,
+        /*"~"*/ true,
+        /*DEL*/ true,
+    ];
+
+global KEY_START_CHARACTERS = STRING_START_CHARACTERS;
+global KEY_END_CHARACTERS   = STRING_END_CHARACTERS;
+global KEY_VALUE_CHARACTERS = STRING_VALUE_CHARACTERS;
+
+global OBJECT_OPEN_START_CHARACTERS: [bool; 128] = [
+        false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,
+        /*   */ false,
+        /*"!"*/ false,
+        /* " */ false,   // a string
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ false,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,   // numeric value
+        /*"1"*/ false,   // numeric value
+        /*"2"*/ false,   // numeric value
+        /*"3"*/ false,   // numeric value
+        /*"4"*/ false,   // numeric value
+        /*"5"*/ false,   // numeric value
+        /*"6"*/ false,   // numeric value
+        /*"7"*/ false,   // numeric value
+        /*"8"*/ false,   // numeric value
+        /*"9"*/ false,   // numeric value
+        /*":"*/ false,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,   // an array
+        /*"\"*/ false,
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ false,
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ false,   // "false"
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ false,
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ false,
+        /*"s"*/ false,
+        /*"t"*/ false,   // "false"
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ true,   // an object
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global OBJECT_OPEN_END_CHARACTERS: [bool; 128]   = OBJECT_OPEN_START_CHARACTERS;
+global OBJECT_OPEN_VALUE_CHARACTERS: [bool; 128] = OBJECT_OPEN_START_CHARACTERS;
+global OBJECT_CLOSE_START_CHARACTERS: [bool; 128] = [
+        false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,
+        /*   */ false,
+        /*"!"*/ false,
+        /* " */ false,   // a string
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ false,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,   // numeric value
+        /*"1"*/ false,   // numeric value
+        /*"2"*/ false,   // numeric value
+        /*"3"*/ false,   // numeric value
+        /*"4"*/ false,   // numeric value
+        /*"5"*/ false,   // numeric value
+        /*"6"*/ false,   // numeric value
+        /*"7"*/ false,   // numeric value
+        /*"8"*/ false,   // numeric value
+        /*"9"*/ false,   // numeric value
+        /*":"*/ false,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,   // an array
+        /*"\"*/ false,
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ false,
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ false,   // "false"
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ false,
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ false,
+        /*"s"*/ false,
+        /*"t"*/ false,   // "false"
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ false,   // an object
+        /*"|"*/ false,
+        /*"}"*/ true,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+global OBJECT_CLOSE_END_CHARACTERS:   [bool; 128] = OBJECT_CLOSE_START_CHARACTERS;
+global OBJECT_CLOSE_VALUE_CHARACTERS: [bool; 128] = OBJECT_CLOSE_START_CHARACTERS;
+
+global ARRAY_OPEN_START_CHARACTERS: [bool; 128] = [
+        false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,
+        /*   */ false,
+        /*"!"*/ false,
+        /* " */ false,   // a string
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ false,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,   // numeric value
+        /*"1"*/ false,   // numeric value
+        /*"2"*/ false,   // numeric value
+        /*"3"*/ false,   // numeric value
+        /*"4"*/ false,   // numeric value
+        /*"5"*/ false,   // numeric value
+        /*"6"*/ false,   // numeric value
+        /*"7"*/ false,   // numeric value
+        /*"8"*/ false,   // numeric value
+        /*"9"*/ false,   // numeric value
+        /*":"*/ false,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ true,   // an array
+        /*"\"*/ false,
+        /*"]"*/ false,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ false,
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ false,   // "false"
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ false,
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ false,
+        /*"s"*/ false,
+        /*"t"*/ false,   // "false"
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ false,   // an object
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global ARRAY_OPEN_END_CHARACTERS: [bool; 128]   = ARRAY_OPEN_START_CHARACTERS;
+global ARRAY_OPEN_VALUE_CHARACTERS: [bool; 128] = ARRAY_OPEN_START_CHARACTERS;
+
+global ARRAY_CLOSE_START_CHARACTERS: [bool; 128] = [
+        false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,
+        /*   */ false,
+        /*"!"*/ false,
+        /* " */ false,   // a string
+        /*"#"*/ false,
+        /*"$"*/ false,
+        /*"%"*/ false,
+        /*"&"*/ false,
+        /*"'"*/ false,
+        /*"("*/ false,
+        /*")"*/ false,
+        /*"*"*/ false,
+        /*"+"*/ false,
+        /*","*/ false,
+        /*"-"*/ false,
+        /*"."*/ false,
+        /*"/"*/ false,
+        /*"0"*/ false,   // numeric value
+        /*"1"*/ false,   // numeric value
+        /*"2"*/ false,   // numeric value
+        /*"3"*/ false,   // numeric value
+        /*"4"*/ false,   // numeric value
+        /*"5"*/ false,   // numeric value
+        /*"6"*/ false,   // numeric value
+        /*"7"*/ false,   // numeric value
+        /*"8"*/ false,   // numeric value
+        /*"9"*/ false,   // numeric value
+        /*":"*/ false,
+        /*";"*/ false,
+        /*"<"*/ false,
+        /*"="*/ false,
+        /*">"*/ false,
+        /*"?"*/ false,
+        /*"@"*/ false,
+        /*"A"*/ false,
+        /*"B"*/ false,
+        /*"C"*/ false,
+        /*"D"*/ false,
+        /*"E"*/ false,
+        /*"F"*/ false,
+        /*"G"*/ false,
+        /*"H"*/ false,
+        /*"I"*/ false,
+        /*"J"*/ false,
+        /*"K"*/ false,
+        /*"L"*/ false,
+        /*"M"*/ false,
+        /*"N"*/ false,
+        /*"O"*/ false,
+        /*"P"*/ false,
+        /*"Q"*/ false,
+        /*"R"*/ false,
+        /*"S"*/ false,
+        /*"T"*/ false,
+        /*"U"*/ false,
+        /*"V"*/ false,
+        /*"W"*/ false,
+        /*"X"*/ false,
+        /*"Y"*/ false,
+        /*"Z"*/ false,
+        /*"["*/ false,   // an array
+        /*"\"*/ false,
+        /*"]"*/ true,
+        /*"^"*/ false,
+        /*"_"*/ false,
+        /*"`"*/ false,
+        /*"a"*/ false,
+        /*"b"*/ false,
+        /*"c"*/ false,
+        /*"d"*/ false,
+        /*"e"*/ false,
+        /*"f"*/ false,   // "false"
+        /*"g"*/ false,
+        /*"h"*/ false,
+        /*"i"*/ false,
+        /*"j"*/ false,
+        /*"k"*/ false,
+        /*"l"*/ false,
+        /*"m"*/ false,
+        /*"n"*/ false,
+        /*"o"*/ false,
+        /*"p"*/ false,
+        /*"q"*/ false,
+        /*"r"*/ false,
+        /*"s"*/ false,
+        /*"t"*/ false,   // "false"
+        /*"u"*/ false,
+        /*"v"*/ false,
+        /*"w"*/ false,
+        /*"x"*/ false,
+        /*"y"*/ false,
+        /*"z"*/ false,
+        /*"{"*/ false,   // an object
+        /*"|"*/ false,
+        /*"}"*/ false,
+        /*"~"*/ false,
+        /*DEL*/ false,
+    ];
+
+global ARRAY_CLOSE_END_CHARACTERS: [bool; 128]   = ARRAY_CLOSE_START_CHARACTERS;
+global ARRAY_CLOSE_VALUE_CHARACTERS: [bool; 128] = ARRAY_CLOSE_START_CHARACTERS;
+
+global START_CHARACTERS: [[bool; 128]; 10] = [
+    OBJECT_OPEN_START_CHARACTERS,
+    OBJECT_CLOSE_START_CHARACTERS,
+    ARRAY_OPEN_START_CHARACTERS,
+    ARRAY_CLOSE_START_CHARACTERS,
+    COMMA_START_CHARACTERS,
+    COLON_START_CHARACTERS,
+    KEY_START_CHARACTERS,
+    STRING_START_CHARACTERS,
+    NUMERIC_START_CHARACTERS,
+    BOOL_START_CHARACTERS,
+];
+
+global VALUE_CHARACTERS: [[bool; 128]; 10] = [
+    OBJECT_OPEN_VALUE_CHARACTERS,
+    OBJECT_CLOSE_VALUE_CHARACTERS,
+    ARRAY_OPEN_VALUE_CHARACTERS,
+    ARRAY_CLOSE_VALUE_CHARACTERS,
+    COMMA_VALUE_CHARACTERS,
+    COLON_VALUE_CHARACTERS,
+    KEY_VALUE_CHARACTERS,
+    STRING_VALUE_CHARACTERS,
+    NUMERIC_VALUE_CHARACTERS,
+    BOOL_VALUE_CHARACTERS,
+];
+
+global END_CHARACTERS: [[bool; 128]; 10] = [
+    OBJECT_OPEN_END_CHARACTERS,
+    OBJECT_CLOSE_END_CHARACTERS,
+    ARRAY_OPEN_END_CHARACTERS,
+    ARRAY_CLOSE_END_CHARACTERS,
+    COMMA_END_CHARACTERS,
+    COLON_END_CHARACTERS,
+    KEY_END_CHARACTERS,
+    STRING_END_CHARACTERS,
+    NUMERIC_END_CHARACTERS,
+    BOOL_END_CHARACTERS,
+];
+
+global OBJECT_OPEN_BITFLAGS: [Field; 128] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x00];
+global OBJECT_CLOSE_BITFLAGS: [Field; 128] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x38, 0x00, 0x00];
+global ARRAY_OPEN_BITFLAGS: [Field; 128] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x38, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+global ARRAY_CLOSE_BITFLAGS: [Field; 128] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x38, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+global COMMA_BITFLAGS: [Field; 128] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+global COLON_BITFLAGS: [Field; 128] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+global KEY_BITFLAGS: [Field; 128] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x24, 0x24, 0x24, 0x24, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x24, 0x20, 0x1a, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x24, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x24, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x23, 0x20, 0x20, 0x20, 0x20, 0x20, 0x22, 0x20, 0x20, 0x20, 0x22, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x22, 0x20, 0x20, 0x20, 0x22, 0x20, 0x22, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00];
+global STRING_BITFLAGS: [Field; 128] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x24, 0x24, 0x24, 0x24, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x24, 0x20, 0x1a, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x24, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x24, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x23, 0x20, 0x20, 0x20, 0x20, 0x20, 0x22, 0x20, 0x20, 0x20, 0x22, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x22, 0x20, 0x20, 0x20, 0x22, 0x20, 0x22, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00];
+global NUMERIC_BITFLAGS: [Field; 128] = [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x14, 0x14, 0x14, 0x14, 0x14, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x14, 0x10, 0x02, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x14, 0x10, 0x10, 0x10, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x14, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x13, 0x10, 0x10, 0x10, 0x10, 0x10, 0x12, 0x10, 0x10, 0x10, 0x12, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x12, 0x10, 0x10, 0x10, 0x12, 0x10, 0x12, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x28, 0x10, 0x10, 0x10, 0x10];
+global BOOL_BITFLAGS: [Field; 128] = [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x14, 0x14, 0x14, 0x14, 0x14, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x14, 0x10, 0x12, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x14, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x14, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x28, 0x10, 0x10, 0x10, 0x28, 0x28, 0x10, 0x10, 0x10, 0x10, 0x10, 0x28, 0x10, 0x10, 0x10, 0x10, 0x10, 0x28, 0x28, 0x28, 0x28, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x13, 0x10, 0x10, 0x10, 0x10, 0x28, 0x12, 0x10, 0x10, 0x28, 0x2a, 0x10, 0x10, 0x10, 0x10, 0x10, 0x28, 0x10, 0x12, 0x10, 0x10, 0x10, 0x2a, 0x28, 0x2a, 0x28, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10];
+
+global JSON_BITFLAGS: [[Field; 128]; 10] = [
+OBJECT_OPEN_BITFLAGS,
+OBJECT_CLOSE_BITFLAGS,
+ARRAY_OPEN_BITFLAGS,
+ARRAY_CLOSE_BITFLAGS,
+COMMA_BITFLAGS,
+COLON_BITFLAGS,
+KEY_BITFLAGS,
+STRING_BITFLAGS,
+NUMERIC_BITFLAGS,
+BOOL_BITFLAGS,
+];
