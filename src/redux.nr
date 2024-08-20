@@ -29,8 +29,8 @@ use crate::json_entry::JSONEntry;
 use crate::keymap;
 use crate::lt::{lt_field_8_bit, lt_field_16_bit};
 use crate::redux_tables::{
-    TOKEN_IS_ARRAY_OBJECT_OR_VALUE, TOKEN_IS_NUMERIC_OR_LITERAL, OBJECT_LAYER, ARRAY_LAYER,
-    SINGLE_VALUE_LAYER, CAPTURE_TABLE_ENCODED, GRAMMAR_CAPTURE_INCREASE_LENGTH,
+    NUM_TOKENS, NO_TOKEN, TOKEN_IS_ARRAY_OBJECT_OR_VALUE, TOKEN_IS_NUMERIC_OR_LITERAL, OBJECT_LAYER,
+    ARRAY_LAYER, SINGLE_VALUE_LAYER, CAPTURE_TABLE_ENCODED, GRAMMAR_CAPTURE_INCREASE_LENGTH,
     STRING_CAPTURE_INCREASE_LENGTH, NUMERIC_CAPTURE_INCREASE_LENGTH, LITERAL_CAPTURE_INCREASE_LENGTH,
     GRAMMAR_CAPTURE_ERROR_FLAG, STRING_CAPTURE_ERROR_FLAG, NUMERIC_CAPTURE_ERROR_FLAG,
     LITERAL_CAPTURE_ERROR_FLAG, LITERAL_CAPTURE_PUSH_TRANSCRIPT, LITERAL_CAPTURE_TOKEN,
@@ -74,6 +74,217 @@ unconstrained fn make_capture_table_full() -> [[Field; 128]; 4] {
     result
 }
 
+/*
+                parent_num_entries_stack[depth] = num_entries_at_current_depth; // add one because we include the array/object
+                parent_context[depth] = context;
+                parent_key_length[depth] = current_key_length;
+                parent_key_index[depth] = current_key_index;
+                parent_json_index[depth] = index;
+                entry_ptr_stack[depth] = entry_ptr;
+                parent_identity_stack[depth] = current_identity_value;
+
+*/
+struct JSONContextStackEntry {
+    num_entries: Field,
+    context: Field,
+    current_key_length: Field,
+    current_key_index: Field,
+    json_index: Field,
+    entry_pointer: Field,
+    current_identity: Field
+}
+impl JSONContextStackEntry {
+    fn from_field(f: Field) -> Self {
+        let bytes = f.to_be_bytes(13);
+        let context = bytes[0] as Field;
+        let num_entries = bytes[1] as Field * 0x100 + bytes[2] as Field;
+        let current_key_length = bytes[3] as Field * 0x100 + bytes[4] as Field;
+        let current_key_index = bytes[5] as Field * 0x100 + bytes[6] as Field;
+        let json_index = bytes[7] as Field * 0x100 + bytes[8] as Field;
+        let entry_pointer = bytes[9] as Field * 0x100 + bytes[10] as Field;
+        let current_identity = bytes[11] as Field * 0x100 + bytes[12] as Field;
+        JSONContextStackEntry { num_entries, context, current_key_length, current_key_index, json_index, entry_pointer, current_identity }
+    }
+
+    fn to_field(self) -> Field {
+        self.current_identity
+            + self.entry_pointer * 0x10000
+            + self.json_index * 0x100000000
+            + self.current_key_index * 0x1000000000000
+            + self.current_key_length * 0x10000000000000000
+            + self.num_entries * 0x100000000000000000000
+            + self.context * 0x1000000000000000000000000
+    }
+}
+
+struct TokenFlags {
+    create_json_entry: Field,
+    json_entry_type: Field,
+    is_end_of_object_or_array: Field,
+    is_start_of_object_or_array: Field,
+    new_context: Field,
+    is_key_token: Field,
+}
+
+impl TokenFlags {
+
+    fn from_field(f: Field) -> Self {
+        let bytes = f.to_be_bytes(6);
+        let create_json_entry = bytes[0] as Field;
+        let json_entry_type = bytes[1] as Field;
+        let is_end_of_object_or_array = bytes[2] as Field;
+        let is_start_of_object_or_array = bytes[3] as Field;
+        let new_context = bytes[4] as Field;
+        let is_key_token = bytes[5] as Field;
+        TokenFlags {
+            create_json_entry,
+            json_entry_type,
+            is_end_of_object_or_array,
+            is_start_of_object_or_array,
+            new_context,
+            is_key_token
+        }
+    }
+
+    fn to_field(self) -> Field {
+        self.is_key_token
+            + self.new_context * 0x100
+            + self.is_start_of_object_or_array * 0x10000
+            + self.is_end_of_object_or_array * 0x1000000
+            + self.json_entry_type * 0x100000000
+            + self.create_json_entry * 0x10000000000
+    }
+
+    fn default() -> Self {
+        TokenFlags {
+            create_json_entry: 0,
+            json_entry_type: 0,
+            is_end_of_object_or_array: 0,
+            is_start_of_object_or_array: 0,
+            new_context: 0,
+            is_key_token: 0
+        }
+    }
+
+    fn new(a: Field, b: Field, c: Field, d: Field, e: Field, f: Field) -> Self {
+        TokenFlags {
+            create_json_entry: a,
+            json_entry_type: b,
+            is_end_of_object_or_array: c,
+            is_start_of_object_or_array: d,
+            new_context: e,
+            is_key_token: f
+        }
+    }
+}
+unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
+    let mut flags: [TokenFlags; NUM_TOKENS * 2] = [TokenFlags::default(); NUM_TOKENS * 2];
+
+    let mut no_token_flags: TokenFlags = TokenFlags::new(0, 0, 0, 0, OBJECT_CONTEXT, 0);
+    let mut key_token_flags: TokenFlags = TokenFlags::new(0, 0, 0, 0, OBJECT_CONTEXT, 1);
+
+    let begin_object_flags = TokenFlags {
+        create_json_entry: 0,
+        json_entry_type: 0,
+        is_end_of_object_or_array: 0,
+        is_start_of_object_or_array: 1,
+        new_context: OBJECT_CONTEXT,
+        is_key_token: 0
+    };
+
+    let begin_array_flags = TokenFlags {
+        create_json_entry: 0,
+        json_entry_type: 0,
+        is_end_of_object_or_array: 0,
+        is_start_of_object_or_array: 1,
+        new_context: ARRAY_CONTEXT,
+        is_key_token: 0
+    };
+
+    let end_object_flags = TokenFlags {
+        create_json_entry: 1,
+        json_entry_type: BEGIN_OBJECT_TOKEN,
+        is_end_of_object_or_array: 1,
+        is_start_of_object_or_array: 0,
+        new_context: 0,
+        is_key_token: 0
+    };
+
+    let end_array_flags = TokenFlags {
+        create_json_entry: 1,
+        json_entry_type: BEGIN_ARRAY_TOKEN,
+        is_end_of_object_or_array: 1,
+        is_start_of_object_or_array: 0,
+        new_context: 0,
+        is_key_token: 0
+    };
+
+    let mut string_flags = TokenFlags {
+        create_json_entry: 1,
+        json_entry_type: STRING_TOKEN,
+        is_end_of_object_or_array: 0,
+        is_start_of_object_or_array: 0,
+        new_context: OBJECT_CONTEXT,
+        is_key_token: 0
+    };
+
+    let mut numeric_flags = TokenFlags {
+        create_json_entry: 1,
+        json_entry_type: NUMERIC_TOKEN,
+        is_end_of_object_or_array: 0,
+        is_start_of_object_or_array: 0,
+        new_context: OBJECT_CONTEXT,
+        is_key_token: 0
+    };
+
+    let mut literal_flags = TokenFlags {
+        create_json_entry: 1,
+        json_entry_type: LITERAL_TOKEN,
+        is_end_of_object_or_array: 0,
+        is_start_of_object_or_array: 0,
+        new_context: OBJECT_CONTEXT,
+        is_key_token: 0
+    };
+
+    flags[NO_TOKEN] = no_token_flags;
+    flags[BEGIN_OBJECT_TOKEN] = begin_object_flags;
+    flags[END_OBJECT_TOKEN] = end_object_flags;
+    flags[BEGIN_ARRAY_TOKEN] = begin_array_flags;
+    flags[END_ARRAY_TOKEN] = end_array_flags;
+    flags[KEY_SEPARATOR_TOKEN] = no_token_flags;
+    flags[VALUE_SEPARATOR_TOKEN] = no_token_flags;
+    flags[STRING_TOKEN] = string_flags;
+    flags[NUMERIC_TOKEN] = numeric_flags;
+    flags[LITERAL_TOKEN] = literal_flags;
+    flags[KEY_TOKEN] = key_token_flags;
+
+    no_token_flags.new_context = ARRAY_CONTEXT;
+    key_token_flags.new_context = ARRAY_CONTEXT;
+    string_flags.new_context = ARRAY_CONTEXT;
+    numeric_flags.new_context = ARRAY_CONTEXT;
+    literal_flags.new_context = ARRAY_CONTEXT;
+
+    flags[NUM_TOKENS + NO_TOKEN] = no_token_flags;
+    flags[NUM_TOKENS + BEGIN_OBJECT_TOKEN] = begin_object_flags;
+    flags[NUM_TOKENS + END_OBJECT_TOKEN] = end_object_flags;
+    flags[NUM_TOKENS + BEGIN_ARRAY_TOKEN] = begin_array_flags;
+    flags[NUM_TOKENS + END_ARRAY_TOKEN] = end_array_flags;
+    flags[NUM_TOKENS + KEY_SEPARATOR_TOKEN] = no_token_flags;
+    flags[NUM_TOKENS + VALUE_SEPARATOR_TOKEN] = no_token_flags;
+    flags[NUM_TOKENS + STRING_TOKEN] = string_flags;
+    flags[NUM_TOKENS + NUMERIC_TOKEN] = numeric_flags;
+    flags[NUM_TOKENS + LITERAL_TOKEN] = literal_flags;
+    flags[NUM_TOKENS + KEY_TOKEN] = key_token_flags;
+
+    let mut result: [Field; NUM_TOKENS * 2] = [0; NUM_TOKENS * 2];
+    for i in 0..(NUM_TOKENS as u32 * 2) {
+        result[i] = flags[i].to_field();
+    }
+    result
+}
+
+global TokenFlagsTable: [Field; NUM_TOKENS * 2] = generate_token_flags_table();
+
 // #[test]
 // fn woo() {
 //     make_capture_table_full();
@@ -84,12 +295,12 @@ struct JSON<let NumBytes: u32, let TranscriptEntries: u32> {
     json: [u8; NumBytes],
     transcript: [Field; TranscriptEntries],
     transcript_length: u16,
-    json_entries: [JSONEntry; TranscriptEntries],
     key_data: [Field; TranscriptEntries], // todo make smaller? somehow? urgh
     key_hashes: [Field; TranscriptEntries],
     layer_id: Field,
     layer_context: Field, // is the current layer an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER
-    layer_index_in_transcript: Field
+    layer_index_in_transcript: Field,
+    packed_json_entries: [Field; TranscriptEntries]
 }
 
 /*
@@ -255,6 +466,127 @@ impl<let NumBytes: u16, let TranscriptEntries: u16> JSON<NumBytes, TranscriptEnt
         let mut entry_ptr = 0;
         let mut depth: Field = 0;
         let mut num_entries_at_current_depth: Field = 0;
+        let mut next_identity_value: Field = 1;
+        let mut current_identity_value: Field = 0;
+        let mut context = OBJECT_CONTEXT;
+        let mut key_ptr = 0;
+        let mut current_key_index: Field = 0;
+        let mut current_key_length: Field = 0;
+
+        // TODO why 32?
+        let mut parent_context_stack: [Field; 32] = [0; 32];
+        let mut key_data: [Field; TranscriptEntries] = [0; TranscriptEntries];
+        let mut packed_json_entries: [Field; TranscriptEntries] = [0; TranscriptEntries];
+
+        for i in 0..TranscriptEntries {
+            let TranscriptEntry{token, index, length} = TranscriptEntry::from_field(self.transcript[i]);
+
+            let TokenFlags{
+                create_json_entry,
+                json_entry_type,
+                is_end_of_object_or_array,
+                is_start_of_object_or_array,
+                new_context,
+                is_key_token: update_key
+            } = TokenFlags::from_field(TokenFlagsTable[token + context * NUM_TOKENS]);
+
+            current_key_index = (index - current_key_index) * update_key + current_key_index;
+            current_key_length = (length - current_key_length) * update_key + current_key_length;
+
+            let new_context_stack_entry = JSONContextStackEntry::to_field(
+                JSONContextStackEntry {
+                num_entries: num_entries_at_current_depth,
+                context,
+                current_key_length,
+                current_key_index,
+                json_index: index,
+                entry_pointer: entry_ptr,
+                current_identity: current_identity_value
+            }
+            );
+
+            let is_value_token: Field = create_json_entry - is_end_of_object_or_array; // TODO PUT IN JSONCONTEXTSTACKENTRY
+            let is_value_token_in_array_context: Field = is_value_token * context; // TODO PUT IN JSONCONTEXTSTACKENTRY
+            let push_key = is_value_token + is_end_of_object_or_array;
+
+            parent_context_stack[depth] = new_context_stack_entry;
+
+            let depth_index = (depth - 1) + (depth == 0) as Field; // TODO fix
+
+            let previous_stack_entry_packed = parent_context_stack[depth_index];
+
+            let previous_stack_entry = JSONContextStackEntry::from_field(previous_stack_entry_packed);
+
+            depth = depth + is_start_of_object_or_array - is_end_of_object_or_array;
+
+            let object_or_array_entry: JSONEntry = JSONEntry {
+                    array_pointer: previous_stack_entry.num_entries, // duplicated lookup remove once working 
+                    entry_type: json_entry_type,
+                    child_pointer: previous_stack_entry.entry_pointer, // need a stack to figure this out. is depth value correct here?
+                    num_children: num_entries_at_current_depth, // no children
+                    json_pointer: previous_stack_entry.json_index,
+                    json_length: length,
+                    parent_index: previous_stack_entry.current_identity,
+                    id: current_identity_value
+                };
+
+            let value_entry: JSONEntry = JSONEntry {
+                    array_pointer: num_entries_at_current_depth, // duplicated lookup remove once working 
+                    entry_type: json_entry_type,
+                    child_pointer: 0, // need a stack to figure this out. is depth value correct here?
+                    num_children: 0, // no children
+                    json_pointer: index,
+                    json_length: length,
+                    parent_index: current_identity_value,
+                    id: 0
+                };
+
+            let object_or_array_entry_packed = object_or_array_entry.to_field();
+            let value_entry_packed = value_entry.to_field();
+            let new_entry = (object_or_array_entry_packed - value_entry_packed) * is_end_of_object_or_array
+                + value_entry_packed;
+            packed_json_entries[entry_ptr] = new_entry * create_json_entry;
+
+            // TODO remove this once we store everything packed
+            json_entries[entry_ptr] = JSONEntry::from_field(new_entry * create_json_entry);
+
+            current_identity_value = (next_identity_value * is_start_of_object_or_array)
+            + (previous_stack_entry.current_identity * is_end_of_object_or_array)
+            + current_identity_value * (1 - is_start_of_object_or_array - is_end_of_object_or_array);
+            println(f"AB");
+
+            let new_key_data = (current_identity_value + current_key_index * 0x10000 + current_key_length * 0x100000000)
+                * is_value_token
+                + (num_entries_at_current_depth * 0x1000000000000) * is_value_token_in_array_context
+                + (current_identity_value
+                        + previous_stack_entry.current_key_index * 0x10000
+                        + previous_stack_entry.current_key_length * 0x100000000)
+                        * is_end_of_object_or_array
+                + (previous_stack_entry.num_entries * 0x1000000000000)
+                            * (is_end_of_object_or_array * previous_stack_entry.context/*context = 1 => array context*/);
+
+            key_data[key_ptr] = new_key_data * push_key;
+            key_ptr += push_key;
+
+            next_identity_value = next_identity_value + is_start_of_object_or_array;
+
+            num_entries_at_current_depth = 
+            (num_entries_at_current_depth + 1) * is_value_token
+            + (previous_stack_entry.num_entries + 1) * is_end_of_object_or_array
+            + (num_entries_at_current_depth) * (1 - is_value_token - is_end_of_object_or_array - is_start_of_object_or_array);
+
+            entry_ptr += create_json_entry;
+            context = new_context;
+        }
+        self.packed_json_entries = packed_json_entries;
+        self.key_data = key_data;
+    }
+
+    fn create_json_entries_old(&mut self) {
+        let mut json_entries: [JSONEntry; TranscriptEntries] = [JSONEntry::new(); TranscriptEntries];
+        let mut entry_ptr = 0;
+        let mut depth: Field = 0;
+        let mut num_entries_at_current_depth: Field = 0;
         let mut parent_context: [Field; 32] = [0; 32];
         let mut parent_key_index: [Field; 32] = [0; 32];
         let mut parent_num_entries_stack: [Field; 32] = [0; 32];
@@ -303,15 +635,12 @@ impl<let NumBytes: u16, let TranscriptEntries: u16> JSON<NumBytes, TranscriptEnt
                 parent_num_entries_stack[depth] = num_entries_at_current_depth;
 
                 let entry: JSONEntry = JSONEntry {
-                    key_pointer: parent_key_index[depth - 1], // TODO this correct?
                     array_pointer: parent_num_entries_stack[depth - 1], // duplicated lookup remove once working 
                     entry_type: BEGIN_OBJECT_TOKEN,
                     child_pointer: entry_ptr_stack[depth - 1], // need a stack to figure this out. is depth value correct here?
                     num_children: num_entries_at_current_depth, // no children
                     json_pointer: parent_json_index[depth - 1],
                     json_length: length,
-                    depth: depth - 1,
-                    key_length: parent_key_length[depth - 1],
                     parent_index: parent_identity_stack[depth - 1],
                     id: current_identity_value
                 };
@@ -331,15 +660,12 @@ impl<let NumBytes: u16, let TranscriptEntries: u16> JSON<NumBytes, TranscriptEnt
                 parent_num_entries_stack[depth] = num_entries_at_current_depth;
 
                 let entry: JSONEntry = JSONEntry {
-                    key_pointer: parent_key_index[depth - 1], // TODO this correct?
                     array_pointer: parent_num_entries_stack[depth - 1], // duplicated lookup remove once working 
                     entry_type: BEGIN_ARRAY_TOKEN,
                     child_pointer: entry_ptr_stack[depth - 1], // need a stack to figure this out. is depth value correct here?
                     num_children: num_entries_at_current_depth, // no children
                     json_pointer: parent_json_index[depth - 1],
                     json_length: length,
-                    depth: depth - 1,
-                    key_length: parent_key_length[depth - 1],
                     parent_index: parent_identity_stack[depth - 1],
                     id: current_identity_value
                 };
@@ -347,7 +673,7 @@ impl<let NumBytes: u16, let TranscriptEntries: u16> JSON<NumBytes, TranscriptEnt
                 entry_ptr += 1;
 
                 depth -= 1;
-                num_entries_at_current_depth = parent_num_entries_stack[depth];
+                num_entries_at_current_depth = parent_num_entries_stack[depth] + 1;
                 context = parent_context[depth];
                 current_identity_value = parent_identity_stack[depth];
 
@@ -355,22 +681,15 @@ impl<let NumBytes: u16, let TranscriptEntries: u16> JSON<NumBytes, TranscriptEnt
                 key_ptr += 1;
             }
 
-            if token == VALUE_SEPARATOR_TOKEN {
-                // validate previous entry was a value entry?
-            }
-
             if (token == STRING_TOKEN) | (token == NUMERIC_TOKEN) | (token == LITERAL_TOKEN) {
                 // if context is array then array_pointer is num_entries_at_current_depth
                 let entry: JSONEntry = JSONEntry {
-                    key_pointer: current_key_index,
-                    key_length: current_key_length,
                     array_pointer: num_entries_at_current_depth,
                     entry_type: token,
                     child_pointer: 0, // no children
                     num_children: 0, // no children
                     json_pointer: index,
                     json_length: length,
-                    depth,
                     parent_index: current_identity_value,
                     id: 0
                 };
@@ -391,7 +710,14 @@ impl<let NumBytes: u16, let TranscriptEntries: u16> JSON<NumBytes, TranscriptEnt
             }
         }
 
-        self.json_entries = json_entries;
+        println(f"exit?!");
+
+        for i in 0..10 {
+            let ff = json_entries[i];
+            println(f"Transcript Entry[{i}] = {ff}");
+        }
+        assert(context == 100);
+
         self.key_data = key_data;
     }
 
@@ -445,12 +771,12 @@ impl<let NumBytes: u16, let TranscriptEntries: u16> JSON<NumBytes, TranscriptEnt
             json: self.json,
             transcript,
             transcript_length: transcript_ptr as u16,
-            json_entries: self.json_entries,
             key_data: self.key_data,
             key_hashes: self.key_hashes,
             layer_id: 0,
             layer_context: OBJECT_LAYER, // TODO support arrays and single values,
-            layer_index_in_transcript: 0
+            layer_index_in_transcript: 0,
+            packed_json_entries: self.packed_json_entries
         }
     }
 }
@@ -533,12 +859,12 @@ fn test_redux() {
         json: text.as_bytes(),
         transcript: [0; 30],
         transcript_length: 0,
-        json_entries: [JSONEntry::new(); 30],
         key_data: [0; 30],
         key_hashes: [0; 30],
         layer_id: 0,
         layer_context: OBJECT_LAYER,
-        layer_index_in_transcript: 0
+        layer_index_in_transcript: 0,
+        packed_json_entries: [0; 30]
     };
 
     json = json.build_transcript();
@@ -644,6 +970,10 @@ fn test_redux() {
     // create json entries
     json.create_json_entries();
 
+    let mut json_entries: [JSONEntry; 30] = [JSONEntry::new(); 30];
+    for i in 0..30 {
+        json_entries[i] = JSONEntry::from_field(json.packed_json_entries[i]);
+    }
     /*
 
 struct JSONEntry {
@@ -658,11 +988,9 @@ struct JSONEntry {
 }
     */
 
-    assert(json.json_entries[0].entry_type == NUMERIC_TOKEN);
-    assert(json.json_entries[0].key_pointer == get(1).index);
-    assert(json.json_entries[0].json_pointer == get(3).index);
-    assert(json.json_entries[0].json_length == get(3).length);
-    assert(json.json_entries[0].depth == 1);
+    assert(json_entries[0].entry_type == NUMERIC_TOKEN);
+    assert(json_entries[0].json_pointer == get(3).index);
+    assert(json_entries[0].json_length == get(3).length);
     let k = json.key_data[0];
     let g = 1 + get(1).index * 0x10000 + get(1).length * 0x100000000;
     println(f"{k}");
@@ -670,16 +998,13 @@ struct JSONEntry {
 
     assert(json.key_data[0] == 1 + get(1).index * 0x10000 + get(1).length * 0x100000000);
     assert(
-        json.json_entries[0] == JSONEntry {
-            key_pointer: get(1).index,
-            key_length: get(1).length,
+        json_entries[0] == JSONEntry {
             array_pointer: 0,
             entry_type: NUMERIC_TOKEN,
             child_pointer: 0,
             num_children: 0,
             json_pointer: get(3).index,
             json_length: get(3).length,
-            depth: 1,
             parent_index: 0,
             id: 0
         }
@@ -691,16 +1016,13 @@ struct JSONEntry {
     println(f"recon{gg}");
     assert(json.key_data[1] == 2 + get(8).index * 0x10000 + get(8).length * 0x100000000);
     assert(
-        json.json_entries[1] == JSONEntry {
-            key_pointer: get(8).index,
-            key_length: get(8).length,
+        json_entries[1] == JSONEntry {
             array_pointer: 0,
             entry_type: NUMERIC_TOKEN,
             child_pointer: 0,
             num_children: 0,
             json_pointer: get(10).index,
             json_length: get(10).length,
-            depth: 2,
             parent_index: 0,
             id: 0
         }
@@ -708,16 +1030,13 @@ struct JSONEntry {
 
     assert(json.key_data[2] == 2 + get(12).index * 0x10000 + get(12).length * 0x100000000);
     assert(
-        json.json_entries[2] == JSONEntry {
-            key_pointer: get(12).index,
-            key_length: get(12).length,
+        json_entries[2] == JSONEntry {
             array_pointer: 1,
             entry_type: LITERAL_TOKEN,
             child_pointer: 0,
             num_children: 0,
             json_pointer: get(14).index,
             json_length: get(14).length,
-            depth: 2,
             parent_index: 0,
             id: 0
         }
@@ -726,16 +1045,13 @@ struct JSONEntry {
     assert(json.key_data[3] == 1 + get(5).index * 0x10000 + get(5).length * 0x100000000);
 
     assert(
-        json.json_entries[3] == JSONEntry {
-            key_pointer: get(5).index,
-            key_length: get(5).length,
+        json_entries[3] == JSONEntry {
             array_pointer: 1,
             entry_type: BEGIN_OBJECT_TOKEN,
             child_pointer: 1, // first child of object is json entry 1
             num_children: 2,
             json_pointer: get(7).index,
             json_length: get(7).length,
-            depth: 1,
             parent_index: 0,
             id: 0
         }
@@ -749,16 +1065,13 @@ struct JSONEntry {
     assert(json.key_data[4] == 1 + get(17).index * 0x10000 + get(17).length * 0x100000000);
 
     assert(
-        json.json_entries[4] == JSONEntry {
-            key_pointer: get(17).index,
-            key_length: get(17).length,
+        json_entries[4] == JSONEntry {
             array_pointer: 2,
             entry_type: STRING_TOKEN,
             child_pointer: 0, // first child of object is json entry 1
             num_children: 0,
             json_pointer: get(19).index,
             json_length: get(19).length,
-            depth: 1,
             parent_index: 0,
             id: 0
         }
@@ -768,16 +1081,13 @@ struct JSONEntry {
 
     // TODO: what to do with this? If JSON is an object, we shouldn't have a json entry that describes the top level object, no?
     assert(
-        json.json_entries[5] == JSONEntry {
-            key_pointer: 0,
-            key_length: 0,
+        json_entries[5] == JSONEntry {
             array_pointer: 0,
             entry_type: BEGIN_OBJECT_TOKEN,
             child_pointer: 0, // first child of object is json entry 1
             num_children: 3,
             json_pointer: get(0).index,
             json_length: get(0).length,
-            depth: 0,
             parent_index: 0,
             id: 0
         }
@@ -785,6 +1095,9 @@ struct JSONEntry {
 
     json.compute_keyhash_and_sort_json_entries();
 
+    for i in 0..30 {
+        json_entries[i] = JSONEntry::from_field(json.packed_json_entries[i]);
+    }
     // #####################
     // let text = "{ \"foo\": 1234, \"bar\": { \"foo\": 9876, \"bar\": true }, \"baz\": \"hello\" }";
 
@@ -794,84 +1107,69 @@ struct JSONEntry {
     // bar.foo
     // TODO: what to do with this? If JSON is an object, we shouldn't have a json entry that describes the top level object, no?
     for i in 0..30 {
-        let jsonentries = json.json_entries[i];
+        let jsonentries = json_entries[i];
         println(f"NEW ENTRY[{i}]= {jsonentries}");
     }
 
     assert(
-        json.json_entries[25] == JSONEntry {
-            key_pointer: get(5).index,
-            key_length: get(5).length,
+        json_entries[25] == JSONEntry {
             array_pointer: 1,
             entry_type: BEGIN_OBJECT_TOKEN,
             child_pointer: 28, // first child of object is json entry 1 // ah fuck wot
             num_children: 2,
             json_pointer: get(7).index,
             json_length: get(7).length,
-            depth: 1,
             parent_index: 0,
             id: 0
         }
     );
     assert(
-        json.json_entries[27] == JSONEntry {
-            key_pointer: get(1).index,
-            key_length: get(1).length,
+        json_entries[27] == JSONEntry {
             array_pointer: 0,
             entry_type: NUMERIC_TOKEN,
             child_pointer: 0,
             num_children: 0,
             json_pointer: get(3).index,
             json_length: get(3).length,
-            depth: 1,
             parent_index: 0,
             id: 0
         }
     );
 
     assert(
-        json.json_entries[26] == JSONEntry {
-            key_pointer: get(17).index,
-            key_length: get(17).length,
+        json_entries[26] == JSONEntry {
             array_pointer: 2,
             entry_type: STRING_TOKEN,
             child_pointer: 0, // first child of object is json entry 1
             num_children: 0,
             json_pointer: get(19).index,
             json_length: get(19).length,
-            depth: 1,
             parent_index: 0,
             id: 0
         }
     );
 
     assert(
-        json.json_entries[29] == JSONEntry {
-            key_pointer: get(8).index,
-            key_length: get(8).length,
+        json_entries[29] == JSONEntry {
             array_pointer: 0,
             entry_type: NUMERIC_TOKEN,
             child_pointer: 0,
             num_children: 0,
             json_pointer: get(10).index,
             json_length: get(10).length,
-            depth: 2,
             parent_index: 0,
             id: 0
         }
     );
 
     assert(
-        json.json_entries[28] == JSONEntry {
-            key_pointer: get(12).index,
-            key_length: get(12).length,
+        json_entries[28] == JSONEntry {
             array_pointer: 1,
             entry_type: LITERAL_TOKEN,
             child_pointer: 0,
             num_children: 0,
             json_pointer: get(14).index,
             json_length: get(14).length,
-            depth: 2,
             parent_index: 0,
             id: 0
         }
@@ -916,12 +1214,12 @@ fn test_literal() {
         json: text.as_bytes(),
         transcript: [0; 20],
         transcript_length: 0,
-        json_entries: [JSONEntry::new(); 20],
         key_data: [0; 20],
         key_hashes: [0; 20],
         layer_id: 0,
         layer_context: OBJECT_LAYER,
-        layer_index_in_transcript: 0
+        layer_index_in_transcript: 0,
+        packed_json_entries: [0; 20]
     };
 
     json = json.build_transcript();
@@ -962,12 +1260,12 @@ fn test_arrays() {
         json: text.as_bytes(),
         transcript: [0; 60],
         transcript_length: 0,
-        json_entries: [JSONEntry::new(); 60],
         key_data: [0; 60],
         key_hashes: [0; 60],
         layer_id: 0,
         layer_context: OBJECT_LAYER,
-        layer_index_in_transcript: 0
+        layer_index_in_transcript: 0,
+        packed_json_entries: [0; 60]
     };
 
     json = json.build_transcript();
@@ -997,15 +1295,18 @@ fn test_arrays() {
     }
 }
 */
+    let mut json_entries: [JSONEntry; 60] = [JSONEntry::new(); 60];
+    for i in 0..60 {
+        json_entries[i] = JSONEntry::from_field(json.packed_json_entries[i]);
+    }
+    assert(json_entries[57].entry_type == LITERAL_TOKEN);
+    assert(json_entries[57].parent_index == 2);
 
-    assert(json.json_entries[57].entry_type == LITERAL_TOKEN);
-    assert(json.json_entries[57].parent_index == 2);
+    assert(json_entries[58].entry_type == NUMERIC_TOKEN);
+    assert(json_entries[58].parent_index == 3);
 
-    assert(json.json_entries[58].entry_type == NUMERIC_TOKEN);
-    assert(json.json_entries[58].parent_index == 3);
-
-    assert(json.json_entries[59].entry_type == NUMERIC_TOKEN);
-    assert(json.json_entries[59].parent_index == 3);
+    assert(json_entries[59].entry_type == NUMERIC_TOKEN);
+    assert(json_entries[59].parent_index == 3);
 
     assert(json.key_exists("foo".as_bytes(), 3) == false);
     assert(json.key_exists("name".as_bytes(), 4));

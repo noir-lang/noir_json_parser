@@ -12,6 +12,10 @@ impl TranscriptEntry {
         self.token + self.index * 256 + self.length * (256 * 256 * 256)
     }
 
+    // 2 gates to add bytes into sum
+    // 1.25 gates for range checks
+    // 2 gates to get u16s
+    // 5.25 gates total
     fn from_field(felt: Field) -> Self {
         let slices = felt.to_be_bytes(5); // 2 gates + 1.25 + 2 = 5.25
         let length = slices[1] as Field + slices[0] as Field * 256;

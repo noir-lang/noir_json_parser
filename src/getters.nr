@@ -164,7 +164,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         let key_index = self.find_key_in_map(keyhash);
 
         assert(self.key_hashes[key_index] == keyhash);
-        let entry: JSONEntry = self.json_entries[key_index];
+        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
         assert(entry.entry_type == STRING_TOKEN, "get_string: entry exists but is not a string!");
         assert(
             lt_field_16_bit(entry.json_length, StringBytes as Field + 1), "get_string, string size is larger than StringBytes"
@@ -190,7 +190,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl(key, key_length);
-        let entry: JSONEntry = self.json_entries[key_index];
+        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
         assert(
             (entry.entry_type - STRING_TOKEN) * exists as Field == 0, "get_string: entry exists but is not a string!"
         ); // TODO replace with something more efficient
@@ -222,7 +222,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         // assert(self.key_hashes[key_index] == keyhash);
 
         let (exists, key_index) = self.key_exists_impl(key, key_length);
-        let entry: JSONEntry = self.json_entries[key_index];
+        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         assert(
             (entry.entry_type - NUMERIC_TOKEN) * exists as Field == 0, "get_number: entry exists but is not a number!"
@@ -260,7 +260,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         let key_index = self.find_key_in_map(keyhash);
 
         assert(self.key_hashes[key_index] == keyhash);
-        let entry: JSONEntry = self.json_entries[key_index];
+        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
 
         assert(entry.entry_type == NUMERIC_TOKEN, "get_number: entry exists but is not a number!");
         // TODO replace with something more efficient
@@ -289,7 +289,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
     ) -> Option<JSONLiteral> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key, key_length);
-        let entry: JSONEntry = self.json_entries[key_index];
+        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
 
         assert(
             (entry.entry_type - LITERAL_TOKEN) * exists as Field == 0, "get_literal: entry exists but is not a literal!"
@@ -334,7 +334,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         let key_index = self.find_key_in_map(keyhash);
 
         assert(self.key_hashes[key_index] == keyhash);
-        let entry: JSONEntry = self.json_entries[key_index];
+        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
 
         assert(entry.entry_type == LITERAL_TOKEN, "get_literal: entry exists but is not a literal!");
         // TODO replace with something more efficient
@@ -365,7 +365,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
     fn get_value<let KeyBytes: u16, let ValueBytes: u32>(self, key: [u8; KeyBytes], key_length: Field) -> Option<JSONValue<ValueBytes>> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key, key_length);
-        let entry: JSONEntry = self.json_entries[key_index];
+        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
 
         assert(
             (entry.entry_type == STRING_TOKEN)
@@ -404,7 +404,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         let key_index = self.find_key_in_map(keyhash);
 
         assert(self.key_hashes[key_index] == keyhash);
-        let entry: JSONEntry = self.json_entries[key_index];
+        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
 
         assert(
             (entry.entry_type == STRING_TOKEN)
@@ -433,7 +433,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
     fn get_object<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: Field) -> Option<Self> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key, key_length);
-        let entry: JSONEntry = self.json_entries[key_index];
+        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
 
         assert(entry.entry_type == BEGIN_OBJECT_TOKEN, "key does not describe an object");
 
@@ -451,7 +451,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
     fn get_array<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: Field) -> Option<Self> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key, key_length);
-        let entry: JSONEntry = self.json_entries[key_index];
+        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
 
         // TODO: ADD A layer_context VARIABLE INTO JSON WHICH DESCRIBES WHETHER WE ARE AN OBJECT, ARRAY OR SINGLE VALUE
         assert(entry.entry_type == BEGIN_ARRAY_TOKEN, "key does not describe an object");
@@ -470,12 +470,12 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
     fn get_array_element_as_number(self, array_index: Field) -> u64 {
         assert(self.layer_context != ARRAY_LAYER, "can only call map on an array");
 
-        let parent_entry = self.json_entries[self.layer_index_in_transcript];
+        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry = self.json_entries[entry_index];
+        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
 
         assert(entry.entry_type == NUMERIC_TOKEN, "get_number: entry exists but is not a number!");
         // TODO replace with something more efficient
@@ -505,7 +505,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
     ) -> [U; MaxElements] where U: std::default::Default {
         assert(self.layer_context != ARRAY_LAYER, "can only call map on an array");
 
-        let entry = self.json_entries[self.layer_index_in_transcript];
+        let entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
 
         let num_children = entry.num_children;
         let mut r: [U; MaxElements] = [U::default(); MaxElements];
@@ -513,7 +513,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         for i in 0..MaxElements {
             let valid = lt_field_16_bit(i as Field, num_children);
             let entry_index = (entry.child_pointer + i as Field) * valid as Field;
-            let child_entry = self.json_entries[entry_index];
+            let child_entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
 
             let mut parsed_string: [u8; MaxElementBytes] = [0; MaxElementBytes];
             for j in 0..MaxElementBytes {

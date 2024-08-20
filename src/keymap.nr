@@ -112,7 +112,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
             x[i] = ff[i] as u32;
         }
         println(f"sort indices = {x}");
-        let mut sorted_entries: [JSONEntry; TranscriptEntries] = [JSONEntry::new(); TranscriptEntries];
+        let mut sorted_entries: [Field; TranscriptEntries] = [0; TranscriptEntries];
         //  = self.json_entries;
 
         // TODO THIS SHOULD NOT BE HERE, MESSY
@@ -134,19 +134,19 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         // ok so now we have, for ONE child, the location of the parent
         // 
         for i in 0..TranscriptEntries {
-            sorted_entries[sort_result.sort_indices[i]] = self.json_entries[i];
+            sorted_entries[sort_result.sort_indices[i]] = self.packed_json_entries[i];
         }
 
         let mut identity_to_json_map: [Field; TranscriptEntries] = [0; TranscriptEntries];
         for i in 0..TranscriptEntries {
-            let E = sorted_entries[i];
+            let E = JSONEntry::from_field(sorted_entries[i]);
             if ((E.entry_type == BEGIN_OBJECT_TOKEN) | (E.entry_type == BEGIN_ARRAY_TOKEN)) {
                 identity_to_json_map[E.id] = i as Field;
             }
         }
         for i in 0..TranscriptEntries - 1 {
-            let parent_identity_pre = sorted_entries[i].parent_index;
-            let parent_identity_post = sorted_entries[i + 1].parent_index;
+            let parent_identity_pre = JSONEntry::from_field(sorted_entries[i]).parent_index;
+            let parent_identity_post = JSONEntry::from_field(sorted_entries[i + 1]).parent_index;
             // if the parent identity changes,
             let new_parent = parent_identity_post != parent_identity_pre;
             if (new_parent) {
@@ -155,7 +155,10 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
                     f"found parent. child is i = {i}, index of parent = {index_of_parent}, parent identity = {parent_identity_post}"
                 );
 
-                sorted_entries[index_of_parent].child_pointer = i as Field + 1;
+                let mut updated = JSONEntry::from_field(sorted_entries[index_of_parent]);
+                updated.child_pointer = i as Field + 1;
+
+                sorted_entries[index_of_parent] = updated.to_field();
             }
             // i + 1 is the starting index of a new set of children
         }
@@ -175,7 +178,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         //         sorted_entries[i].child_pointer = new_child_pointer;
         //     }
         // }
-        self.json_entries = sorted_entries;
+        self.packed_json_entries = sorted_entries;
         for i in 0..TranscriptEntries {
             let xx = sorted_entries[i];
             println(f"sortd entries[{i}] = {xx}");
