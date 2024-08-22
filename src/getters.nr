@@ -9,6 +9,7 @@ use crate::redux_tables::{
     OBJECT_LAYER, ARRAY_LAYER, NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN, BEGIN_OBJECT_TOKEN,
     BEGIN_ARRAY_TOKEN, ASCII_TO_NUMBER
 };
+use crate::keyhash::get_keyhash;
 use crate::keymap::KeyLen; // todo make param
 
 struct KeySearchResult {
@@ -55,29 +56,9 @@ impl JSONLiteral {
         self.value == 2
     }
 }
+global MaxKeyBytes = 32;
+
 impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEntries> {
-
-    fn get_keyhash_fixed<let KeyBytes: u32>(_: Self, key: [u8; KeyBytes], key_length: Field) -> Field {
-        assert(KeyBytes <= KeyLen, "key too large");
-
-        let mut result: [u8; KeyLen] = [0; KeyLen];
-        for i in 0..KeyBytes {
-            if lt_field_16_bit(i as Field, key_length) {
-                let byte = key[i as Field];
-                result[i] = byte;
-            }
-        }
-        // TODo replace with cheaper hash
-        let hashed = dep::std::hash::blake2s(result);
-        let mut result: Field = 0;
-        // 200 bits
-        for i in 0..25 {
-            result *= 0x100;
-            result += hashed[25 - i] as Field;
-        }
-        // let key_len = entry.
-        result
-    }
 
     unconstrained fn find_key_in_map(self, target: Field) -> Field {
         let mut found_index: Field = 0;
@@ -155,9 +136,9 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
     //     result
     // }
 
-    fn get_string_unchecked<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes], key_length: Field) -> [u8; StringBytes] {
+    fn get_string_unchecked<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> [u8; StringBytes] {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-        let keyhash = self.get_keyhash_fixed(key, key_length);
+        let keyhash = get_keyhash(key, 0, key_length);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
         let keyhash = keyhash + (self.layer_id + 1) * two_pow_216;
 
@@ -184,7 +165,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         parsed_string
     }
 
-    fn get_string<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes], key_length: Field) -> Option<[u8; StringBytes]> {
+    fn get_string<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<[u8; StringBytes]> {
         // let key_index = self.find_key_in_map(keyhash);
         // assert(self.key_hashes[key_index] == keyhash);
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
@@ -217,7 +198,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         result
     }
 
-    fn get_number<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: Field) -> Option<u64> {
+    fn get_number<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<u64> {
         // let key_index = self.find_key_in_map(keyhash);
         // assert(self.key_hashes[key_index] == keyhash);
 
@@ -251,9 +232,9 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         result
     }
 
-    fn get_number_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: Field) -> u64 {
+    fn get_number_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> u64 {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-        let keyhash = self.get_keyhash_fixed(key, key_length);
+        let keyhash = get_keyhash(key, 0, key_length);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
         let keyhash = keyhash + (self.layer_id + 1) * two_pow_216;
 
@@ -285,7 +266,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
     fn get_literal<let KeyBytes: u16>(
         self,
         key: [u8; KeyBytes],
-        key_length: Field
+        key_length: u16
     ) -> Option<JSONLiteral> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key, key_length);
@@ -325,9 +306,9 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         result
     }
 
-    fn get_literal_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: Field) -> JSONLiteral {
+    fn get_literal_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> JSONLiteral {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-        let keyhash = self.get_keyhash_fixed(key, key_length);
+        let keyhash = get_keyhash(key, 0, key_length);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
         let keyhash = keyhash + (self.layer_id + 1) * two_pow_216;
 
@@ -362,7 +343,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         JSONLiteral { value: is_true as Field * 2 + is_null as Field }
     }
 
-    fn get_value<let KeyBytes: u16, let ValueBytes: u32>(self, key: [u8; KeyBytes], key_length: Field) -> Option<JSONValue<ValueBytes>> {
+    fn get_value<let KeyBytes: u16, let ValueBytes: u32>(self, key: [u8; KeyBytes], key_length: u16) -> Option<JSONValue<ValueBytes>> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key, key_length);
         let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
@@ -395,9 +376,9 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         result
     }
 
-    fn get_value_unchecked<let KeyBytes: u16, let ValueBytes: u32>(self, key: [u8; KeyBytes], key_length: Field) -> JSONValue<ValueBytes> {
+    fn get_value_unchecked<let KeyBytes: u16, let ValueBytes: u32>(self, key: [u8; KeyBytes], key_length: u16) -> JSONValue<ValueBytes> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-        let keyhash = self.get_keyhash_fixed(key, key_length);
+        let keyhash = get_keyhash(key, 0, key_length);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
         let keyhash = keyhash + (self.layer_id + 1) * two_pow_216;
 
@@ -430,7 +411,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         JSONValue { length: entry.json_length, value: parsed_string, value_type: entry.entry_type }
     }
 
-    fn get_object<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: Field) -> Option<Self> {
+    fn get_object<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<Self> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key, key_length);
         let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
@@ -448,7 +429,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         result
     }
 
-    fn get_array<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: Field) -> Option<Self> {
+    fn get_array<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<Self> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key, key_length);
         let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
@@ -560,7 +541,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
 */
 
     fn assert_key_exists_with_known_length<let KeyBytes: u16>(self, key: [u8; KeyBytes]) {
-        let keyhash = self.get_keyhash_fixed(key, KeyBytes as Field);
+        let keyhash = get_keyhash(key, 0, KeyBytes);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
 
         let keyhash = keyhash + (self.layer_id + 1) * two_pow_216;
@@ -570,13 +551,13 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         assert(self.key_hashes[key_index] == keyhash);
     }
 
-    fn key_exists<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: Field) -> bool {
+    fn key_exists<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> bool {
         self.key_exists_impl(key, key_length).0
     }
     fn key_exists_impl<let KeyBytes: u16>(
         self,
         key: [u8; KeyBytes],
-        key_length: Field
+        key_length: u16
     ) -> (bool, Field) {
         /*
             Option A: key exists
@@ -588,7 +569,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
             case 3: entry A > keyhash > entryB 
 
         */
-        let keyhash = self.get_keyhash_fixed(key, key_length);
+        let keyhash = get_keyhash(key, 0, key_length);
 
         // let two_pow_200 = 0x10000000000000000000000000000000000000000000000000000;
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;

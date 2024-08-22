@@ -9,7 +9,7 @@ impl TranscriptEntry {
         TranscriptEntry { token: 0, index: 0, length: 0 }
     }
     fn to_field(self) -> Field {
-        self.token + self.index * 256 + self.length * (256 * 256 * 256)
+        self.token + self.index * 0x100 + self.length * (0x1000000)
     }
 
     // 2 gates to add bytes into sum
