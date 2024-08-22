@@ -358,42 +358,26 @@ fn slice_fields<let InputFields: u32, let OutputFields: u32>(data: [Field; Input
     let (start_index, start_mod_31) = divmod(start_byte as Field, 31);
 
     let num_underflow_bytes = start_mod_31;
-    let mut temp = 0;
-    if (num_bytes < 31) {
-        temp = num_bytes;
-    } else {
-        temp = 31;
-    }
-    println(f"start_mod_31 {start_mod_31}");
+
     let mut num_bytes_in_start_limb = 31 - start_mod_31;
     if (num_bytes as u16 < num_bytes_in_start_limb as u16) {
         num_bytes_in_start_limb = num_bytes as Field;
     }
-    // THIS IS ASSUMING SLICE TRAVERSES MORE THAN 1 FIELD
     let mut num_remaining_bytes = num_bytes as Field - num_bytes_in_start_limb;
-    println(f"num_bytes_in_start_limb {num_bytes_in_start_limb}");
-    println(f"num_remaining_bytes {num_remaining_bytes}");
     // todo fix
     let bytes_fit_into_limb = (31 - start_mod_31 as u16) >= num_bytes;
 
     let (num_whole_limbs, num_overflow_bytes) = divmod(num_remaining_bytes, 31);
-    println(f"num whole limbs = {num_whole_limbs}");
-    let (head, tail) = slice_field(data[start_index], num_underflow_bytes);
+    let (_, tail) = slice_field(data[start_index], num_underflow_bytes);
 
     let mut previous = tail;
     // first chunk is tail
     let mut num_whole_limbs = num_whole_limbs as u16; // todo fix
 
-    let _num_remaining_bytes = num_remaining_bytes as u16;
-    println(
-        f"num_bytes = {num_bytes} start_index {start_index}, start_mod_31 {start_mod_31}, num_bytes_in_start_limb {num_bytes_in_start_limb}, num_remaining_bytes {_num_remaining_bytes}, num_overflow_bytes {num_overflow_bytes}"
-    );
-    println(f"head {head} tail {tail}");
     let mut result = [0; OutputFields];
 
     let extra_head_section = (num_overflow_bytes as u16 + num_bytes_in_start_limb as u16) > 31;
     num_whole_limbs += extra_head_section as u16;
-    println(f"extra head = {extra_head_section}");
     // 31, 31, 4
     // 4 overflow bytes. 2 bytes in start limb
     for i in 0..SliceFieldsNumSlices {
@@ -404,131 +388,41 @@ fn slice_fields<let InputFields: u32, let OutputFields: u32>(data: [Field; Input
         let mut data_index = (start_index + 1 + i as Field);
         let no_data = data_index as u16 >= InputFields as u16;
         data_index *= (1 - no_data as Field);
-        let data_bytes = (data_idx * 31) as u16;
-        println(f"limb index {data_idx}, representing byte position {data_bytes}");
         let input_slice = data[data_index] * slice_valid as Field * (1 - no_data as Field);
         let mut (head, tail) = slice_field(input_slice, num_underflow_bytes);
         head *= slice_valid as Field;
         tail *= slice_valid as Field;
-        println(f"i = {i}, head = {head}, tail = {tail}");
         let combined = previous * BYTE_SHIFT[num_bytes_in_start_limb] + head;
         result[i] = combined * slice_valid as Field;
         if (slice_valid) {
             previous = tail;
         }
-        println(f"new previous = {previous}");
     }
+    let index_of_overflow_limb = start_index as u16 + num_whole_limbs + 1 - extra_head_section as u16;
+
+    let (num_bytes_div_31, num_bytes_mod_31) = divmod(num_bytes as Field, 31);
+    let perfectly_aligned = (start_mod_31 == 0);
+
+    let num_bytes_mod_31_is_0 = (num_bytes_mod_31 == 0) as Field;
+    let index_of_output_limb = num_bytes_div_31 - num_bytes_mod_31_is_0;
+
     // get index of overflow limb
     if (!bytes_fit_into_limb & extra_head_section) | (bytes_fit_into_limb) {
-        let index_of_overflow_limb = start_index as u16 + num_whole_limbs + 1 - extra_head_section as u16;
+        let slice_size = (num_bytes as Field + start_mod_31 - num_overflow_bytes) * bytes_fit_into_limb as Field
+            + num_overflow_bytes;
 
-        println(f"index_of_overflow_limb {index_of_overflow_limb}");
+        let (head, _) = slice_field(previous, slice_size);
 
-        let mut slice_size = num_overflow_bytes;
-        if (bytes_fit_into_limb) {
-            slice_size = num_bytes as Field + start_mod_31;
-        }
-
-        let mut (head, _) = slice_field(previous, slice_size);
-        let mut index_of_output_limb = num_bytes / 31; // 68 31 62
-        let perfectly_aligned = (start_mod_31 == 0);
-
-        if (num_bytes % 31 == 0) {
-            index_of_output_limb -= 1;
-        }
-        println(f"index_of_output_limb {index_of_output_limb}");
-
-        let mut last_limb = head;
-        let num_bytes_in_last_limb = num_bytes % 31;
-        last_limb *= BYTE_SHIFT[num_bytes_in_last_limb];
-
-        result[index_of_output_limb] = last_limb;
-        // say we want to capture up to 3 fields = 93 bytes
-        // 1 31 31 30
-        // head = x, tail = 1
-        // head = 30, tail = 1
-        // head = 30, tail = 1
-        // haed = 30, tail = 0
-        // we want to capture 68 bytes
-        // 1 31 31 7
-        // head = x, tail = 1
-        // head = 30, tail = 1
-        // head = 30, tail = 1
-        // head = 5, tail = x
-        // same but at start of limb e.g. position 1
-        // 30 31 7
-        // head = x, tail = 30
-        // head = 1, tail = 30
-        // head = 6, tail = 0
-        // problem here is tail + head > 32
-        // head = x, tail = 30
-        // head = 1, tail = 30
-        // need to merge now
-        // we have 0xXXYYYYYYYZZZZZZ
-        // we want 0x00YYYYYYY
-        // tail is 0x00YYYYYYYZZZZZZ
-        // limb - tail = 0xXX000000 etc
-        // we can split tail to get 0xYYYYYYY | ZZZZZZZ
-        // we can get
-        //         0xXX
-        //         0xYY
-    } else if (!bytes_fit_into_limb) {
-        // 2 previous 1 next
-        // this section seems squiffy
-        // if we have 1st partial slice
-        // now this limb contains the remaining data
-        // hmm there is probably a way to roll this into the main loop non?
-        let index_of_overflow_limb = start_index as u16 + num_whole_limbs + 1 - extra_head_section as u16;
-        println(f"index_of_overflow_limb {index_of_overflow_limb}");
-        let target = data[index_of_overflow_limb];
-        println(f"target limb = {target}");
-        println(f"num_overflow_bytes = {num_overflow_bytes}");
-
-        // OK the problem is the data is not padded at the end of the array
-        // so the last limb only has 14 bytes of data and we're trying to slice its most significant byte, which is not in byte position 30
-        // TLDR: we need to pad our packed data to be big endian. womp womp
-        let mut (head, tail) = slice_field(data[index_of_overflow_limb], num_overflow_bytes);
-        println(f"endhead {head}, endtail {tail}");
-        let perfectly_aligned = (start_mod_31 == 0);
-        let mut combined = 0;
-        // todo index here is wrong
-        let mut index_of_output_limb = num_bytes / 31; // 68 31 62
-        println(f"index of outputAlimb {index_of_output_limb}");
-        if (num_bytes % 31 == 0) & (!perfectly_aligned) {
-            previous *= (1 - perfectly_aligned as Field);
-        }
-        if (num_bytes % 31 == 0) {
-            index_of_output_limb -= 1;
-        }
-
-        combined = previous * BYTE_SHIFT[31 - num_overflow_bytes] + head;
-
-        println(f"combined = {combined}");
-        println(f"index of output limb {index_of_output_limb}");
-        let rslice = combined * (1 - perfectly_aligned as Field) + previous * perfectly_aligned as Field;
-        println(f"result slice = {rslice}");
-
-        let mut last_limb = combined * (1 - perfectly_aligned as Field) + previous * perfectly_aligned as Field;
-        let num_bytes_in_last_limb = num_bytes % 31;
-        last_limb *= BYTE_SHIFT[num_bytes_in_last_limb];
-        result[index_of_output_limb] = last_limb; // combined * (1 - perfectly_aligned as Field) + previous * perfectly_aligned as Field;
-        //        result[SliceFieldsNumSlices] = previous * BYTE_SHIFT[num_overflow_bytes];
+        result[index_of_output_limb] = head * BYTE_SHIFT[num_bytes_mod_31];
     } else {
-        assert(1 == 0);
-        // start mod 31 = e.g. start at byte 16
-        // XXXXXX | <-- byte 16   -> byte 23 | YYYYYY
-        // xxx | <-- start   ->> end | yyyy
-        // let start_idx = 31 - start_mod_31;
-        // let end_idx = start_idx + num_bytes as Field;
-        // | 16 | 7 | 8 |
-        // | 16 | prev  |
-        // split prev at position 7
+        let mut (head, _) = slice_field(data[index_of_overflow_limb], num_overflow_bytes);
 
-        let (endhead, _) = slice_field(
-            previous,
-            num_bytes as Field + start_mod_31 as Field /*TODO hacky because slice fn doesn't work so great for smaller than 31 bytes*/
-        );
-        result[0] = endhead; // * BYTE_SHIFT[num_bytes];
+        let last_limb = (previous * BYTE_SHIFT[31 - num_overflow_bytes] + head) * BYTE_SHIFT[num_bytes_mod_31];
+
+        // let mut last_limb = combined * (1 - perfectly_aligned as Field) + previous * perfectly_aligned as Field;
+        // let num_bytes_in_last_limb = num_bytes % 31;
+        // last_limb *= BYTE_SHIFT[num_bytes_in_last_limb];
+        result[index_of_output_limb] = last_limb;
     }
     // 38 mod 31 = 7
     // limb[1] 7 bytes in
