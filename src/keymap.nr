@@ -5,6 +5,7 @@ use crate::lt::lte_field_240_bit;
 use crate::lt::assert_lte_240_bit;
 use crate::redux::BEGIN_OBJECT_TOKEN;
 use crate::redux::BEGIN_ARRAY_TOKEN;
+use crate::keyhash::get_keyhash_old;
 use crate::keyhash::get_keyhash;
 use crate::keyhash::get_keyhash_chunky;
 
@@ -93,7 +94,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         // if I know that parent id 5 maps to idx 19 that is important
         // ok so now we have, for ONE child, the location of the parent
         //
-        /*
+
         let sort_result = noir_sort::sort_advanced(hashlist, lte_field_240_bit, assert_lte_240_bit);
         let mut sorted_entries: [Field; TranscriptEntries] = [0; TranscriptEntries];
 
@@ -155,7 +156,6 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         self.packed_json_entries = sorted_entries;
 
         self.key_hashes = sort_result.sorted;
-        */
     }
 }
 

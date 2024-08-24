@@ -558,19 +558,6 @@ global LOG2: [u32; 35] = [
 6,
 ];
 
-// remaining_bytes mod 31 = overflow bytes
-// start mod 31 = extra head space
-// overflow bytes > extra head space
-// => overflow_bytes - extra head space > 0
-// overflow bytes - extra head space + 31 > 31
-
-global INTEGER_UP_TO_61_IS_LESS_THAN_OR_EQUAL_TO_31: [Field; 62] = [
-        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-];
-
-global INTEGER_UP_TO_62_IS_GREATER_THAN_31: [Field; 63] = [
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
-];
 global NUM_BYTES_MOD_31_IS_ZERO: [Field; 31] = [
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 ];
@@ -676,115 +663,51 @@ set previous = 0 and immediately start a loop
 */
 global SliceFieldsNumSlices = 3;
 fn slice_fields<let InputFields: u16, let OutputFields: u16>(data: [Field; InputFields], start_byte: u16, num_bytes: u16) -> [Field; OutputFields] {
-    let (start_index, start_mod_31) = divmod(start_byte as Field, 31);
-    // let start_index = start_index_u16 as Field;
-    // let start_mod_31 = start_mod_31_u16 as Field;
+    let (start_index_u16, start_mod_31_u16) = divmod_u16(start_byte as Field, 31);
+    let start_index = start_index_u16 as Field;
+    let start_mod_31 = start_mod_31_u16 as Field;
     let num_underflow_bytes = start_mod_31;
 
-    let (num_bytes_div_31, num_bytes_mod_31) = divmod(num_bytes as Field, 31);
-    // let num_bytes_mod_31_is_0 = (num_bytes_mod_31 == 0) as Field;
-
-    let num_bytes_mod_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_mod_31]; // (num_bytes_mod_31 == 0) as Field;
-    let num_bytes_div_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_div_31];
     // start = 38. mod 31 = 7
     // start_mod_31_u16 = num bytes consumed by 
 
-    // if num_bytes < (31 - start_mod_31)
-    //      then num_unused_bytes = num_bytes
-    // else
-    //      num_unused_bytes = 31 - start_mod_31
-    /*
-        how do we handle this properly?
-        (num_bytes + start_index) div 31 + (num_bytes + start_index mod 31 != 0) gives the end limb
-
-        (num_bytes + start_index) .divmod 31 gives us the ending limb except not really
-        
-        start_index + (num_bytes - bytes_in_first_limb) <-- this is what we need
-
-        bytes_in_first_limb is hard to do that's the problem
-        start mod 31 = num unused bytes in first limb
-    */
-    {
-        // let (start_index, start_mod_31) = divmod(start_byte as Field, 31);
-        // let max_bytes_in_first_limb = 31 - start_mod_31;
-        // let potential_remaining_bytes = (num_bytes as Field - max_bytes_in_first_limb);
-        // let (potential_num_whole_limbs, potential_overflow_bytes) = divmod(potential_remaining_bytes, 31);
-        // // if max_bytes_in_first_limb > num_bytes then 
-        // let single_limb = max_bytes_in_first_limb as u16 > num_bytes; // boo womp
-        // can also measure if max_bytes_in_first_limb is negative
-        /*
-
-            extra head section = (overflow bytes > start_mod_31)
-            or... (num_bytes - max_bytes_in_first_limb ) mod 31 > start_index mod 31
-            overflow bytes used is larger than the number of unavailable bytes in the first limb
-
-            another way of putting it is
-            if the number of overflow bytes is smaller than the unavailable bytes in the first limb
-            then their values combined fit into a limb != extra_head section is small
-            start_mod_31 + overflow_bytes . max this can be is 61 
-        */
-    }
     // 38 mod 31 = 7. so 1st head = 24, tail = 7
     // instead of 31 we need std::max(31, num_bytes)
     // (num_bytes / 31) == 0
-    // let mut num_unused_bytes_in_start_limb = (num_bytes_div_31_is_0 * num_bytes as Field) + (1 - num_bytes_div_31_is_0) * 31;
-    // num_unused_bytes_in_start_limb -= start_mod_31;
+    let mut num_unused_bytes_in_start_limb = 31 - start_mod_31_u16;
 
-    // num_bytes_div_31_is_0 for sure means num_bytes cannot be < num_unused_bytes_in_start_limb
-    let conditional_num_bytes = num_bytes as Field * num_bytes_div_31_is_0;
-    let predicate_lt_lhs = conditional_num_bytes;
-    let predicate_lt_rhs = 31 - start_mod_31;
-    // lhs < rhs => rhs > lhs => rhs - lhs > 0 => rhs - lhs + 31 > 31
-    let lt_predicate = INTEGER_UP_TO_62_IS_GREATER_THAN_31[predicate_lt_rhs - predicate_lt_lhs + 31]
-        * num_bytes_div_31_is_0;
-
-    // num_bytes < 31 - start_mod31_u16
-    let num_unused_bytes_in_start_limb = (num_bytes as Field - predicate_lt_rhs) * lt_predicate + predicate_lt_rhs;
-    // old
-    // let mut num_unused_bytes_in_start_limb = 31 - start_mod_31_u16;
-    // let lt_predicate = num_bytes < num_unused_bytes_in_start_limb;
-    // let num_unused_bytes_in_start_limb = (num_bytes as Field - num_unused_bytes_in_start_limb as Field) * lt_predicate as Field
-    //     + num_unused_bytes_in_start_limb as Field;
-
+    let lt_predicate = num_bytes < num_unused_bytes_in_start_limb;
+    let num_unused_bytes_in_start_limb = (num_bytes as Field - num_unused_bytes_in_start_limb as Field) * lt_predicate as Field
+        + num_unused_bytes_in_start_limb as Field;
     // if (num_bytes < num_unused_bytes_in_start_limb) {
     //     num_unused_bytes_in_start_limb = num_bytes;
     // }
     let mut num_remaining_bytes = num_bytes as Field - num_unused_bytes_in_start_limb as Field;
     // todo fix
-    let bytes_fit_into_limb = lt_predicate; // (31 - start_mod_31_u16) >= num_bytes;
-
-    // let lhs = (31 - start_mod_31_u16) >= num_bytes;
-    // let rhs = lt_predicate; // 1 - lt_predicate;
-    // println(f"orig = {lhs}, new = {rhs}, num_bytes = {num_bytes}, start_mod_31 = {start_mod_31_u16}");
-    // assert(lhs as Field == rhs);
-    // num bytes = 1. mod31 = 0 => 
+    let bytes_fit_into_limb = (31 - start_mod_31_u16) >= num_bytes;
     // if a single limb we want num_overflow_bytes to equal num_bytes + start_mod_31
     // remaining bytes mod 31
 
-    let mut (num_whole_limbs, num_overflow_bytes) = divmod(num_remaining_bytes, 31);
-    // let num_whole_limbs = num_whole_limbs_u16 as Field;
-    // let num_overflow_bytes = num_overflow_bytes_u16 as Field;
+    let (num_whole_limbs_u16, num_overflow_bytes_u16) = divmod_u16(num_remaining_bytes, 31);
+    let num_whole_limbs = num_whole_limbs_u16 as Field;
+    let num_overflow_bytes = num_overflow_bytes_u16 as Field;
     let (_, tail) = slice_field(data[start_index], num_underflow_bytes);
 
     let mut previous = tail;
     // first chunk is tail
-    // let mut num_whole_limbs: error = num_whole_limbs_u16; // todo fix
+    let mut num_whole_limbs = num_whole_limbs as u16; // todo fix
 
     let mut result = [0; OutputFields];
 
-    // try to get this working
-
-    // remaining_bytes mod 31 = overflow bytes
-    // start mod 31 = extra head space
-    // overflow bytes > extra head space
-    // => overflow_bytes - extra head space > 0
-    // overflow bytes - extra head space + 31
-    let extra_head_section = INTEGER_UP_TO_62_IS_GREATER_THAN_31[num_overflow_bytes - start_mod_31 + 31]
-        * (1 - bytes_fit_into_limb as Field);
-    num_whole_limbs += extra_head_section as Field;
+    let mut extra_head_section = (num_overflow_bytes_u16 > start_mod_31_u16) & !bytes_fit_into_limb;
+    num_whole_limbs += extra_head_section as u16;
     // 31, 31, 4
     // 4 overflow bytes. 2 bytes in start limb
 
+    let (num_bytes_div_31, num_bytes_mod_31) = divmod(num_bytes as Field, 31);
+    // let num_bytes_mod_31_is_0 = (num_bytes_mod_31 == 0) as Field;
+
+    let num_bytes_mod_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_mod_31]; // (num_bytes_mod_31 == 0) as Field;
     let index_of_output_limb: Field = num_bytes_div_31 - num_bytes_mod_31_is_0;
 
     // let (path, path_valid_output): ([Field; OutputFields], [Field; OutputFields]) = get_last_limb_path(index_of_output_limb);
@@ -823,8 +746,9 @@ fn slice_fields<let InputFields: u16, let OutputFields: u16>(data: [Field; Input
         // THIS VERSION WORKS
         let slice_valid = path_valid_output[i];
         //  let slice_valid_other = (i < num_whole_limbs) as Field;
-        let data_index = (start_index + 1 + i as Field);
+        let mut data_index = (start_index + 1 + i as Field);
         // let no_data = (data_index >= InputFields) as Field;
+        let data_index = (data_index as Field); // * (1 - no_data); // prevents array overflow
         let input_slice = data[data_index]; //* slice_valid; // * (1 - no_data as Field);
         let (head, tail) = slice_field(input_slice, num_underflow_bytes);
         let combined = previous * tail_shift + head;
@@ -858,11 +782,7 @@ fn slice_fields<let InputFields: u16, let OutputFields: u16>(data: [Field; Input
 
     let slice_size = (num_bytes as Field + start_mod_31) * bytes_fit_into_limb as Field + num_overflow_bytes;
 
-    let use_previous_for_last_limb: Field = (1 as Field - bytes_fit_into_limb as Field) * extra_head_section as Field
-        + bytes_fit_into_limb as Field;
-    //(!bytes_fit_into_limb & extra_head_section) | (bytes_fit_into_limb);
-
-    // let use_previous_for_last_limb: bool = (!bytes_fit_into_limb & extra_head_section) | (bytes_fit_into_limb);
+    let use_previous_for_last_limb = (!bytes_fit_into_limb & extra_head_section) | (bytes_fit_into_limb);
 
     let mut index_of_overflow_limb = start_index as Field + num_whole_limbs as Field + 1 - extra_head_section as Field;
     index_of_overflow_limb *= (1 - use_previous_for_last_limb as Field); // prevents index exceeding array size
@@ -870,7 +790,7 @@ fn slice_fields<let InputFields: u16, let OutputFields: u16>(data: [Field; Input
 
     let slice_source = (previous - last_limb_from_data) * use_previous_for_last_limb as Field + last_limb_from_data;
 
-    let (head, _) = slice_field(slice_source, slice_size);
+    let mut (head, _) = slice_field(slice_source, slice_size);
     let mut last_limb = head
         + (previous * BYTE_SHIFT[31 - num_overflow_bytes]) * (1 - use_previous_for_last_limb as Field);
     last_limb *= BYTE_SHIFT[num_bytes_mod_31];

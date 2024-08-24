@@ -10,6 +10,8 @@ use crate::redux_tables::{
     BEGIN_ARRAY_TOKEN, ASCII_TO_NUMBER
 };
 use crate::keyhash::get_keyhash;
+use crate::keyhash::get_keyhash_old;
+
 use crate::keymap::KeyLen; // todo make param
 
 struct KeySearchResult {

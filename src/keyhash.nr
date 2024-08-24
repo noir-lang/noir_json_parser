@@ -164,17 +164,15 @@ unconstrained fn __slice_200_bits_from_field(f: Field) -> (Field, Field, bool) {
 }
 
 fn slice_200_bits_from_field(f: Field) -> Field {
-    f * f
-    //  let (lo, hi, borrow) = __slice_200_bits_from_field(f);
-    // assert(hi * TWO_POW_200 + lo == f);
-    // lo.assert_max_bit_size(200);
-    // hi.assert_max_bit_size(56);
-    //  let lo_diff = PLO_200_felt - lo + (borrow as Field * TWO_POW_200);
-    //  let hi_diff = PHI_54_felt - hi - borrow as Field;
-    //  println(f"{lo_diff}, {hi_diff}");
-    // lo_diff.assert_max_bit_size(200);
-    // hi_diff.assert_max_bit_size(56);
-    // lo
+    let (lo, hi, borrow) = __slice_200_bits_from_field(f);
+    assert(hi * TWO_POW_200 + lo == f);
+    lo.assert_max_bit_size(200);
+    hi.assert_max_bit_size(56);
+    let lo_diff = PLO_200_felt - lo + (borrow as Field * TWO_POW_200);
+    let hi_diff = PHI_54_felt - hi - borrow as Field;
+    lo_diff.assert_max_bit_size(200);
+    hi_diff.assert_max_bit_size(56);
+    lo
 }
 // TESTS PASS WITH THIS ONE, NEED TO CHANGE TEST EXPECTS TO MATCH NEW REORDERING
 fn get_keyhash_old<let N: u32>(body_text: [u8; N], body_index: u16, key_length: u16) -> Field {
@@ -374,29 +372,29 @@ fn sum_var_bytes_into_field<let N: u32>(
     chunks[0] = body_text[idx] as Field;
     idx += path_f[0];
 
-    // chunks[1] = body_text[idx] as Field * 0x100 + body_text[idx + 1] as Field;
-    // idx += path_f[1] * 2;
+    chunks[1] = body_text[idx] as Field * 0x100 + body_text[idx + 1] as Field;
+    idx += path_f[1] * 2;
 
-    // chunks[2] = body_text[idx] as Field * 0x1000000 + body_text[idx + 1] as Field * 0x10000
-    // + body_text[idx + 2] as Field * 0x100 + body_text[idx + 3] as Field;
-    // idx += path_f[2] * 4;
+    chunks[2] = body_text[idx] as Field * 0x1000000 + body_text[idx + 1] as Field * 0x10000
+    + body_text[idx + 2] as Field * 0x100 + body_text[idx + 3] as Field;
+    idx += path_f[2] * 4;
 
-    // chunks[3] = body_text[idx] as Field * 0x100000000000000 + body_text[idx + 1] as Field * 0x100000000000
-    // + body_text[idx + 2] as Field * 0x10000000000 + body_text[idx + 3] as Field * 0x100000000
-    // + body_text[idx + 4] as Field * 0x1000000 + body_text[idx + 5] as Field * 0x10000
-    // + body_text[idx + 6] as Field * 0x100 + body_text[idx + 7] as Field;
-    // idx += path_f[3] * 8;
+    chunks[3] = body_text[idx] as Field * 0x100000000000000 + body_text[idx + 1] as Field * 0x100000000000
+    + body_text[idx + 2] as Field * 0x10000000000 + body_text[idx + 3] as Field * 0x100000000
+    + body_text[idx + 4] as Field * 0x1000000 + body_text[idx + 5] as Field * 0x10000
+    + body_text[idx + 6] as Field * 0x100 + body_text[idx + 7] as Field;
+    idx += path_f[3] * 8;
 
-    // chunks[4] = body_text[idx] as Field * 0x1000000000000000000000000000000 + body_text[idx + 1] as Field * 0x1000000000000000000000000000
-    // + body_text[idx + 2] as Field * 0x100000000000000000000000000 + body_text[idx + 3] as Field * 0x1000000000000000000000000 
-    // + body_text[idx + 4] as Field * 0x10000000000000000000000 + body_text[idx + 5] as Field * 0x100000000000000000000
-    // + body_text[idx + 6] as Field * 0x1000000000000000000 + body_text[idx + 7] as Field * 0000000000000000
-    // + body_text[idx + 8] as Field * 0x100000000000000 + body_text[idx + 9] as Field * 0x100000000000
-    // + body_text[idx + 10] as Field * 0x10000000000 + body_text[idx + 11] as Field * 0x100000000
-    // + body_text[idx + 12] as Field * 0x1000000 + body_text[idx + 13] as Field * 0x10000
-    // + body_text[idx + 14] as Field * 0x100 + body_text[idx + 15] as Field;
+    chunks[4] = body_text[idx] as Field * 0x1000000000000000000000000000000 + body_text[idx + 1] as Field * 0x1000000000000000000000000000
+    + body_text[idx + 2] as Field * 0x100000000000000000000000000 + body_text[idx + 3] as Field * 0x1000000000000000000000000 
+    + body_text[idx + 4] as Field * 0x10000000000000000000000 + body_text[idx + 5] as Field * 0x100000000000000000000
+    + body_text[idx + 6] as Field * 0x1000000000000000000 + body_text[idx + 7] as Field * 0000000000000000
+    + body_text[idx + 8] as Field * 0x100000000000000 + body_text[idx + 9] as Field * 0x100000000000
+    + body_text[idx + 10] as Field * 0x10000000000 + body_text[idx + 11] as Field * 0x100000000
+    + body_text[idx + 12] as Field * 0x1000000 + body_text[idx + 13] as Field * 0x10000
+    + body_text[idx + 14] as Field * 0x100 + body_text[idx + 15] as Field;
 
-    // chunks[4] = chunks[3] * chunks[3];
+    //chunks[4] = chunks[3] * chunks[3];
     chunks[0] *= path_f[0];
     chunks[1] *= path_f[1];
     chunks[2] *= path_f[2];
@@ -486,15 +484,15 @@ fn get_keyhash_chunky<let N: u32>(body_text: [u8; N], body_index: u16, key_lengt
     // poseidon2 has t=4. 1 permutation should cover 3 fields
     // TGODO replace with cheaper hash!
     //  println(f"KEYS BEING HASHED = {key_fields}");
-    //  let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, num_limbs as u32);
-    let hashed_full = key_fields[0] + key_fields[1];
+    let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, num_limbs as u32);
+    //let hashed_full = key_fields[0] + key_fields[1];
     // println(f"{hashed_full}");
     // hashed_full
     // hashed_full
-    let uv = hashed_full * hashed_full;
-    println(f"{uv}");
-    hashed_full
-    //  slice_200_bits_from_field(hashed_full)
+    //let uv = hashed_full * hashed_full;
+    //println(f"{uv}");
+    //hashed_full
+    slice_200_bits_from_field(hashed_full)
     // let hashed_bytes= dep::std::hash::blake2s(result);
     //    let hashed = fakehash(result); // dep::std::hash::blake2s(result);
     //let hashed_full = limb;
