@@ -16,6 +16,7 @@ global NUMERIC_TOKEN = 8;
 global LITERAL_TOKEN  =9;
 global KEY_TOKEN = 10;
 global NUM_TOKENS = 11;
+global NUM_TOKENS_MUL_2 = 22;
 global OBJECT_LAYER = 0;
 global ARRAY_LAYER = 1;
 global SINGLE_VALUE_LAYER = 2;

@@ -5,9 +5,11 @@ use crate::lt::lte_field_240_bit;
 use crate::lt::assert_lte_240_bit;
 use crate::redux::BEGIN_OBJECT_TOKEN;
 use crate::redux::BEGIN_ARRAY_TOKEN;
-use crate::keyhash::get_keyhash_old;
-use crate::keyhash::get_keyhash;
 use crate::keyhash::get_keyhash_chunky;
+use crate::keyhash::get_keyhash;
+use crate::keyhash::slice_200_bits_from_field;
+use crate::slice_field::slice_fields;
+use crate::keyhash::Hasher;
 
 use dep::noir_sort;
 
@@ -62,19 +64,25 @@ global KeyLen = 32; // todo make param
 // ]
 
 impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JSON<NumBytes, NumPackedFields, TranscriptEntries> {
+
     // 101,105
     // 56,876
     // 44,229 cost
     // 700 per iteration
     // TODO: is poseidon2 cheap??? sounds like
     fn compute_keyhash_and_sort_json_entries(&mut self) {
-        let mut hashlist: [Field; TranscriptEntries] = [0; TranscriptEntries];
+        let hasher: Hasher<2> = Hasher {};
 
+        let mut hashlist: [Field; TranscriptEntries] = [0; TranscriptEntries];
+        // 77321 - 73798 div 10 = 352?
+        // should be 287 ah bad hasher
         let two_pow_200 = 0x10000000000000000000000000000000000000000000000000000;
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
         for i in 0..TranscriptEntries {
             let KeyIndexData{ json_index, json_length, parent_id, array_index } = KeyIndexData::from_field(self.key_data[i]);
-            hashlist[i] = get_keyhash_chunky(self.json, json_index, json_length) + array_index * two_pow_200 + parent_id * two_pow_216;
+            let hash = hasher.get_keyhash(self.packed_json, json_index, json_length);
+            hashlist[i] = hash + array_index * two_pow_200 + parent_id * two_pow_216;
+            std::as_witness(hashlist[i]);
         }
         // ok the next pile of bullshit follows
         // we need to sort the JSON entries accordingf to the keyhash sort pattern

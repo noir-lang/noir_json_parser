@@ -1,8 +1,9 @@
+use crate::slice_field::slice_fields;
+
 global MaxKeyBytes: u16 = 32; // todo make parameter
 
 global PLO: Field = 0x2833E84879B9709143E1F593F0000001;
 global PHI: Field = 0x30644E72E131A029B85045B68181585D;
-// 29B85045B68181585D
 
 global PLO_200_felt: Field = 0x29B85045B68181585D2833E84879B9709143E1F593F0000001;
 global PHI_54_felt: Field = 0x30644E72E131A0;
@@ -88,14 +89,7 @@ global PATH_LOOKUP: [[bool; 5]; 32] = [
 unconstrained fn get_path(idx: Field) -> [bool; 5] {
     PATH_LOOKUP[idx]
 }
-/*
 
-
-0x29B85045B6818158
-0x5D2833E84879B970
-0x9143E1F593F00000
-0x01
-*/
 global PHI_54: u64 = 0x30644E72E131A0;
 global PLO_200: Slice200 = Slice200 {
     hihi: 0x29B85045B68181,
@@ -149,17 +143,8 @@ unconstrained fn __slice_200_bits_from_field(f: Field) -> (Field, Field, bool) {
     borrow = PLO.hilo < res200.hilo;
     PLO.hihi -= borrow as u64;
     borrow = PLO.hihi < res200.hihi;
-    // let u = PLO.hihi as Field;
-    // let v = res200.hihi as Field;
-    // println(f"ptop vs rtop = {u} : {v}");
-    // 0x29b85045b6818158
-    // 0xc7411d9450cce4
-    // let k = PLO_200_felt;
-    // println(f"lo vs p = {lo} : {k}");
     let mut PHI = PHI_54 - borrow as u64;
     assert(PHI > res54, "slice failed? this shouldn't happen!");
-    // 0xc7411d9450cce4f0881a2ac0a346f02e1aa1d499535e33336c
-    // 0x29b85045b68181585d2833e84879b9709143e1f593f0000001
     (lo, hi, borrow)
 }
 
@@ -174,72 +159,6 @@ fn slice_200_bits_from_field(f: Field) -> Field {
     hi_diff.assert_max_bit_size(56);
     lo
 }
-// TESTS PASS WITH THIS ONE, NEED TO CHANGE TEST EXPECTS TO MATCH NEW REORDERING
-fn get_keyhash_old<let N: u32>(body_text: [u8; N], body_index: u16, key_length: u16) -> Field {
-    assert(key_length < MaxKeyBytes, "key too large"); // todo fix cast
-    //  assert(lt_field_16_bit(key_length, 32), "key too large");
-    let mut key_fields: [Field; 10] = [0; 10];
-    let mut result: [u8; MaxKeyBytes] = [0; MaxKeyBytes];
-
-    let mut key_idx: u16 = 0;
-    let num_limbs = (MaxKeyBytes / 31) + 1; // N.B. will be funky if MaxKeyBytes is multiple of 31
-
-    for j in 0..num_limbs {
-        let mut limb = 0;
-        for i in 0..31 {
-            limb *= 0x100;
-
-            let valid = (key_idx < key_length) as Field;
-            let byte_index = (body_index as Field + key_idx as Field) * valid;
-            let byte = body_text[byte_index] as Field;
-            limb += byte * valid;
-            if (key_idx < key_length) { // TODO fix cast
-                //  if lt_field_16_bit(i as Field, key_length) {
-                let byte = body_text[body_index as Field + key_idx as Field];
-                result[key_idx] = byte;
-            }
-            key_idx += 1;
-        }
-        key_fields[j] = limb;
-    }
-
-    // 101355
-    // 116413
-    // ok. 243 gates per hash really sucks
-    // 99,548 if hash size is 1
-    // 116,413 if hash size is 2
-    // 121,483 if hash size is 3
-    // 121,483 if hash size is 4
-    // what the fuck?
-    // poseidon2 has t=4. 1 permutation should cover 3 fields
-    // TGODO replace with cheaper hash!
-    // let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, 3);
-    let hashed_bytes= dep::std::hash::blake2s(result);
-    //    let hashed = fakehash(result); // dep::std::hash::blake2s(result);
-
-    // let hashed_bytes = hashed_full.to_be_bytes(32);
-    let mut result: Field = 0;
-    // 200 bits
-    for i in 0..25 {
-        result *= 0x100;
-        result += hashed_bytes[7 + i] as Field;
-    }
-    println(f"old result {result}");
-    // let key_len = entry.
-    result
-}
-
-unconstrained fn reverse(x: [Field; 32]) -> [Field; 32] {
-    let mut r: [Field; 32] = [0; 32];
-
-    for i in 0..32 {
-        r[i] = x[31 - i];
-    }
-
-    println(f"{r}");
-    r
-}
-// this represents an 8 byte chunk. what do we multiply by?
 
 global tail_path_multipliers_chunk3: [Field; 32] = [0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 global tail_path_multipliers_chunk2: [Field; 32] = [0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x010000000000000000, 0x010000000000000000, 0x010000000000000000, 0x010000000000000000, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00];
@@ -353,23 +272,16 @@ global tail_path_multipliers_chunk0: [Field; 32] = [0x01000000000000000000000000
 //     /* 31 (11111) */ two_pow_128 * two_pow_64 * two_pow_32 * two_pow_16
 // ];
 
-fn sum_var_bytes_into_field<let N: u32>(
-    body_text: [u8; N],
-    body_index: Field,
-    num_bytes: Field
-) -> Field {
+fn sum_var_bytes_into_field<let N: u32>(body_text: [u8; N], body_index: Field, num_bytes: Field) -> Field {
     let path = get_path(num_bytes); // 5 gates
     let path_f: [Field; 5] = [path[0] as Field, path[1] as Field, path[2] as Field, path[3] as Field, path[4] as Field];
 
-    //   println(f"path = {path}");
-    // 3 gates (2 if we improve copy constraints in noir)
     assert(path_f[0] + path_f[1] * 2 + path_f[2] * 4 + path_f[3] * 8 + path_f[4] * 16 == num_bytes as Field);
 
     let mut idx: Field = body_index as Field;
 
     let mut chunks: [Field; 5] = [0; 5];
 
-    println(f"PATH = {path_f}");
     chunks[0] = body_text[idx] as Field;
     idx += path_f[0];
 
@@ -431,155 +343,81 @@ fn sum_var_bytes_into_field<let N: u32>(
 }
 // 0x74657374410000000000000000000000000000000000000000000000000000
 // 0x7465737441
+
 fn get_keyhash_chunky<let N: u32>(body_text: [u8; N], body_index: u16, key_length: u16) -> Field {
-    assert(key_length < MaxKeyBytes, "key too large"); // todo fix cast
-    //  assert(lt_field_16_bit(key_length, 32), "key too large");
+    assert(key_length < MaxKeyBytes, "key too large");
     let mut key_fields: [Field; 10] = [0; 10];
 
     let mut key_idx: u16 = 0;
     let num_limbs = (MaxKeyBytes / 31) + 1; // N.B. will be funky if MaxKeyBytes is multiple of 31
 
     for j in 0..num_limbs {
-        //  let diff = key_length - (key_idx + j * num_limbs);
         let full_limb = (key_idx + j * num_limbs) + 31 <= key_length;
         let diff = key_length as Field - (key_idx as Field + j as Field * num_limbs as Field);
         let no_bytes = (key_idx + j * num_limbs) >= key_length;
         let mut limb_length = full_limb as Field * 31 + (1 - full_limb as Field) * (diff as Field);
         limb_length = limb_length * (1 - no_bytes as Field);
-        // println(
-        //     f"j {j} no bytes = {no_bytes} full_limb  {full_limb}, diff {diff}, limb_length {limb_length}"
-        // );
         key_fields[j] = sum_var_bytes_into_field(
             body_text,
             body_index as Field + (j as Field * 31),
             limb_length
         );
-        let k = key_fields[j];
-        println(f"key_fields[{j}] = {k}");
         key_idx += 31;
     }
-    // for j in 0..num_limbs {
-    //     limb = 0;
-
-    //     for i in 0..31 {
-    //         limb *= 0x100;
-
-    //         let valid = (key_idx < key_length) as Field;
-    //         let byte_index = (body_index as Field + key_idx as Field) * valid;
-    //         let byte = body_text[byte_index] as Field;
-    //         limb += byte * valid;
-    //         key_idx += 1;
-    //     }
-    //     key_fields[j] = limb;
-    // }
-
-    // with new method of copying bytes: 88507
-    // without new method of copying bytes: 101084
-    // diff = 12577
-    // 196.5 saving noice
-    // rough cost of algorithm is now 8,546? = 133
-    // 57,980 without calling this fn
-    // 79,103 without pos2
-    // => 330 gates per element without hashing wtf
-    // 101,105 with pos2
-    // poseidon2 has t=4. 1 permutation should cover 3 fields
-    // TGODO replace with cheaper hash!
-    //  println(f"KEYS BEING HASHED = {key_fields}");
-    let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, num_limbs as u32);
-    //let hashed_full = key_fields[0] + key_fields[1];
-    // println(f"{hashed_full}");
-    // hashed_full
-    // hashed_full
-    //let uv = hashed_full * hashed_full;
-    //println(f"{uv}");
-    //hashed_full
-    //  slice_200_bits_from_field(hashed_full)
-    // let hashed_bytes= dep::std::hash::blake2s(result);
-    //    let hashed = fakehash(result); // dep::std::hash::blake2s(result);
-    //let hashed_full = limb;
-    let r = slice_200_bits_from_field(hashed_full);
-    println(f"chunky result {r}");
+    // let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, num_limbs as u32);
+    let hashed_full: Field = key_fields[0] + key_fields[1] + key_fields[2];
+    let r: Field = slice_200_bits_from_field(hashed_full);
+    std::as_witness(r);
+    // println(f"chunky result {r}");
     r
-    // 0x6f40d45d5b9a5dbc875225e048bf4aa4900440adfe972b0e9d
-    // let hashed_bytes = hashed_full.to_be_bytes(32);
-    // let mut result: Field = 0;
-    // // 200 bits
-    // for i in 0..25 {
-    //     result *= 0x100;
-    //     result += hashed_bytes[25 - i] as Field;
-    // }
-    // // let key_len = entry.
-    // result
 }
 
+struct Hasher<let KeyFields: u16>
+{}
+
+impl<let KeyFields: u16> Hasher<KeyFields> {
+
+    fn get_keyhash<let NumPackedFields: u16>(_: Self, packed_fields: [Field; NumPackedFields], body_index: u16, key_length: u16) -> Field {
+        let key_fields: [Field; KeyFields] = slice_fields(packed_fields, body_index, key_length);
+
+        let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFields as u32);
+        // let hashed_full: Field = key_fields[0] + key_fields[1] + key_fields[2];
+
+        let r = slice_200_bits_from_field(hashed_full);
+        r
+        // let r = key_fields[0] + key_fields[1] + key_fields[2];
+        // std::as_witness(r);
+        //     key_fields[2]
+    }
+}
+
+global KeyFieldsTemp = 2; // TODO replace
 fn get_keyhash<let N: u32>(body_text: [u8; N], body_index: u16, key_length: u16) -> Field {
     assert(key_length < MaxKeyBytes, "key too large"); // todo fix cast
     //  assert(lt_field_16_bit(key_length, 32), "key too large");
-    let mut key_fields: [Field; 10] = [0; 10];
-    let mut result: [u8; MaxKeyBytes] = [0; MaxKeyBytes];
+    let mut key_fields: [Field; KeyFieldsTemp] = [0; KeyFieldsTemp];
 
     let mut key_idx: u16 = 0;
     let num_limbs = (MaxKeyBytes / 31) + 1; // N.B. will be funky if MaxKeyBytes is multiple of 31
     let mut limb = 0;
 
-    // for j in 0..num_limbs {
-    //     let diff = key_length - key_idx;
-    //     let full_limb = diff >= 31;
-    //     let limb_length = full_limb as Field * 31 + (1 - full_limb as Field) * (diff as Field);
-    //     key_fields[j] = sum_var_bytes_into_field(
-    //         body_text,
-    //         body_index as Field + (j as Field * 31),
-    //         limb_length
-    //     );
-    // }
     for j in 0..num_limbs {
         limb = 0;
 
-        for i in 0..31 {
+        for _ in 0..31 {
             let valid = (key_idx < key_length) as Field;
-            limb *= (0x100 * valid) + (1 - valid);
+            limb *= 0x100;
             let byte_index = (body_index as Field + key_idx as Field) * valid;
             let byte = body_text[byte_index] as Field;
             limb += byte * valid;
             key_idx += 1;
         }
         key_fields[j] = limb;
-        let k = key_fields[j];
-        println(f"OLD VERSION key_fields[{j}] = {k}");
     }
 
-    // 0x706f7274666f6c696f
-    // 57,980 without calling this fn
-    // 79,103 without pos2
-    // => 330 gates per element without hashing wtf
-    // 101,105 with pos2
-    // poseidon2 has t=4. 1 permutation should cover 3 fields
-    // TGODO replace with cheaper hash!
-    //   OLD KEYS BEING HASHED [0x74657374410000000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-    // KEYS BEING HASHED = [0x74657374410000000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-    let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, num_limbs as u32);
-    // let hashed_full = limb;
-    // let hashed_bytes= dep::std::hash::blake2s(result);
-    //    let hashed = fakehash(result); // dep::std::hash::blake2s(result);
-    //let hashed_full = limb;
+    let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFieldsTemp as u32);
 
-    // VALUE NOW WITH FANCY SLICE = 87,334
-    // VALUE WITHOUT FANCY SLICE = 89,158
-    // diff = 28.5 gates per felt. womp womp. but this one is actually sound now
     let mut r = slice_200_bits_from_field(hashed_full);
-    println(f"old result {r}");
+    // println(f"old result {r}");
     r
-    // let hashed_bytes = hashed_full.to_be_bytes(32);
-    // let mut result: Field = 0;
-    // // 200 bits
-    // for i in 0..25 {
-    //     result *= 0x100;
-    //     result += hashed_bytes[25 - i] as Field;
-    // }
-    // let key_len = entry.
-    // result
 }
-// 0xc7411d9450cce4f0881a2ac0a346f02e1aa1d499535e33336c
-// 0xc7411d9450cce4f0881a2ac0a346f02e1aa1d499535e33336c
-// 0xc7411d9450cce4f0881a2ac0a346f02e1aa1d499535e33336c
-

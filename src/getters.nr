@@ -10,7 +10,6 @@ use crate::redux_tables::{
     BEGIN_ARRAY_TOKEN, ASCII_TO_NUMBER
 };
 use crate::keyhash::get_keyhash;
-use crate::keyhash::get_keyhash_old;
 
 use crate::keymap::KeyLen; // todo make param
 
@@ -660,15 +659,3 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JS
         (search_result.found, search_result.lhs_index)
     }
 }
-
-/*
-key_fields[0] = 0x706f0794666f6c696f
-                0x706f7274666f6c696f
-key_fields[1] = 0x00
-chunky result 0x4dbc868fd1791e3bbeb76c2afe7ce959388b191891389e2b49
-*/
-/*
-OLD VERSION key_fields[0] = 0x706f7274666f6c696f
-OLD VERSION key_fields[1] = 0x00
-old result 0x6f40d45d5b9a5dbc875225e048bf4aa4900440adfe972b0e9d
-*/

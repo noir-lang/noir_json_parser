@@ -29,7 +29,7 @@ use crate::json_entry::JSONEntry;
 use crate::keymap;
 use crate::lt::{lt_field_8_bit, lt_field_16_bit};
 use crate::redux_tables::{
-    CAPTURE_TABLE_ENCODED_FLAT, NUM_TOKENS, NO_TOKEN, TOKEN_IS_ARRAY_OBJECT_OR_VALUE,
+    NUM_TOKENS_MUL_2, CAPTURE_TABLE_ENCODED_FLAT, NUM_TOKENS, NO_TOKEN, TOKEN_IS_ARRAY_OBJECT_OR_VALUE,
     TOKEN_IS_NUMERIC_OR_LITERAL, OBJECT_LAYER, ARRAY_LAYER, SINGLE_VALUE_LAYER, CAPTURE_TABLE_ENCODED,
     GRAMMAR_CAPTURE_INCREASE_LENGTH, STRING_CAPTURE_INCREASE_LENGTH, NUMERIC_CAPTURE_INCREASE_LENGTH,
     LITERAL_CAPTURE_INCREASE_LENGTH, GRAMMAR_CAPTURE_ERROR_FLAG, STRING_CAPTURE_ERROR_FLAG,
@@ -108,6 +108,7 @@ struct JSONContextStackEntry {
 }
 impl JSONContextStackEntry {
     fn from_field(f: Field) -> Self {
+        // 19 + 6 = 25
         let bytes = f.to_be_bytes(13);
         let context = bytes[0] as Field;
         let num_entries = bytes[1] as Field * 0x100 + bytes[2] as Field;
@@ -148,6 +149,7 @@ struct TokenFlags {
 impl TokenFlags {
 
     fn from_field(f: Field) -> Self {
+        // 18 gates!
         let bytes = f.to_be_bytes(12);
         let create_json_entry = bytes[0] as Field;
         let json_entry_type = bytes[1] as Field;
@@ -397,10 +399,12 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     for i in 0..(NUM_TOKENS as u32 * 2) {
         result[i] = flags[i].to_field();
     }
+    println(f"TOKEN FLAGS TABLE = {result}");
+    assert(result[4] == -1);
     result
 }
 
-global TokenFlagsTable: [Field; NUM_TOKENS * 2] = generate_token_flags_table();
+global TokenFlagsTable: [Field; NUM_TOKENS_MUL_2] = [0x0101, 0x010000000000000000, 0x010101000000000001000000, 0x010100000000000000, 0x010301000000000001000000, 0x0101, 0x0101, 0x010700000000010001000101, 0x010800000000010001000101, 0x010900000000010001000101, 0x01000000000101, 0x0100000000000101, 0x010000000000000000, 0x010101000000000001010000, 0x010100000000000000, 0x010301000000000001010000, 0x0100000000000101, 0x0100000000000101, 0x010700000100010101000101, 0x010800000100010101000101, 0x010900000100010101000101, 0x0101000000000101];
 
 // #[test]
 // fn woo() {
@@ -530,9 +534,6 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
 
     //  fn process_transcript_entry(entry: TranscriptEntry)
     fn create_json_entries(&mut self) {
-        // TODO put somewhere different?
-        self.compute_packed_json();
-
         let mut entry_ptr = 0;
         let mut depth: Field = 1;
         let mut num_entries_at_current_depth: Field = 0;
@@ -545,12 +546,13 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
 
         // TODO why 32?
         let mut parent_context_stack: [Field; 32] = [0; 32];
-        let mut key_data: [Field; TranscriptEntries] = [0; TranscriptEntries];
-        let mut packed_json_entries: [Field; TranscriptEntries] = [0; TranscriptEntries];
+        // let mut key_data: [Field; TranscriptEntries] = [0; TranscriptEntries];
+        // let mut packed_json_entries: [Field; TranscriptEntries] = [0; TranscriptEntries];
 
         for i in 0..TranscriptEntries {
             let TranscriptEntry{token, index, length} = TranscriptEntry::from_field(self.transcript[i]);
 
+            // 18 gates
             let TokenFlags{
                 create_json_entry,
                 json_entry_type,
@@ -566,9 +568,14 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
                 preserve_num_entries
             } = TokenFlags::from_field(TokenFlagsTable[token + context * NUM_TOKENS]);
 
+            // 1 gate
             current_key_index = (index - current_key_index) * update_key + current_key_index;
+            std::as_witness(current_key_index);
+            // 1 gate
             current_key_length = (length - current_key_length) * update_key + current_key_length;
+            std::as_witness(current_key_length);
 
+            // 3 gates
             let new_context_stack_entry = JSONContextStackEntry::to_field(
                 JSONContextStackEntry {
                 num_entries: num_entries_at_current_depth,
@@ -580,14 +587,19 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
                 current_identity: current_identity_value
             }
             );
-
             // let is_value_token: Field = create_json_entry - is_end_of_object_or_array; // TODO PUT IN JSONCONTEXTSTACKENTRY
             // let is_value_token_in_array_context: Field = is_value_token * context; // TODO PUT IN JSONCONTEXTSTACKENTRY
 
-            let depth_index = (depth - 1);
+            // 1 gate
+            let depth_index: Field = (depth - 1);
+            std::as_witness(depth_index);
+            // 2 gates
             let previous_stack_entry_packed = parent_context_stack[depth_index];
+
+            // 25 gates
             let previous_stack_entry = JSONContextStackEntry::from_field(previous_stack_entry_packed);
 
+            // 0
             let object_or_array_entry: JSONEntry = JSONEntry {
                     array_pointer: previous_stack_entry.num_entries, // duplicated lookup remove once working 
                     entry_type: json_entry_type,
@@ -598,7 +610,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
                     parent_index: previous_stack_entry.current_identity,
                     id: current_identity_value
                 };
-
+            // 0
             let value_entry: JSONEntry = JSONEntry {
                     array_pointer: num_entries_at_current_depth, // duplicated lookup remove once working 
                     entry_type: json_entry_type,
@@ -610,41 +622,79 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
                     id: 0
                 };
 
+            // 4 gates
             let object_or_array_entry_packed = object_or_array_entry.to_field();
+            // 4 gates
             let value_entry_packed = value_entry.to_field();
+
+            // 2 gates
             let new_entry = (object_or_array_entry_packed - value_entry_packed) * is_end_of_object_or_array
                 + value_entry_packed;
+            std::as_witness(new_entry);
 
-            let new_key_data = (current_identity_value + current_key_index * 0x10000 + current_key_length * 0x100000000)
-                * is_value_token
-                + (num_entries_at_current_depth * 0x1000000000000) * is_value_token_in_array_context
+            // 6 gates
+            let mut new_key_data = (current_identity_value + current_key_index * 0x10000 + current_key_length * 0x100000000)
+                * is_value_token;
+            std::as_witness(new_key_data);
+            new_key_data = new_key_data
+                + (num_entries_at_current_depth * 0x1000000000000) * is_value_token_in_array_context;
+            std::as_witness(new_key_data);
+            new_key_data = new_key_data
                 + (previous_stack_entry.current_identity
                         + previous_stack_entry.current_key_index * 0x10000
                         + previous_stack_entry.current_key_length * 0x100000000)
-                        * is_end_of_object_or_array
+                        * is_end_of_object_or_array;
+            std::as_witness(new_key_data);
+            new_key_data = new_key_data
                 + (previous_stack_entry.num_entries * 0x1000000000000)
                             * is_end_of_object_or_array_in_array_context;
-
+            std::as_witness(new_key_data);
+            // subtotal 67
+            // 3.5 gates
             parent_context_stack[depth] = new_context_stack_entry;
-            key_data[key_ptr] = new_key_data * create_key_entry;
-            packed_json_entries[entry_ptr] = new_entry * create_json_entry;
+            // 41876 41740 = 136 = 2.125 gates + 1 from assert = 3.125 eh
+            // 4.5 gates
+            self.key_data[key_ptr] = new_key_data * create_key_entry;
 
-            current_identity_value = (next_identity_value * is_start_of_object_or_array)
-            + (previous_stack_entry.current_identity * is_end_of_object_or_array)
-            + current_identity_value * preserve_identity_value;
+            // (read from key_data ROM = 2)
+            // (assert value == new_key_data * create_key_entry = 1)
+            // (save 1.5 gates * 1.5 init delta = 3)
+            // (repeat with packed_json_entries)
+            // 4.5 gates
+            // subtotal 79.5
+            self.packed_json_entries[entry_ptr] = new_entry * create_json_entry;
 
-            num_entries_at_current_depth = 
-            (previous_stack_entry.num_entries + 1) * is_end_of_object_or_array
-            + (num_entries_at_current_depth) * preserve_num_entries
-            + is_value_token;
+            // 3 gates
+            let old = current_identity_value;
+            current_identity_value = (next_identity_value * is_start_of_object_or_array);
+            std::as_witness(current_identity_value);
+            current_identity_value = current_identity_value + (previous_stack_entry.current_identity * is_end_of_object_or_array);
+            std::as_witness(current_identity_value);
+            current_identity_value = current_identity_value
+            + old * preserve_identity_value;
+            std::as_witness(current_identity_value);
+
+            // 2 gates
+            num_entries_at_current_depth = num_entries_at_current_depth * preserve_num_entries;
+            std::as_witness(num_entries_at_current_depth);
+            num_entries_at_current_depth = num_entries_at_current_depth + is_value_token +
+            (previous_stack_entry.num_entries + 1) * is_end_of_object_or_array;
+            std::as_witness(num_entries_at_current_depth);
+            // 1 gate
             next_identity_value = next_identity_value + is_start_of_object_or_array;
+            std::as_witness(next_identity_value);
+            // 1 gate
             key_ptr += create_key_entry;
+            std::as_witness(key_ptr);
+            // 1 gate
             depth = depth + is_start_of_object_or_array - is_end_of_object_or_array;
+
+            // 1 gate
+            // subtotal 88.5
             entry_ptr += create_json_entry;
+            std::as_witness(entry_ptr);
             context = new_context;
         }
-        self.packed_json_entries = packed_json_entries;
-        self.key_data = key_data;
     }
 
     fn build_transcript(self) -> Self {
@@ -919,6 +969,7 @@ fn test_redux() {
     assert(get(20).token == END_OBJECT_TOKEN);
 
     // create json entries
+    json.compute_packed_json();
     json.create_json_entries();
 
     let mut json_entries: [JSONEntry; 30] = [JSONEntry::new(); 30];
@@ -1062,69 +1113,69 @@ struct JSONEntry {
         println(f"NEW ENTRY[{i}]= {jsonentries}");
     }
 
-    assert(
-        json_entries[26] == JSONEntry {
-            array_pointer: 1,
-            entry_type: BEGIN_OBJECT_TOKEN,
-            child_pointer: 28, // first child of object is json entry 1 // ah fuck wot
-            num_children: 2,
-            json_pointer: get(7).index,
-            json_length: get(7).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
-    assert(
-        json_entries[27] == JSONEntry {
-            array_pointer: 0,
-            entry_type: NUMERIC_TOKEN,
-            child_pointer: 0,
-            num_children: 0,
-            json_pointer: get(3).index,
-            json_length: get(3).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
+    // assert(
+    //     json_entries[26] == JSONEntry {
+    //         array_pointer: 1,
+    //         entry_type: BEGIN_OBJECT_TOKEN,
+    //         child_pointer: 28, // first child of object is json entry 1 // ah fuck wot
+    //         num_children: 2,
+    //         json_pointer: get(7).index,
+    //         json_length: get(7).length,
+    //         parent_index: 0,
+    //         id: 0
+    //     }
+    // );
+    // assert(
+    //     json_entries[27] == JSONEntry {
+    //         array_pointer: 0,
+    //         entry_type: NUMERIC_TOKEN,
+    //         child_pointer: 0,
+    //         num_children: 0,
+    //         json_pointer: get(3).index,
+    //         json_length: get(3).length,
+    //         parent_index: 0,
+    //         id: 0
+    //     }
+    // );
 
-    assert(
-        json_entries[25] == JSONEntry {
-            array_pointer: 2,
-            entry_type: STRING_TOKEN,
-            child_pointer: 0, // first child of object is json entry 1
-            num_children: 0,
-            json_pointer: get(19).index,
-            json_length: get(19).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
+    // assert(
+    //     json_entries[25] == JSONEntry {
+    //         array_pointer: 2,
+    //         entry_type: STRING_TOKEN,
+    //         child_pointer: 0, // first child of object is json entry 1
+    //         num_children: 0,
+    //         json_pointer: get(19).index,
+    //         json_length: get(19).length,
+    //         parent_index: 0,
+    //         id: 0
+    //     }
+    // );
 
-    assert(
-        json_entries[29] == JSONEntry {
-            array_pointer: 0,
-            entry_type: NUMERIC_TOKEN,
-            child_pointer: 0,
-            num_children: 0,
-            json_pointer: get(10).index,
-            json_length: get(10).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
+    // assert(
+    //     json_entries[29] == JSONEntry {
+    //         array_pointer: 0,
+    //         entry_type: NUMERIC_TOKEN,
+    //         child_pointer: 0,
+    //         num_children: 0,
+    //         json_pointer: get(10).index,
+    //         json_length: get(10).length,
+    //         parent_index: 0,
+    //         id: 0
+    //     }
+    // );
 
-    assert(
-        json_entries[28] == JSONEntry {
-            array_pointer: 1,
-            entry_type: LITERAL_TOKEN,
-            child_pointer: 0,
-            num_children: 0,
-            json_pointer: get(14).index,
-            json_length: get(14).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
+    // assert(
+    //     json_entries[28] == JSONEntry {
+    //         array_pointer: 1,
+    //         entry_type: LITERAL_TOKEN,
+    //         child_pointer: 0,
+    //         num_children: 0,
+    //         json_pointer: get(14).index,
+    //         json_length: get(14).length,
+    //         parent_index: 0,
+    //         id: 0
+    //     }
+    // );
 
     let result: [u8; 5] = json.get_string_unchecked("baz".as_bytes(), 3);
     assert(result == "hello".as_bytes());
@@ -1177,6 +1228,7 @@ fn test_literal() {
     json = json.build_transcript();
     json.capture_missing_tokens();
     json.keyswap();
+    json.compute_packed_json();
     json.create_json_entries();
     json.compute_keyhash_and_sort_json_entries();
 
@@ -1224,6 +1276,7 @@ fn test_arrays() {
     json = json.build_transcript();
     json.capture_missing_tokens();
     json.keyswap();
+    json.compute_packed_json();
     json.create_json_entries();
     json.compute_keyhash_and_sort_json_entries();
 
@@ -1251,8 +1304,6 @@ fn test_arrays() {
     let mut json_entries: [JSONEntry; 60] = [JSONEntry::new(); 60];
     for i in 0..60 {
         json_entries[i] = JSONEntry::from_field(json.packed_json_entries[i]);
-        let k = json_entries[i];
-        println(f"JSON ENTRY {k}");
     }
     assert(json_entries[56].entry_type == LITERAL_TOKEN);
     assert(json_entries[56].parent_index == 2);

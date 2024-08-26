@@ -70,7 +70,6 @@ global PATH_LOOKUP: [[bool; 5]; 32] = [
 
 unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
     let head_path = PATH_LOOKUP[num_bytes];
-
     let bytes = f.to_be_bytes(32);
     let bytes = bytes.map(|b| b as Field);
 
@@ -412,7 +411,8 @@ global LIMB_VALID_PATH: [Field; 35] = [
 // M[4] = 1 i.e. the limbs[4] should contain the last limb
 // array extends to 0x200000000 which is 2^33 => 33 31 byte limbs = 1,023 bytes
 // this puts a hard limit on the max size of a key that this program supports.
-global LAST_LIMB_PATH: [Field; 35] = [
+global LAST_LIMB_PATH: [Field; 36] = [
+0x000000000, // 0 0 0 0 0 0 0 0 0 <-- edge case because sometimes array index is -1, so we offset by 1 TODO explain better
 0x000000000, // 0 0 0 0 0 0 0 0 1
 0x000000001, // 0 0 0 0 0 0 0 1 0
 0x000000003, // 0 0 0 0 0 0 1 0 0
@@ -457,8 +457,15 @@ global NUM_BYTES_MOD_31_IS_ZERO: [Field; 31] = [
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 ];
 
+// 13 basic lookups
+// 1 64 lookup
+// 15 * 321
+// 480 table entries
+
+// 5 gates?
 pub fn get_last_limb_path<let OutputFields: u16>(last_limb_index: Field) -> [Field; OutputFields] {
-    let path = LAST_LIMB_PATH[last_limb_index]; // 2
+    // TODO we offset by 1 explain why (0 byte length produces 0 - 1 which = invalid array index. we just add 1 and increase array length by 1 to compensate)
+    let path = LAST_LIMB_PATH[last_limb_index + 1]; // 2
 
     let path_valid_bits = decompose(path);
     let mut path_valid_sum: Field = 0;
@@ -468,7 +475,7 @@ pub fn get_last_limb_path<let OutputFields: u16>(last_limb_index: Field) -> [Fie
         path_valid_sum += (path_valid_bits[i] * (1 << i as u8) as Field);
         path_valid_output[i] = path_valid_bits[i];
     }
-    assert(path_valid_sum == path); // erm this right?
+    assert(path_valid_sum == path);
     path_valid_output
 }
 
@@ -476,78 +483,136 @@ pub fn get_last_limb_path<let OutputFields: u16>(last_limb_index: Field) -> [Fie
  * @brief Given an array of fields that pack 31 bytes, return an array that slices the packed byte array at a given index for a given number of bytes
  * @description Some serious dark black magic nonsense going on here. TODO: document 
  **/
-fn slice_fields<let InputFields: u16, let OutputFields: u16>(data: [Field; InputFields], start_byte: u16, num_bytes: u16) -> [Field; OutputFields] {
+pub fn slice_fields<let InputFields: u16, let OutputFields: u16>(
+    data: [Field; InputFields],
+    start_byte: u16,
+    num_bytes: u16
+) -> [Field; OutputFields] {
+    // 3.5
     let (start_index, start_mod_31) = divmod(start_byte as Field, 31);
     let num_underflow_bytes = start_mod_31;
-
+    // 3.5, 7
     let (num_bytes_div_31, num_bytes_mod_31) = divmod(num_bytes as Field, 31);
 
+    // 2, 9
     let num_bytes_mod_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_mod_31];
+    // 2, 11
     let num_bytes_div_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_div_31];
 
+    // 1, 12
     let lookup = (-num_bytes_div_31_is_0 * num_bytes as Field) - start_mod_31 + 62;
     std::as_witness(lookup);
+    // 3, 15
     let bytes_fit_into_limb = INTEGER_UP_TO_62_IS_GREATER_THAN_31[lookup] * num_bytes_div_31_is_0;
     std::as_witness(bytes_fit_into_limb);
 
+    // 2, 17
     let num_unused_bytes_in_start_limb = (num_bytes as Field + start_mod_31 - 31) * bytes_fit_into_limb + (31 - start_mod_31);
     std::as_witness(num_unused_bytes_in_start_limb);
     let num_remaining_bytes = num_bytes as Field - num_unused_bytes_in_start_limb;
 
+    // 4.5, 21.5
     let mut (num_whole_limbs, num_overflow_bytes) = divmod(num_remaining_bytes, 31);
+    // 44, 65.5
     let (_, tail) = slice_field(data[start_index], num_underflow_bytes);
 
     let mut previous = tail;
 
     let mut result = [0; OutputFields];
 
+    // 4, 69.5
     let extra_head_section = INTEGER_UP_TO_62_IS_GREATER_THAN_31[num_overflow_bytes - start_mod_31 + 31]
         * (1 - bytes_fit_into_limb);
 
-    let index_of_output_limb: Field = num_bytes_div_31 - num_bytes_mod_31_is_0;
-
+    // 1, 70.5
+    let index_of_output_limb: Field = (num_bytes_div_31 - num_bytes_mod_31_is_0);
+    // 5, 75.5
     let path_valid_output: [Field; OutputFields] = get_last_limb_path(index_of_output_limb);
 
+    // 2, 77.5
     let tail_shift = BYTE_SHIFT[num_unused_bytes_in_start_limb];
 
+    // 51, 128.5
     for i in 0..(OutputFields - 1) {
+        // 0
         let slice_valid = path_valid_output[i];
+        // 1
         let data_index = (start_index + 1 + i as Field);
+        // 2, 3
         let input_slice = data[data_index];
+        // 44, 47
         let (head, tail) = slice_field(input_slice, num_underflow_bytes);
+        // 1, 48
         let combined = previous * tail_shift + head;
+        // 1, 49
         result[i] = combined * slice_valid;
+        // 2, 51
         previous = (tail - previous) * slice_valid + previous;
     }
 
+    // 2, 130.5
     let slice_size = (num_bytes as Field + start_mod_31) * bytes_fit_into_limb + num_overflow_bytes;
 
+    // 1, 131.5
     let use_previous_for_last_limb: Field = extra_head_section + bytes_fit_into_limb;
 
+    // 1, 132.5
     let mut index_of_overflow_limb = start_index as Field + num_whole_limbs + 1;
+    // 2, 134.5
     let last_limb_from_data = data[index_of_overflow_limb];
+    // 2, 136.5
     let slice_source = (previous - last_limb_from_data) * use_previous_for_last_limb + last_limb_from_data;
 
+    // 44, 180.5
     let (head, _) = slice_field(slice_source, slice_size);
 
-    let mut last_limb = (previous * BYTE_SHIFT[31 - num_overflow_bytes]);
+    // 3, 183.5
+    let previous_shift = BYTE_SHIFT[31 - num_overflow_bytes]; // could save 1 gate by making different shift table
+    // 2, 185.5
+    let last_limb_shift = BYTE_SHIFT[num_bytes_mod_31];
+    // 1, 186.5
+    let mut last_limb = (previous * previous_shift);
     std::as_witness(last_limb);
+    // 1, 187.5
     last_limb = last_limb * (-use_previous_for_last_limb) + last_limb + head;
     std::as_witness(last_limb);
-    last_limb = last_limb * BYTE_SHIFT[num_bytes_mod_31];
+    // 1, 188.5
+    last_limb = last_limb * last_limb_shift;
     std::as_witness(last_limb);
 
     let mut path: [Field; OutputFields] = [0; OutputFields];
+    // 2, 190.5
     for i in 1..OutputFields {
-        path[i] = (1 - path_valid_output[i]) * path_valid_output[i-1];
+        path[i] = path_valid_output[i] * -path_valid_output[i-1] + path_valid_output[i-1];
     }
+    // 1, 191.5
     path[0] = (1 - path_valid_output[0]);
+
+    // 4, 195.5
+    // actual valud = 182, missing gates?
     for i in 0..OutputFields {
+        // 2
         result[i] = (last_limb - result[i]) * path[i] + result[i];
+        // std::as_witness(result[i]);
     }
+    // actual value = 182?
     result
 }
 
+/*
+new fields = [0x74657374410000000000000000000000000000000000000000000000000000, 0x00, 0x00]
+iterating transcript entries i = 2, end = 20
+caling index/length of 46 5
+last limb index 0x00
+new fields = [0x74657374420000000000000000000000000000000000000000000000000000, 0x00, 0x00]
+iterating transcript entries i = 3, end = 20
+caling index/length of 61 5
+last limb index 0x00
+new fields = [0x74657374430000000000000000000000000000000000000000000000000000, 0x00, 0x00]
+
+OLD VERSION key_fields[0] = 0x74657374410000000000000000000000000000000000000000000000000000
+OLD VERSION key_fields[1] = 0x00
+*/
 unconstrained fn build_slices_for_test<let N: u32>(bytes: [u8; N], start: u32, num_bytes: u32) -> [Field; 3] {
     let mut slices: [Field; 3] = [0; 3];
     for i in 0..3 {
@@ -560,6 +625,29 @@ unconstrained fn build_slices_for_test<let N: u32>(bytes: [u8; N], start: u32, n
         }
     }
     slices
+}
+
+#[test]
+fn test_slice_fields_nolength() {
+    let text: [u8; 1405] = "Charlie is genius, right. He's made from a million pieces of old bubble gum. Imagine that! In the summer of 1976, on his way home from an Alice Cooper concert, Charlie started to melt onto the pavement. It was too hot in L.A., and he melted like a pink bitch. Luckily though, there was Eric Phillips, a local crocodile who dabbled in black magic. He took pity on Charlie and scraped him off the floor with a pair of fish slicers. He poured him into an antique soup ladle, and boarded his magic carpet. Destination: Alaska! Eric Phillips decided to refreeze Charlie, but in his cold-blooded reptilian haste, he refroze him into to the shape of a Hoover. Charlie wasn't fazed though, he just zoomed about the place, sucking up Inuits. Ha ha! Oh. The Inuits didn't mind; they loved it in Charlie's pink, tight warm belly pouch, and they refused to come out. Charlie said, \"I'm cool with that,\" and set fire to a posh hammer to make it official. he downside was that the Inuits suffocated immediately. It was air-tight in there. Charlie panicked and fired the tiny Inuit bullets into Eric's crocodile peepers. The green shape was frozen. After a quick drink, Charlie stole Eric Phillips's magic carpet and left for Seattle. Charlie was racked with guilt: he'd killed 50 Inuits, noone needs that. He decided to spend the rest of his life putting small hairstyles onto boots, monkey nuts, trumpets and spanners.".as_bytes();
+    println(f"text = {text}");
+    let mut slices: [Field; 46 + 3] = [0; 46 + 3];
+    for i in 0..46 {
+        for j in 0..31 {
+            let mut idx = i * 31 + j;
+            slices[i] *= 0x100;
+            if (idx < 1405) {
+                slices[i] += text[idx] as Field;
+            }
+        }
+    }
+    // let start_byte = 26;
+
+    let num_bytes = 0;
+    let start_byte: u32 = 0;
+    let mut expected_slices: [Field; 3] = build_slices_for_test(text, start_byte, num_bytes);
+    let result_slices: [Field; 3] = slice_fields(slices, start_byte as u16, num_bytes as u16);
+    assert(result_slices == expected_slices);
 }
 
 #[test]
@@ -579,15 +667,15 @@ fn test_slice_fields() {
     // let start_byte = 26;
 
     let byte_sizes: [u32; 10] = [
+        0,
         1,
         5,
         30,
         31,
-        37,
-        44,
+        32,
+        47,
         61,
         62,
-        63,
         90
     ];
 
@@ -661,6 +749,7 @@ fn slice_field(f: Field, num_bytes: Field) -> (Field, Field) {
     tail += chunks[1] * tail_path_multipliers_chunk1[num_bytes];
     std::as_witness(tail);
     tail += chunks[0] * tail_path_multipliers_chunk0[num_bytes];
+    std::as_witness(tail);
 
     let total = tail + head * BYTE_SHIFT[num_bytes];
     assert(total == f);

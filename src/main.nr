@@ -22,7 +22,7 @@ mod keyhash;
 mod slice_field;
 use crate::redux::JSON;
 use crate::slice_field::{slice_fields, slice_field};
-use crate::keyhash::{slice_200_bits_from_field, get_keyhash_chunky, sum_var_bytes_into_field};
+use crate::keyhash::{Hasher, slice_200_bits_from_field, get_keyhash_chunky, sum_var_bytes_into_field};
 use crate::lt::lt_field_16_bit;
 global LEN = 10000;
 unconstrained fn preamble(_json: JSON<1024, 64, 37>) -> JSON<1024, 64, 37> {
@@ -185,34 +185,39 @@ fn maiff(p: Field) {
     // }
 }
 
-fn main(bytes: [u8; 1024]) {
-    let mut json = JSON {
-        json: bytes,
-        transcript: [0; 64],
-        transcript_length: 0,
-        key_data: [0; 64],
-        key_hashes: [0; 64],
-        layer_id: 0,
-        layer_context: 0,
-        layer_index_in_transcript: 0,
-        packed_json_entries: [0; 64],
-        packed_json: [0; 37]
-    };
-
-    json.compute_packed_json();
-
-    for i in 0..37 {
-        let kk = json.packed_json_entries[i];
-        println(f"{kk}");
-    }
-    json.compute_packed_json();
-    for i in 0..37 {
-        let kk = json.packed_json_entries[i];
-        println(f"{kk}");
-    }
-}
+// fn main(bytes: [u8; 1024]) {
+//     let mut json = JSON {
+//         json: bytes,
+//         transcript: [0; 64],
+//         transcript_length: 0,
+//         key_data: [0; 64],
+//         key_hashes: [0; 64],
+//         layer_id: 0,
+//         layer_context: 0,
+//         layer_index_in_transcript: 0,
+//         packed_json_entries: [0; 64],
+//         packed_json: [0; 37]
+//     };
+//     json.compute_packed_json();
+//     // 1333
+//     // 1828
+//     // cost = 495
+//     // makes sense
+//     for i in 0..37 {
+//         let kk = json.packed_json_entries[i];
+//         println(f"{kk}");
+//     }
+//     // json.compute_packed_json();
+//     // for i in 0..37 {
+//     //     let kk = json.packed_json_entries[i];
+//     //     println(f"{kk}");
+//     // }
+// }
+// 27060
+// 24895
+// wot were back to 217?
 // hmm something weird here
-fn mainjj(foo: [Field; 100], bar: [u8; 1000], num_bytes: [u16; 100], start_bytes: [u16; 100]) {
+fn mainslice(foo: [Field; 100], bar: [u8; 1000], num_bytes: [u16; 100], start_bytes: [u16; 100]) {
     // 3,621 for 100
     // 3,613 for 99 = 8 which is expected
     // 54 bits
@@ -274,10 +279,35 @@ fn mainjj(foo: [Field; 100], bar: [u8; 1000], num_bytes: [u16; 100], start_bytes
     // how to remove arb index
     // say we compute idx of final limb
     // we say if (i == idx) set value we write to last limb
-    for i in 0..99 {
+
+    // 2 fields
+    // 99 = 23571
+    // 89 = 21759
+    // delta = 241 + 1571 = 1812
+    // 181.2
+    // 21848
+
+    // 22115
+    // 23967
+
+    // 9535 99 (slice field)
+    // 9082 89
+    // diff 44.3
+
+    // 21848
+    // 23670
+    // 1822 diff = 182
+
+    // 21492
+    // 23274
+    // diff = 178.2
+
+    // CURRENT VALUE OF SLICE_FIELDS IS 182 GATES 26 AUGUST
+    for i in 0..89 {
         let x: [Field; 2] = slice_fields(foo, start_bytes[i], num_bytes[i]);
+        // let x = slice_field(foo[i], start_bytes[i] as Field);
         println(f"{x}");
-        //    assert(x.0 == x.1);
+        //  assert(x[0] == x[1]);
     }
     // for i in 0..99 {
     //     let x = sum_var_bytes_into_field(bar, 10, 10);
@@ -343,7 +373,7 @@ fn mainddddold(foo: [Field; 100], bar: [u8; 1000], num_bytes: [u16; 100]) {
 // 34392
 // 34821
 // 429 per key painful (poseidon hash is squiffy though)
-fn mainkkkk(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: [u16; 64], dd: Field) {
+fn main_chunky(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: [u16; 64], dd: Field) {
     println(f"{body_text} {body_indices} {key_lengths}");
     let kk = slice_200_bits_from_field(dd);
     println(f"{kk}");
@@ -353,6 +383,96 @@ fn mainkkkk(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: [u16; 6
     }
 }
 
+fn mainget_keyhash(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: [u16; 64], dd: Field) {
+    println(f"{body_text} {body_indices} {key_lengths}");
+    let kk = slice_200_bits_from_field(dd);
+    let mut json = JSON {
+        json: body_text,
+        transcript: [0; 64],
+        transcript_length: 0,
+        key_data: [0; 64],
+        key_hashes: [0; 64],
+        layer_id: 0,
+        layer_context: 0,
+        layer_index_in_transcript: 0,
+        packed_json_entries: [0; 64],
+        packed_json: [0; 37]
+    };
+    json.compute_packed_json();
+
+    let hasher: Hasher<2> = Hasher {};
+    // iteration from 64 = 26,902
+    // iteration from 54 = 23,623
+    // delta = 3,279
+    // cost per iteration = 328
+
+    // old chunky = 35316 for 64, 31027 for 54
+    // delta = 3973 + 316 = 4,289
+    // cost per it = 428
+    // hmm
+
+    // lets see poseidon cost
+    // 34 iterations = 7410
+    // 24 iterations = 6638
+    // delta = 410 + 362 = 782
+    // per it = 78.2 
+
+    // ok what is get_keyhash without the hash
+    // 64 its = 21973
+    // 54 its = 19464
+    // delta = 536 + 1973 = 2200 + 109 = 2509
+    // cost  w/o hash = 251
+    // cost with hash  = 328
+    // hash cost = 49 + 28 = 77 good job
+    // ok why is cost 251
+    // slice field = 182
+
+    // pure slice. 64 its = 20213
+    //             54 its = 17979
+    // delta = 2,234 = 223?
+
+    // 54 iterations now 17871
+    // 64 iterations 20852
+    // cost = 2214
+    // delta = 221
+    // 64 iterations 20,211
+    // 54 iterations 17,997
+    // cost 2214 = 221 blah
+    // OK THIS WAS FOR KEY LENGTH 3
+
+    // 18148
+    // 16256
+    // delta 1892 = 189.2 ok better
+
+    // ok full fandango:  64 = 24,388
+    //                    54 = 21,521
+    // delta = 2,867 = 287 gates per keyhash. ouch.
+
+    // GET KEYHASH COST FOR 2 LIMBS SHOULD BE 287 287 287 287 2872
+    // 287 gates
+    // ~80 for poseidon2
+    // ~190 for slice
+    // ~17 for 200 bit chunk
+
+    // equivalent using byte slices (62 byte max)
+    // 35741
+    // 40880
+    // 5139 = 514 gates, 1.8x slower
+    println(f"{kk}");
+    for i in 1..64 {
+        assert(body_indices[i] == body_indices[i - 1]);
+        assert(key_lengths[i] == key_lengths[i - 1]);
+        //   println(f"{a}, {b}");
+    }
+    for i in 0..64 {
+        //   let key_fields = [json.packed_json[i], json.packed_json[i + 1], json.packed_json[i + 2]];
+        //   let x = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, 3);
+        //let x = hasher.get_keyhash(json.packed_json, body_indices[i], key_lengths[i]);
+
+        let x = get_keyhash_chunky(body_text, body_indices[i], key_lengths[i]);
+        println(f"{x}");
+    }
+}
 // sum_var_bytes_into_field 63 iterations: 15016
 // sum_var_bytes_into_field 64 iterations: 15138
 // cost per iteration = 84 + 38 = 122 wtf mate
@@ -477,7 +597,80 @@ fn mainkjghg(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: [u16; 
     }
 }
 
-fn maink(text: str<1024>) {
+// 1,024 parse 48,948 without sorting and keyhash (ow)
+//             74,873 compute keyhash (25,925 for keyhashes)
+//             126,141 after sorting wtf
+
+// 287 * 64 = 18,368 = what cost of keyhash should be
+// where is extra 7,557 coming from?
+// we need to turn packed_json into ROM array (120-160 tops)
+// about 300 lookup table entries in slice fields (1200 tops)
+// ???
+
+// 48,948 to 55,091 for ONE keyhash
+// 5,091
+
+// ok new
+
+// build_transcript: 23375
+// + capture_missing_tokens: 24233
+// + keyswap: 33605 (9k?)
+// + create_json_entries: 53989 (20k?)
+// + keyhash: 74936 (20,947. assuming 2k init for tables and crap (a lot), about 296 gates per hash)
+// + sort: 123,820 . ok this needs a lot of tender love and care
+
+/*
+    CREATE_JSON_ENTRIES....
+    each iteration should be about 90 gates
+    which would cost 5,760
+    but actual cost is 20,384
+*/
+
+// 53,989
+// 49,723
+// delta = 4266 = 426 per iteration
+
+// 40074 411791, 1105 delta = 110 hmm hmm writes pain?
+// 48948 45802, 3146 = 314 just for context stack?
+// 53,989
+// 51,154
+// 34,100
+// 42,001
+// delta = 8k which is much better!
+// 34,100 vs 41,876 = 7,776
+
+// 1 entry = 34,218
+// 64 = 41,876 = 7,65
+// still 121 gates per entry
+// 40093 vs 41876
+// looks like copying arrays is incurring a cost??
+fn main(text: str<1024>) {
+    // let strbytes = text.as_bytes();
+    // let mut inputs: [Field; 13] = [0; 13];
+    // for j in 0..13 {
+    //     let mut input: Field = 0;
+    //     for i in 0..31 {
+    //         input += text.as_bytes()[j * 31 + i] as Field;
+    //     }
+    //     inputs[j] = input;
+    // }
+    // inputs[0].assert_max_bit_size(1);
+    // inputs[1].assert_max_bit_size(2);
+    // inputs[2].assert_max_bit_size(3);
+    // inputs[3].assert_max_bit_size(4);
+    // inputs[4].assert_max_bit_size(5);
+    // inputs[5].assert_max_bit_size(6);
+    // inputs[6].assert_max_bit_size(7);
+    // inputs[7].assert_max_bit_size(8);
+    // inputs[8].assert_max_bit_size(0);
+    // inputs[9].assert_max_bit_size(10);
+    // inputs[10].assert_max_bit_size(11);
+    // inputs[11].assert_max_bit_size(12);
+    // inputs[12].assert_max_bit_size(13);
+    // inputs[13].assert_max_bit_size(14);
+
+    // let sliced: [Field; 2] = slice_fields(inputs, strbytes[5] as u16, strbytes[200] as u16);
+    // assert(sliced[0] == sliced[1]);
     let mut json = JSON {
         json: text.as_bytes(),
         transcript: [0; 64],
@@ -496,8 +689,29 @@ fn maink(text: str<1024>) {
     println(f"{x}");
     json.capture_missing_tokens();
     json.keyswap();
+    json.compute_packed_json();
     json.create_json_entries();
+    // assert(json.packed_json[inputs[3]] == 1234);
+
+    for i in 0..63 {
+        assert(json.key_data[i] == json.key_data[i + 1]);
+    }
+    //  let keymap::KeyIndexData{ json_index, json_length, parent_id, array_index } = keymap::KeyIndexData::from_field(json.key_data[0]);
+    // assert(json_index == json_length);
+    // assert(parent_id == array_index);
     // json.compute_keyhash_and_sort_json_entries();
+    // 51810 57908
+    // 51889 57911
+    // delta of 6,098 even after initing range tables
+    // delta of 6,022 after casting json to rom table first
+    // 58093 53041
+    // still 5k even after initializing all fo the slice_fields tables!
+    // 58119, 57807
+    // delta = 193 + 119 = 312 gates
+    // ok it's json.key_data that is the problem?
+    // 58082 58394
+    // 55359 53989
+    // 1,370 for 1st which makes sense because of all the tables. hmm
     // let x = json.get_number_unchecked("hello".as_bytes(), 5);
     // println(f"{x}");
 }
