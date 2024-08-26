@@ -432,7 +432,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
         let NumWholeLimbs = NumBytes / 31;
         for i in 0..NumWholeLimbs {
             let mut limb: Field = 0;
-            for j in 0..NumBytes {
+            for j in 0..31 {
                 limb *= 0x100;
                 limb += self.json[i * 31 + j] as Field;
             }
@@ -530,6 +530,9 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
 
     //  fn process_transcript_entry(entry: TranscriptEntry)
     fn create_json_entries(&mut self) {
+        // TODO put somewhere different?
+        self.compute_packed_json();
+
         let mut entry_ptr = 0;
         let mut depth: Field = 1;
         let mut num_entries_at_current_depth: Field = 0;
@@ -718,6 +721,15 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
     }
 }
 
+fn extend_array<let InBytes: u32, let OutBytes: u32>(input: [u8; InBytes]) -> [u8; OutBytes] {
+    assert(InBytes <= OutBytes);
+    let mut result: [u8; OutBytes] = [0; OutBytes];
+    for i in 0..InBytes {
+        result[i] = input[i];
+    }
+    result
+}
+
 #[test]
 fn test_redux() {
     /*
@@ -793,7 +805,7 @@ fn test_redux() {
     // TODO FIX PADDING ISSUE
     let text = "{ \"foo\": 1234, \"bar\": { \"foo\": 9876, \"bar\": true }, \"baz\": \"hello\" }                                    ";
 
-    let mut json= JSON {
+    let mut json = JSON {
         json: text.as_bytes(),
         transcript: [0; 30],
         transcript_length: 0,
@@ -1149,7 +1161,7 @@ struct JSONEntry {
 #[test]
 fn test_literal() {
     let text = "{   \"name\": \"Adeel Solangi\", \"testA\": false, \"testB\": true, \"testC\": null }                                                                   ";
-    let mut json = JSON {
+    let mut json: JSON<142, 10, 20> = JSON {
         json: text.as_bytes(),
         transcript: [0; 20],
         transcript_length: 0,
@@ -1159,7 +1171,7 @@ fn test_literal() {
         layer_context: OBJECT_LAYER,
         layer_index_in_transcript: 0,
         packed_json_entries: [0; 20],
-        packed_json: [0, 10]
+        packed_json: [0; 10]
     };
 
     json = json.build_transcript();
@@ -1206,7 +1218,7 @@ fn test_arrays() {
         layer_context: OBJECT_LAYER,
         layer_index_in_transcript: 0,
         packed_json_entries: [0; 60],
-        packed_json: [0, 10]
+        packed_json: [0; 10]
     };
 
     json = json.build_transcript();
