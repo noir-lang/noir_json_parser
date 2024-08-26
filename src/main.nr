@@ -25,7 +25,7 @@ use crate::slice_field::{slice_fields, slice_field};
 use crate::keyhash::{slice_200_bits_from_field, get_keyhash_chunky, sum_var_bytes_into_field};
 use crate::lt::lt_field_16_bit;
 global LEN = 10000;
-unconstrained fn preamble(_json: JSON<1024, 64>) -> JSON<1024, 64> {
+unconstrained fn preamble(_json: JSON<1024, 64, 37>) -> JSON<1024, 64, 37> {
     let mut json = _json.build_transcript();
     let x = json.transcript[0];
     println(f"{x}");
@@ -184,8 +184,35 @@ fn maiff(p: Field) {
     //     // assert(new == r[i]); // 1 gate
     // }
 }
+
+fn main(bytes: [u8; 1024]) {
+    let mut json = JSON {
+        json: bytes,
+        transcript: [0; 64],
+        transcript_length: 0,
+        key_data: [0; 64],
+        key_hashes: [0; 64],
+        layer_id: 0,
+        layer_context: 0,
+        layer_index_in_transcript: 0,
+        packed_json_entries: [0; 64],
+        packed_json: [0; 37]
+    };
+
+    json.compute_packed_json();
+
+    for i in 0..37 {
+        let kk = json.packed_json_entries[i];
+        println(f"{kk}");
+    }
+    json.compute_packed_json();
+    for i in 0..37 {
+        let kk = json.packed_json_entries[i];
+        println(f"{kk}");
+    }
+}
 // hmm something weird here
-fn main(foo: [Field; 100], bar: [u8; 1000], num_bytes: [u16; 100], start_bytes: [u16; 100]) {
+fn mainjj(foo: [Field; 100], bar: [u8; 1000], num_bytes: [u16; 100], start_bytes: [u16; 100]) {
     // 3,621 for 100
     // 3,613 for 99 = 8 which is expected
     // 54 bits
@@ -214,6 +241,8 @@ fn main(foo: [Field; 100], bar: [u8; 1000], num_bytes: [u16; 100], start_bytes: 
 
     // 25349 vs 25153 = 150 + 46 = 196 hmmmm
     // 24749 vs 24559 = 190 lol a bit better
+    // 23767 vs 23949 = 140 + 42 = 182
+    //            23569 = 178
     // 45 * 3 = 135 => extra = 55 gates hmm
 
     // 26987 vs 26773 delta = 214
@@ -245,7 +274,7 @@ fn main(foo: [Field; 100], bar: [u8; 1000], num_bytes: [u16; 100], start_bytes: 
     // how to remove arb index
     // say we compute idx of final limb
     // we say if (i == idx) set value we write to last limb
-    for i in 0..100 {
+    for i in 0..99 {
         let x: [Field; 2] = slice_fields(foo, start_bytes[i], num_bytes[i]);
         println(f"{x}");
         //    assert(x.0 == x.1);
@@ -458,7 +487,8 @@ fn maink(text: str<1024>) {
         layer_id: 0,
         layer_context: 0,
         layer_index_in_transcript: 0,
-        packed_json_entries: [0; 64]
+        packed_json_entries: [0; 64],
+        packed_json: [0; 37]
     };
     // json = preamble(json);
     let mut json = json.build_transcript();

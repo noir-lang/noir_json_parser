@@ -61,7 +61,7 @@ global KeyLen = 32; // todo make param
 //     0x10000000000000
 // ]
 
-impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEntries> {
+impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JSON<NumBytes, NumPackedFields, TranscriptEntries> {
     // 101,105
     // 56,876
     // 44,229 cost

@@ -341,8 +341,6 @@ unconstrained fn __divmod_u16(numerator: Field, denominator: Field) -> (u16, u16
 }
 
 fn divmod(numerator: Field, denominator: Field) -> (Field, Field) {
-    // assert(numerator != 0);
-    println(f"divmod {numerator}, {denominator}");
     let (quotient, remainder) = __divmod(numerator, denominator);
 
     let qf = quotient as Field;
@@ -359,24 +357,6 @@ fn divmod(numerator: Field, denominator: Field) -> (Field, Field) {
     (quotient, remainder)
 }
 
-fn divmod_u16(numerator: Field, denominator: Field) -> (u16, u16) {
-    // assert(numerator != 0);
-    println(f"divmod {numerator}, {denominator}");
-    let (quotient, remainder) = __divmod_u16(numerator, denominator);
-
-    let qf = quotient as Field;
-    let rf = remainder as Field;
-
-    // note: these range checks are because we know the denominator is 31
-    // TODO: need more checks, atm remainder could equal 31
-    qf.assert_max_bit_size(14);
-    rf.assert_max_bit_size(5);
-
-    // n / d = q
-    // d * q + r = n
-    assert(qf * denominator as Field + rf == numerator as Field);
-    (quotient, remainder)
-}
 unconstrained fn decompose(val: Field) -> [Field; 16] {
     let mut r: [Field; 16] = [0; 16];
 
@@ -386,18 +366,6 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
         it >>= 1;
     }
     r
-}
-
-unconstrained fn log2l(val: Field) -> u16 {
-    let bits = decompose(val);
-    bits[0] as u16
-    // let mut r: u16 = 0;
-    // for i in 0..16 {
-    //     if (bits[i] as bool) {
-    //         r = i;
-    //     }
-    // }
-    // r
 }
 
 global LIMB_VALID_PATH: [Field; 35] = [
@@ -445,44 +413,6 @@ global LIMB_VALID_PATH: [Field; 35] = [
 // array extends to 0x200000000 which is 2^33 => 33 31 byte limbs = 1,023 bytes
 // this puts a hard limit on the max size of a key that this program supports.
 global LAST_LIMB_PATH: [Field; 35] = [
-0x000000001, // 0 0 0 0 0 0 0 0 1
-0x000000002, // 0 0 0 0 0 0 0 1 0
-0x000000004, // 0 0 0 0 0 0 1 0 0
-0x000000008, // 0 0 0 0 0 1 0 0 0
-0x000000010, // 0 0 0 0 1 0 0 0 0
-0x000000020, // 0 0 0 1 0 0 0 0 0
-0x000000040, // 0 0 1 0 0 0 0 0 0
-0x000000080, // 0 1 0 0 0 0 0 0 0
-0x000000100, // 1 0 0 0 0 0 0 0 0
-0x000000200, // 0 0 0 0 0 0 0 1 0
-0x000000400, // 0 0 0 0 0 0 1 0 0
-0x000000800, // 0 0 0 0 0 1 0 0 0
-0x000001000, // 0 0 0 0 1 0 0 0 0
-0x000002000, // 0 0 0 1 0 0 0 0 0
-0x000004000, // 0 0 1 0 0 0 0 0 0
-0x000008000, // 0 1 0 0 0 0 0 0 0
-0x000010000, // 0 0 0 0 0 0 0 0 1
-0x000020000, // 0 0 0 0 0 0 0 1 0
-0x000040000, // 0 0 0 0 0 0 1 0 0
-0x000080000, // 0 0 0 0 0 1 0 0 0
-0x000100000, // 0 0 0 0 1 0 0 0 0
-0x000200000, // 0 0 0 1 0 0 0 0 0
-0x000400000, // 0 0 1 0 0 0 0 0 0
-0x000800000, // 0 1 0 0 0 0 0 0 0
-0x001000000, // 0 0 0 0 0 0 0 0 1
-0x002000000, // 0 0 0 0 0 0 0 1 0
-0x004000000, // 0 0 0 0 0 0 1 0 0
-0x008000000, // 0 0 0 0 0 1 0 0 0
-0x010000000, // 0 0 0 0 1 0 0 0 0
-0x020000000, // 0 0 0 1 0 0 0 0 0
-0x040000000, // 0 0 1 0 0 0 0 0 0
-0x080000000, // 0 1 0 0 0 0 0 0 0
-0x100000000,
-0x200000000,
-0x400000000
-];
-
-global LAST_LIMB_PATHV2: [Field; 35] = [
 0x000000000, // 0 0 0 0 0 0 0 0 1
 0x000000001, // 0 0 0 0 0 0 0 1 0
 0x000000003, // 0 0 0 0 0 0 1 0 0
@@ -520,54 +450,6 @@ global LAST_LIMB_PATHV2: [Field; 35] = [
 0x3ffffffff
 ];
 
-global LOG2: [u32; 35] = [
-0,
-1,
-2,
-2,
-3,
-3,
-3,
-3,
-4,
-4,
-4,
-4,
-4,
-4,
-4,
-4,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-5,
-6,
-6,
-];
-
-// remaining_bytes mod 31 = overflow bytes
-// start mod 31 = extra head space
-// overflow bytes > extra head space
-// => overflow_bytes - extra head space > 0
-// overflow bytes - extra head space + 31 > 31
-
-global INTEGER_UP_TO_61_IS_LESS_THAN_OR_EQUAL_TO_31: [Field; 62] = [
-        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-];
-
 global INTEGER_UP_TO_62_IS_GREATER_THAN_31: [Field; 63] = [
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
 ];
@@ -575,416 +457,98 @@ global NUM_BYTES_MOD_31_IS_ZERO: [Field; 31] = [
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 ];
 
-pub fn get_last_limb_path_v2<let OutputFields: u16>(last_limb_index: Field) -> [Field; OutputFields] {
-    let path = LAST_LIMB_PATHV2[last_limb_index]; // 2
+pub fn get_last_limb_path<let OutputFields: u16>(last_limb_index: Field) -> [Field; OutputFields] {
+    let path = LAST_LIMB_PATH[last_limb_index]; // 2
 
-    // 2 limbs, last limb = 1, path = [1 0]
-    // 3 limbs, last limb = 2, path = [1 0 0]
-    // for 3 limbs. limb idx[0] = 1, limb idx[1] = 1
-    // last limb * 2 - 1 = 3 = [0 1 1]
-    // 
-    //let valid_limb_path = path - 1;
-    // if last limb = 1 we want result[1] to contain last limb
-    // right now, high bit is 0
-    // path - 1
-    // 3 limbs path = [1 0 0]
-    // valid = [0 1 1]
-    // 2^2 - 1
-    // 4 limbs path =[1 0 0 0]
-    // valid = [0 1 1 1]
-    // 2^3 - 1
-
-    // 2^{last_limb_index - 1}
-    // let path_bits = decompose(path);
     let path_valid_bits = decompose(path);
-    // let mut sum: Field = 0;
     let mut path_valid_sum: Field = 0;
-    // let mut path_output: [Field; OutputFields] = [0; OutputFields];
     let mut path_valid_output: [Field; OutputFields] = [0; OutputFields];
     for i in 0..OutputFields {
-        // let k = path_bits[i];
-        // println(f"path bit[{i}] = {k}");
-        // assert(path_bits[i] * path_bits[i] - path_bits[i] == 0);
         assert(path_valid_bits[i] * path_valid_bits[i] - path_valid_bits[i] == 0);
-
-        // sum += path_bits[i] * ((i as Field));
         path_valid_sum += (path_valid_bits[i] * (1 << i as u8) as Field);
-        // path_output[i] = path_bits[i];
         path_valid_output[i] = path_valid_bits[i];
     }
-    // println(f"sum {sum}");
-    // println(f"last limb index {last_limb_index}");
-    // assert(sum == last_limb_index); // 1 gate
-    // TODO need to assert some kind sum here
     assert(path_valid_sum == path); // erm this right?
     path_valid_output
 }
 
-pub fn get_last_limb_path<let OutputFields: u16>(last_limb_index: Field) -> ([Field; OutputFields], [Field; OutputFields]) {
-    let path = LAST_LIMB_PATH[last_limb_index]; // 2
-
-    // 2 limbs, last limb = 1, path = [1 0]
-    // 3 limbs, last limb = 2, path = [1 0 0]
-    // for 3 limbs. limb idx[0] = 1, limb idx[1] = 1
-    // last limb * 2 - 1 = 3 = [0 1 1]
-    // 
-    //let valid_limb_path = path - 1;
-    // if last limb = 1 we want result[1] to contain last limb
-    // right now, high bit is 0
-    // path - 1
-    // 3 limbs path = [1 0 0]
-    // valid = [0 1 1]
-    // 2^2 - 1
-    // 4 limbs path =[1 0 0 0]
-    // valid = [0 1 1 1]
-    // 2^3 - 1
-
-    // 2^{last_limb_index - 1}
-    let path_bits = decompose(path);
-    let path_valid_bits = decompose(path - 1);
-    let mut sum: Field = 0;
-    let mut path_valid_sum: Field = 0;
-    let mut path_output: [Field; OutputFields] = [0; OutputFields];
-    let mut path_valid_output: [Field; OutputFields] = [0; OutputFields];
-    for i in 0..OutputFields {
-        let k = path_bits[i];
-        println(f"path bit[{i}] = {k}");
-        assert(path_bits[i] * path_bits[i] - path_bits[i] == 0);
-        assert(path_valid_bits[i] * path_valid_bits[i] - path_valid_bits[i] == 0);
-
-        sum += path_bits[i] * ((i as Field));
-        path_valid_sum += (path_valid_bits[i] * (1 << i as u8) as Field);
-        path_output[i] = path_bits[i];
-        path_valid_output[i] = path_valid_bits[i];
-    }
-    println(f"sum {sum}");
-    println(f"last limb index {last_limb_index}");
-    assert(sum == last_limb_index); // 1 gate
-    // TODO need to assert some kind sum here
-    assert(path_valid_sum == path - 1); // erm this right?
-    (path_output, path_valid_output)
-}
-
-// end = current is 0 and previous is 1
-// (1 - path[i]) * path[i - 1]
-/*
-ok how do we rearchitect to reduce gate count?
-
-can we ... hmm what can we do
-
-set previous = 0 and immediately start a loop
-*/
-global SliceFieldsNumSlices = 3;
+/**
+ * @brief Given an array of fields that pack 31 bytes, return an array that slices the packed byte array at a given index for a given number of bytes
+ * @description Some serious dark black magic nonsense going on here. TODO: document 
+ **/
 fn slice_fields<let InputFields: u16, let OutputFields: u16>(data: [Field; InputFields], start_byte: u16, num_bytes: u16) -> [Field; OutputFields] {
     let (start_index, start_mod_31) = divmod(start_byte as Field, 31);
-    // let start_index = start_index_u16 as Field;
-    // let start_mod_31 = start_mod_31_u16 as Field;
     let num_underflow_bytes = start_mod_31;
 
     let (num_bytes_div_31, num_bytes_mod_31) = divmod(num_bytes as Field, 31);
-    // let num_bytes_mod_31_is_0 = (num_bytes_mod_31 == 0) as Field;
 
-    let num_bytes_mod_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_mod_31]; // (num_bytes_mod_31 == 0) as Field;
+    let num_bytes_mod_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_mod_31];
     let num_bytes_div_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_div_31];
-    // start = 38. mod 31 = 7
-    // start_mod_31_u16 = num bytes consumed by 
 
-    // if num_bytes < (31 - start_mod_31)
-    //      then num_unused_bytes = num_bytes
-    // else
-    //      num_unused_bytes = 31 - start_mod_31
-    /*
-        how do we handle this properly?
-        (num_bytes + start_index) div 31 + (num_bytes + start_index mod 31 != 0) gives the end limb
+    let lookup = (-num_bytes_div_31_is_0 * num_bytes as Field) - start_mod_31 + 62;
+    std::as_witness(lookup);
+    let bytes_fit_into_limb = INTEGER_UP_TO_62_IS_GREATER_THAN_31[lookup] * num_bytes_div_31_is_0;
+    std::as_witness(bytes_fit_into_limb);
 
-        (num_bytes + start_index) .divmod 31 gives us the ending limb except not really
-        
-        start_index + (num_bytes - bytes_in_first_limb) <-- this is what we need
-
-        bytes_in_first_limb is hard to do that's the problem
-        start mod 31 = num unused bytes in first limb
-    */
-    {
-        // let (start_index, start_mod_31) = divmod(start_byte as Field, 31);
-        // let max_bytes_in_first_limb = 31 - start_mod_31;
-        // let potential_remaining_bytes = (num_bytes as Field - max_bytes_in_first_limb);
-        // let (potential_num_whole_limbs, potential_overflow_bytes) = divmod(potential_remaining_bytes, 31);
-        // // if max_bytes_in_first_limb > num_bytes then 
-        // let single_limb = max_bytes_in_first_limb as u16 > num_bytes; // boo womp
-        // can also measure if max_bytes_in_first_limb is negative
-        /*
-
-            extra head section = (overflow bytes > start_mod_31)
-            or... (num_bytes - max_bytes_in_first_limb ) mod 31 > start_index mod 31
-            overflow bytes used is larger than the number of unavailable bytes in the first limb
-
-            another way of putting it is
-            if the number of overflow bytes is smaller than the unavailable bytes in the first limb
-            then their values combined fit into a limb != extra_head section is small
-            start_mod_31 + overflow_bytes . max this can be is 61 
-        */
-    }
-    // 38 mod 31 = 7. so 1st head = 24, tail = 7
-    // instead of 31 we need std::max(31, num_bytes)
-    // (num_bytes / 31) == 0
-    // let mut num_unused_bytes_in_start_limb = (num_bytes_div_31_is_0 * num_bytes as Field) + (1 - num_bytes_div_31_is_0) * 31;
-    // num_unused_bytes_in_start_limb -= start_mod_31;
-
-    // num_bytes_div_31_is_0 for sure means num_bytes cannot be < num_unused_bytes_in_start_limb
-    let conditional_num_bytes = num_bytes as Field * num_bytes_div_31_is_0;
-    let predicate_lt_lhs = conditional_num_bytes;
-    let predicate_lt_rhs = 31 - start_mod_31;
-    // lhs < rhs => rhs > lhs => rhs - lhs > 0 => rhs - lhs + 31 > 31
-    let lt_predicate = INTEGER_UP_TO_62_IS_GREATER_THAN_31[predicate_lt_rhs - predicate_lt_lhs + 31]
-        * num_bytes_div_31_is_0;
-
-    // num_bytes < 31 - start_mod31_u16
-    let num_unused_bytes_in_start_limb = (num_bytes as Field - predicate_lt_rhs) * lt_predicate + predicate_lt_rhs;
-    // old
-    // let mut num_unused_bytes_in_start_limb = 31 - start_mod_31_u16;
-    // let lt_predicate = num_bytes < num_unused_bytes_in_start_limb;
-    // let num_unused_bytes_in_start_limb = (num_bytes as Field - num_unused_bytes_in_start_limb as Field) * lt_predicate as Field
-    //     + num_unused_bytes_in_start_limb as Field;
-
-    // if (num_bytes < num_unused_bytes_in_start_limb) {
-    //     num_unused_bytes_in_start_limb = num_bytes;
-    // }
-    let mut num_remaining_bytes = num_bytes as Field - num_unused_bytes_in_start_limb as Field;
-    // todo fix
-    let bytes_fit_into_limb = lt_predicate; // (31 - start_mod_31_u16) >= num_bytes;
-
-    // let lhs = (31 - start_mod_31_u16) >= num_bytes;
-    // let rhs = lt_predicate; // 1 - lt_predicate;
-    // println(f"orig = {lhs}, new = {rhs}, num_bytes = {num_bytes}, start_mod_31 = {start_mod_31_u16}");
-    // assert(lhs as Field == rhs);
-    // num bytes = 1. mod31 = 0 => 
-    // if a single limb we want num_overflow_bytes to equal num_bytes + start_mod_31
-    // remaining bytes mod 31
+    let num_unused_bytes_in_start_limb = (num_bytes as Field + start_mod_31 - 31) * bytes_fit_into_limb + (31 - start_mod_31);
+    std::as_witness(num_unused_bytes_in_start_limb);
+    let num_remaining_bytes = num_bytes as Field - num_unused_bytes_in_start_limb;
 
     let mut (num_whole_limbs, num_overflow_bytes) = divmod(num_remaining_bytes, 31);
-    // let num_whole_limbs = num_whole_limbs_u16 as Field;
-    // let num_overflow_bytes = num_overflow_bytes_u16 as Field;
     let (_, tail) = slice_field(data[start_index], num_underflow_bytes);
 
     let mut previous = tail;
-    // first chunk is tail
-    // let mut num_whole_limbs: error = num_whole_limbs_u16; // todo fix
 
     let mut result = [0; OutputFields];
 
-    // try to get this working
-
-    // remaining_bytes mod 31 = overflow bytes
-    // start mod 31 = extra head space
-    // overflow bytes > extra head space
-    // => overflow_bytes - extra head space > 0
-    // overflow bytes - extra head space + 31
     let extra_head_section = INTEGER_UP_TO_62_IS_GREATER_THAN_31[num_overflow_bytes - start_mod_31 + 31]
-        * (1 - bytes_fit_into_limb as Field);
-    num_whole_limbs += extra_head_section as Field;
-    // 31, 31, 4
-    // 4 overflow bytes. 2 bytes in start limb
+        * (1 - bytes_fit_into_limb);
 
     let index_of_output_limb: Field = num_bytes_div_31 - num_bytes_mod_31_is_0;
 
-    // let (path, path_valid_output): ([Field; OutputFields], [Field; OutputFields]) = get_last_limb_path(index_of_output_limb);
-    let path_valid_output: [Field; OutputFields] = get_last_limb_path_v2(index_of_output_limb);
+    let path_valid_output: [Field; OutputFields] = get_last_limb_path(index_of_output_limb);
 
     let tail_shift = BYTE_SHIFT[num_unused_bytes_in_start_limb];
 
-    // so we have input fields which is a 16 bit value (11 bits really)
-    // and we have data index which is similar
-    /*
-        ok so we can get path_valid
-    */
     for i in 0..(OutputFields - 1) {
-        // ok so... we start with a partial limb
-        // we then have K number of whole limbs
-        /*
-        let slice_valid = (i < num_whole_limbs) as Field;
-        // let mut data_index = (start_index_u16_plus_1 + i);
-        // let no_data: Field = (data_index >= InputFields) as Field;
-        //let data_index = (data_index as Field); // * (1 - no_data); // prevents array overflow
-        let input_slice = data[start_index + 1 + i as Field]; // * slice_valid; // * (1 - no_data as Field);
-        let (head, tail) = slice_field(input_slice, num_underflow_bytes);
-        let combined = previous * tail_shift + head;
-        result[i] = combined * slice_valid;
-    */
-        // let slice_valid = (i < num_whole_limbs) as Field;
-        // let mut data_index = (start_index_u16_plus_1 + i);
-        // let data_index = (data_index as Field); //  * (1 - no_data); // prevents array overflow
-        // let input_slice = data[data_index]; // * slice_valid; //  * (1 - no_data as Field);
-        // let (head, tail) = slice_field(input_slice, num_underflow_bytes);
-        // let combined = previous * tail_shift + head;
-        // result[i] = combined; // * slice_valid;
-        // previous = tail;
-        // previous = (tail - previous) * slice_valid + previous;
-        // previous = (tail - previous) * slice_valid + previous;
-        // THIS VERSION WORKS
         let slice_valid = path_valid_output[i];
-        //  let slice_valid_other = (i < num_whole_limbs) as Field;
         let data_index = (start_index + 1 + i as Field);
-        // let no_data = (data_index >= InputFields) as Field;
-        let input_slice = data[data_index]; //* slice_valid; // * (1 - no_data as Field);
+        let input_slice = data[data_index];
         let (head, tail) = slice_field(input_slice, num_underflow_bytes);
         let combined = previous * tail_shift + head;
         result[i] = combined * slice_valid;
-
         previous = (tail - previous) * slice_valid + previous;
     }
 
-    /*
-    let (_, num_bytes_mod_31) = divmod(num_bytes as Field, 31);
+    let slice_size = (num_bytes as Field + start_mod_31) * bytes_fit_into_limb + num_overflow_bytes;
 
-    // let num_bytes_mod_31_is_0 = (num_bytes_mod_31 == 0) as Field;
-    // let index_of_output_limb = num_bytes_div_31 - num_bytes_mod_31_is_0;
+    let use_previous_for_last_limb: Field = extra_head_section + bytes_fit_into_limb;
 
-    let slice_size = (num_bytes as Field + start_mod_31) * bytes_fit_into_limb as Field + num_overflow_bytes;
-
-    //let use_previous_for_last_limb = (!bytes_fit_into_limb & extra_head_section) | (bytes_fit_into_limb);
-
-    //let mut index_of_overflow_limb = start_index as Field + num_whole_limbs as Field + 1 - extra_head_section as Field;
-    // index_of_overflow_limb *= (1 - use_previous_for_last_limb as Field); // prevents index exceeding array size
-    // let last_limb_from_data = data[index_of_overflow_limb];
-
-    // let slice_source = (previous - last_limb_from_data) * use_previous_for_last_limb as Field + last_limb_from_data;
-
-    let mut (head, _) = slice_field(previous, slice_size);
-    let mut last_limb = head + (previous * BYTE_SHIFT[31 - num_overflow_bytes]); // * (1 - use_previous_for_last_limb as Field);
-    last_limb *= BYTE_SHIFT[num_bytes_mod_31];
-    result[0] = last_limb;
-    */
-    // THIS VERSION WORKS
-
-    let slice_size = (num_bytes as Field + start_mod_31) * bytes_fit_into_limb as Field + num_overflow_bytes;
-
-    let use_previous_for_last_limb: Field = (1 as Field - bytes_fit_into_limb as Field) * extra_head_section as Field
-        + bytes_fit_into_limb as Field;
-    //(!bytes_fit_into_limb & extra_head_section) | (bytes_fit_into_limb);
-
-    // let use_previous_for_last_limb: bool = (!bytes_fit_into_limb & extra_head_section) | (bytes_fit_into_limb);
-
-    let mut index_of_overflow_limb = start_index as Field + num_whole_limbs as Field + 1 - extra_head_section as Field;
-    index_of_overflow_limb *= (1 - use_previous_for_last_limb as Field); // prevents index exceeding array size
+    let mut index_of_overflow_limb = start_index as Field + num_whole_limbs + 1;
     let last_limb_from_data = data[index_of_overflow_limb];
-
-    let slice_source = (previous - last_limb_from_data) * use_previous_for_last_limb as Field + last_limb_from_data;
+    let slice_source = (previous - last_limb_from_data) * use_previous_for_last_limb + last_limb_from_data;
 
     let (head, _) = slice_field(slice_source, slice_size);
-    let mut last_limb = head
-        + (previous * BYTE_SHIFT[31 - num_overflow_bytes]) * (1 - use_previous_for_last_limb as Field);
-    last_limb *= BYTE_SHIFT[num_bytes_mod_31];
 
-    // result[0] = last_limb;
-    // 26,583 (no last limb set)
-    // 27,883 (new last limb set) delta = 1,300 = 13 boo
-    // 28,323 (old last limb set) delta 117 + 323 = 540 = 5.4
+    let mut last_limb = (previous * BYTE_SHIFT[31 - num_overflow_bytes]);
+    std::as_witness(last_limb);
+    last_limb = last_limb * (-use_previous_for_last_limb) + last_limb + head;
+    std::as_witness(last_limb);
+    last_limb = last_limb * BYTE_SHIFT[num_bytes_mod_31];
+    std::as_witness(last_limb);
 
-    // We have two parameters, `i`, `index_of_output_limb`
-    // (or more generally `i` and `num_bytes`)
-    // these are indexing needle elements so not large
-    // we can have some table. a 2D table of is_same[i][j]
-    // flattened to 1D via is_same[i * OutputFields + j]
-    // would be 3 gates to access which seems painful
-    // +2 gates to set
-    // is 5 gates per iteration * 2 = 10. current is 13
-    /*
-        can we do better w. unconstrained fn?
-
-        (i - index) if zero then we want last_limb
-        (i - index) if not zero
-    */
-    // let path = LAST_LIMB_PATH[index_of_output_limb];
-    // let path_bools = decompose(index_of_output_limb as u16);
-    // let num_bits = log2(OutputFields);
-
-    // let mut r: Field = 0;
-    // for i in 0..num_bits {
-    //     r *= 2;
-    //     r += bit_bools[i] as Field;
-    // }
-    // assert(r == index_of_output_limb);
-    // this right? not sure
-    /*
-        use index of output limb to get a path 0 0 1 0
-    */
-
-    // 27983
-    // 883 vs 983
-
-    // 4 gates per it
-    // i == x
-    // (a - b) * is_eq = 0
-    // ((a - b) * I - 1) * (1 - is_eq) = 0
-
-    // diff = (a - b)
-    // diff * is_eq + (diff * I - 1) * is_eq (3 gates each surely?)
-    // 5 gates there is rounding error?
-
-    // getting the path...
-    // PA, PB
-    // PA + PB * 2 == Sum = 1 gate
-    // PA bool (1 gate)
-    // PB bool (1 gate)
-    // read = 2 gates
-
-    // 0 1 1
-    // 1 0 0
-
-    // 0 0
-    // 0 1
-    // current = 0 and previous = 1
-    // 27983
-    // 5 gates
     let mut path: [Field; OutputFields] = [0; OutputFields];
     for i in 1..OutputFields {
         path[i] = (1 - path_valid_output[i]) * path_valid_output[i-1];
     }
     path[0] = (1 - path_valid_output[0]);
     for i in 0..OutputFields {
-        //let is_last = (i as Field == index_of_output_limb) as Field;
-        let is_last = path[i];
-        result[i] = (last_limb - result[i]) * is_last + result[i];
+        result[i] = (last_limb - result[i]) * path[i] + result[i];
     }
-    // if (!bytes_fit_into_limb & extra_head_section) | (bytes_fit_into_limb) {
-    //     let (head, _) = slice_field(slice_source, slice_size);
-
-    //     result[index_of_output_limb] = head * BYTE_SHIFT[num_bytes_mod_31];
-    // } else {
-    //     let mut (head, _) = slice_field(slice_source, slice_size);
-
-    //     let last_limb = (previous * BYTE_SHIFT[31 - num_overflow_bytes] + head) * BYTE_SHIFT[num_bytes_mod_31];
-
-    //     // let mut last_limb = combined * (1 - perfectly_aligned as Field) + previous * perfectly_aligned as Field;
-    //     // let num_bytes_in_last_limb = num_bytes % 31;
-    //     // last_limb *= BYTE_SHIFT[num_bytes_in_last_limb];
-    //     result[index_of_output_limb] = last_limb;
-    // }
-    // 38 mod 31 = 7
-    // limb[1] 7 bytes in
     result
 }
 
-// 32 position, 68 bytes
-// x[30] = last in 1st limb
-// x[31] = 1st in 2nd limb
-// x[32] = 2nd in 2nd limb => 30 bytes in start limb = 0x1e
-// 38 remaining bytes, 1 whole limb, 7 overflow bytes
-// limbs[1] = first partial
-// limbs[2] = whole
-// limbs[3] = exit
-// start = 1 on 30
-// whole = 1 on 30
-
-// when computing the whole limb, previous = 30 byte hoohah
-// head = 0x6c. (previou * 0x100 + head). we do that
-// we cache previous as 0x6420627... etc (30 byte chunk)
-// final slice. we have 7 overflow bytes
-// 1 byte goes into the previous chunk
-// 6 bytes go into the final chunk
-// oh. nasty. hmmmmm can we handle in main loop by going an extra iteration and performing a mask?
-
-unconstrained fn build_slices<let N: u32>(bytes: [u8; N], start: u32, num_bytes: u32) -> [Field; 3] {
+unconstrained fn build_slices_for_test<let N: u32>(bytes: [u8; N], start: u32, num_bytes: u32) -> [Field; 3] {
     let mut slices: [Field; 3] = [0; 3];
     for i in 0..3 {
         for k in 0..31 {
@@ -1052,14 +616,14 @@ fn test_slice_fields() {
         let num_bytes = byte_sizes[i];
         for j in 0..18 {
             let start_byte: u32 = byte_positions[j];
-            let mut expected_slices: [Field; 3] = build_slices(text, start_byte, num_bytes);
+            let mut expected_slices: [Field; 3] = build_slices_for_test(text, start_byte, num_bytes);
             let result_slices: [Field; 3] = slice_fields(slices, start_byte as u16, num_bytes as u16);
             assert(result_slices == expected_slices);
         }
 
         for j in 0..18 {
             let start_byte: u32 = text.len() - num_bytes - byte_positions[j];
-            let mut expected_slices: [Field; 3] = build_slices(text, start_byte, num_bytes);
+            let mut expected_slices: [Field; 3] = build_slices_for_test(text, start_byte, num_bytes);
             let result_slices: [Field; 3] = slice_fields(slices, start_byte as u16, num_bytes as u16);
             assert(result_slices == expected_slices);
         }

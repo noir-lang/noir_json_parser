@@ -149,13 +149,13 @@ unconstrained fn __slice_200_bits_from_field(f: Field) -> (Field, Field, bool) {
     borrow = PLO.hilo < res200.hilo;
     PLO.hihi -= borrow as u64;
     borrow = PLO.hihi < res200.hihi;
-    let u = PLO.hihi as Field;
-    let v = res200.hihi as Field;
-    println(f"ptop vs rtop = {u} : {v}");
+    // let u = PLO.hihi as Field;
+    // let v = res200.hihi as Field;
+    // println(f"ptop vs rtop = {u} : {v}");
     // 0x29b85045b6818158
     // 0xc7411d9450cce4
-    let k = PLO_200_felt;
-    println(f"lo vs p = {lo} : {k}");
+    // let k = PLO_200_felt;
+    // println(f"lo vs p = {lo} : {k}");
     let mut PHI = PHI_54 - borrow as u64;
     assert(PHI > res54, "slice failed? this shouldn't happen!");
     // 0xc7411d9450cce4f0881a2ac0a346f02e1aa1d499535e33336c
@@ -369,6 +369,7 @@ fn sum_var_bytes_into_field<let N: u32>(
 
     let mut chunks: [Field; 5] = [0; 5];
 
+    println(f"PATH = {path_f}");
     chunks[0] = body_text[idx] as Field;
     idx += path_f[0];
 
@@ -379,10 +380,10 @@ fn sum_var_bytes_into_field<let N: u32>(
     + body_text[idx + 2] as Field * 0x100 + body_text[idx + 3] as Field;
     idx += path_f[2] * 4;
 
-    chunks[3] = body_text[idx] as Field * 0x100000000000000 + body_text[idx + 1] as Field * 0x100000000000
-    + body_text[idx + 2] as Field * 0x10000000000 + body_text[idx + 3] as Field * 0x100000000
-    + body_text[idx + 4] as Field * 0x1000000 + body_text[idx + 5] as Field * 0x10000
-    + body_text[idx + 6] as Field * 0x100 + body_text[idx + 7] as Field;
+    chunks[3] = body_text[idx] as Field * 0x100000000000000 + body_text[idx + 1] as Field * 0x1000000000000
+    + body_text[idx + 2] as Field       * 0x10000000000 + body_text[idx + 3] as Field     * 0x100000000
+    + body_text[idx + 4] as Field       * 0x1000000 + body_text[idx + 5] as Field         * 0x10000
+    + body_text[idx + 6] as Field       * 0x100 + body_text[idx + 7] as Field;
     idx += path_f[3] * 8;
 
     chunks[4] = body_text[idx] as Field * 0x1000000000000000000000000000000 + body_text[idx + 1] as Field * 0x1000000000000000000000000000
@@ -492,13 +493,14 @@ fn get_keyhash_chunky<let N: u32>(body_text: [u8; N], body_index: u16, key_lengt
     //let uv = hashed_full * hashed_full;
     //println(f"{uv}");
     //hashed_full
-    slice_200_bits_from_field(hashed_full)
+    //  slice_200_bits_from_field(hashed_full)
     // let hashed_bytes= dep::std::hash::blake2s(result);
     //    let hashed = fakehash(result); // dep::std::hash::blake2s(result);
     //let hashed_full = limb;
-    // let r = slice_200_bits_from_field(hashed_full);
-    // println(f"chunky result {r}");
-    // r
+    let r = slice_200_bits_from_field(hashed_full);
+    println(f"chunky result {r}");
+    r
+    // 0x6f40d45d5b9a5dbc875225e048bf4aa4900440adfe972b0e9d
     // let hashed_bytes = hashed_full.to_be_bytes(32);
     // let mut result: Field = 0;
     // // 200 bits
@@ -546,6 +548,7 @@ fn get_keyhash<let N: u32>(body_text: [u8; N], body_index: u16, key_length: u16)
         println(f"OLD VERSION key_fields[{j}] = {k}");
     }
 
+    // 0x706f7274666f6c696f
     // 57,980 without calling this fn
     // 79,103 without pos2
     // => 330 gates per element without hashing wtf
@@ -579,3 +582,4 @@ fn get_keyhash<let N: u32>(body_text: [u8; N], body_index: u16, key_length: u16)
 // 0xc7411d9450cce4f0881a2ac0a346f02e1aa1d499535e33336c
 // 0xc7411d9450cce4f0881a2ac0a346f02e1aa1d499535e33336c
 // 0xc7411d9450cce4f0881a2ac0a346f02e1aa1d499535e33336c
+

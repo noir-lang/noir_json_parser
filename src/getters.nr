@@ -60,7 +60,7 @@ impl JSONLiteral {
 }
 global MaxKeyBytes = 32;
 
-impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEntries> {
+impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JSON<NumBytes,NumPackedFields,TranscriptEntries> {
 
     unconstrained fn find_key_in_map(self, target: Field) -> Field {
         let mut found_index: Field = 0;
@@ -420,7 +420,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
 
         assert(entry.entry_type == BEGIN_OBJECT_TOKEN, "key does not describe an object");
 
-        let mut result: Option<JSON<NumBytes, TranscriptEntries>> = Option::none();
+        let mut result: Option<JSON<NumBytes, NumPackedFields, TranscriptEntries>> = Option::none();
         if (exists) {
             let mut r = self;
             r.layer_id = entry.parent_index;
@@ -439,7 +439,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         // TODO: ADD A layer_context VARIABLE INTO JSON WHICH DESCRIBES WHETHER WE ARE AN OBJECT, ARRAY OR SINGLE VALUE
         assert(entry.entry_type == BEGIN_ARRAY_TOKEN, "key does not describe an object");
 
-        let mut result: Option<JSON<NumBytes, TranscriptEntries>> = Option::none();
+        let mut result: Option<JSON<NumBytes, NumPackedFields, TranscriptEntries>> = Option::none();
         if (exists) {
             let mut r = self;
             r.layer_id = entry.parent_index;
@@ -573,6 +573,7 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         */
         let keyhash = get_keyhash(key, 0, key_length);
 
+        println(f"search keyhash {keyhash}");
         // let two_pow_200 = 0x10000000000000000000000000000000000000000000000000000;
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
 
@@ -659,3 +660,15 @@ impl<let NumBytes: u32, let TranscriptEntries: u32> JSON<NumBytes, TranscriptEnt
         (search_result.found, search_result.lhs_index)
     }
 }
+
+/*
+key_fields[0] = 0x706f0794666f6c696f
+                0x706f7274666f6c696f
+key_fields[1] = 0x00
+chunky result 0x4dbc868fd1791e3bbeb76c2afe7ce959388b191891389e2b49
+*/
+/*
+OLD VERSION key_fields[0] = 0x706f7274666f6c696f
+OLD VERSION key_fields[1] = 0x00
+old result 0x6f40d45d5b9a5dbc875225e048bf4aa4900440adfe972b0e9d
+*/

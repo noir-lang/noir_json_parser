@@ -408,7 +408,7 @@ global TokenFlagsTable: [Field; NUM_TOKENS * 2] = generate_token_flags_table();
 // }
 // global CAPTURE_TABLE_ENCODED = make_capture_table_full();
 
-struct JSON<let NumBytes: u32, let TranscriptEntries: u32> {
+struct JSON<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> {
     json: [u8; NumBytes],
     transcript: [Field; TranscriptEntries],
     transcript_length: u16,
@@ -417,7 +417,8 @@ struct JSON<let NumBytes: u32, let TranscriptEntries: u32> {
     layer_id: Field,
     layer_context: Field, // is the current layer an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER
     layer_index_in_transcript: Field,
-    packed_json_entries: [Field; TranscriptEntries]
+    packed_json_entries: [Field; TranscriptEntries],
+    packed_json: [Field; NumPackedFields]
 }
 
 /*
@@ -425,8 +426,32 @@ NEXT UP: HANDLE ARRAYS
 this requires adding an array index into the key data being hashed to form our list of objects
 
 */
-impl<let NumBytes: u16, let TranscriptEntries: u16> JSON<NumBytes, TranscriptEntries> {
+impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JSON<NumBytes, NumPackedFields, TranscriptEntries> {
 
+    fn compute_packed_json(&mut self) {
+        let NumWholeLimbs = NumBytes / 31;
+        for i in 0..NumWholeLimbs {
+            let mut limb: Field = 0;
+            for j in 0..NumBytes {
+                limb *= 0x100;
+                limb += self.json[i * 31 + j] as Field;
+            }
+            std::as_witness(limb);
+            self.packed_json[i] = limb;
+            println(f"{limb}"); //limb == 0);
+        }
+        let NumRemainingBytes = NumBytes - NumWholeLimbs * 31;
+        let mut limb: Field = 0;
+        for j in 0..NumRemainingBytes {
+            limb *= 0x100;
+            limb += self.json[NumWholeLimbs * 31 + j] as Field;
+        }
+        for j in NumRemainingBytes..31 {
+            limb *= 0x100;
+        }
+        std::as_witness(limb);
+        self.packed_json[NumWholeLimbs + (NumRemainingBytes == 0) as u16] = limb;
+    }
     fn capture_missing_tokens(&mut self) {
         let mut updated_transcript: [Field; TranscriptEntries] = [0; TranscriptEntries];
         let mut transcript_ptr: Field = 0;
@@ -687,7 +712,8 @@ impl<let NumBytes: u16, let TranscriptEntries: u16> JSON<NumBytes, TranscriptEnt
             layer_id: 0,
             layer_context: OBJECT_LAYER, // TODO support arrays and single values,
             layer_index_in_transcript: 0,
-            packed_json_entries: self.packed_json_entries
+            packed_json_entries: self.packed_json_entries,
+            packed_json: self.packed_json
         }
     }
 }
@@ -776,7 +802,8 @@ fn test_redux() {
         layer_id: 0,
         layer_context: OBJECT_LAYER,
         layer_index_in_transcript: 0,
-        packed_json_entries: [0; 30]
+        packed_json_entries: [0; 30],
+        packed_json: [0; 7]
     };
 
     json = json.build_transcript();
@@ -1024,7 +1051,7 @@ struct JSONEntry {
     }
 
     assert(
-        json_entries[25] == JSONEntry {
+        json_entries[26] == JSONEntry {
             array_pointer: 1,
             entry_type: BEGIN_OBJECT_TOKEN,
             child_pointer: 28, // first child of object is json entry 1 // ah fuck wot
@@ -1049,7 +1076,7 @@ struct JSONEntry {
     );
 
     assert(
-        json_entries[26] == JSONEntry {
+        json_entries[25] == JSONEntry {
             array_pointer: 2,
             entry_type: STRING_TOKEN,
             child_pointer: 0, // first child of object is json entry 1
@@ -1131,7 +1158,8 @@ fn test_literal() {
         layer_id: 0,
         layer_context: OBJECT_LAYER,
         layer_index_in_transcript: 0,
-        packed_json_entries: [0; 20]
+        packed_json_entries: [0; 20],
+        packed_json: [0, 10]
     };
 
     json = json.build_transcript();
@@ -1177,7 +1205,8 @@ fn test_arrays() {
         layer_id: 0,
         layer_context: OBJECT_LAYER,
         layer_index_in_transcript: 0,
-        packed_json_entries: [0; 60]
+        packed_json_entries: [0; 60],
+        packed_json: [0, 10]
     };
 
     json = json.build_transcript();
@@ -1210,8 +1239,13 @@ fn test_arrays() {
     let mut json_entries: [JSONEntry; 60] = [JSONEntry::new(); 60];
     for i in 0..60 {
         json_entries[i] = JSONEntry::from_field(json.packed_json_entries[i]);
+        let k = json_entries[i];
+        println(f"JSON ENTRY {k}");
     }
-    assert(json_entries[57].entry_type == LITERAL_TOKEN);
+    assert(json_entries[56].entry_type == LITERAL_TOKEN);
+    assert(json_entries[56].parent_index == 2);
+
+    assert(json_entries[57].entry_type == BEGIN_ARRAY_TOKEN);
     assert(json_entries[57].parent_index == 2);
 
     assert(json_entries[58].entry_type == NUMERIC_TOKEN);
