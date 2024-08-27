@@ -485,14 +485,14 @@ pub fn get_last_limb_path<let OutputFields: u16>(last_limb_index: Field) -> [Fie
  **/
 pub fn slice_fields<let InputFields: u16, let OutputFields: u16>(
     data: [Field; InputFields],
-    start_byte: u16,
-    num_bytes: u16
+    start_byte: Field,
+    num_bytes: Field
 ) -> [Field; OutputFields] {
     // 3.5
-    let (start_index, start_mod_31) = divmod(start_byte as Field, 31);
+    let (start_index, start_mod_31) = divmod(start_byte, 31);
     let num_underflow_bytes = start_mod_31;
     // 3.5, 7
-    let (num_bytes_div_31, num_bytes_mod_31) = divmod(num_bytes as Field, 31);
+    let (num_bytes_div_31, num_bytes_mod_31) = divmod(num_bytes, 31);
 
     // 2, 9
     let num_bytes_mod_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_mod_31];
@@ -500,16 +500,16 @@ pub fn slice_fields<let InputFields: u16, let OutputFields: u16>(
     let num_bytes_div_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_div_31];
 
     // 1, 12
-    let lookup = (-num_bytes_div_31_is_0 * num_bytes as Field) - start_mod_31 + 62;
+    let lookup = (-num_bytes_div_31_is_0 * num_bytes) - start_mod_31 + 62;
     std::as_witness(lookup);
     // 3, 15
     let bytes_fit_into_limb = INTEGER_UP_TO_62_IS_GREATER_THAN_31[lookup] * num_bytes_div_31_is_0;
     std::as_witness(bytes_fit_into_limb);
 
     // 2, 17
-    let num_unused_bytes_in_start_limb = (num_bytes as Field + start_mod_31 - 31) * bytes_fit_into_limb + (31 - start_mod_31);
+    let num_unused_bytes_in_start_limb = (num_bytes + start_mod_31 - 31) * bytes_fit_into_limb + (31 - start_mod_31);
     std::as_witness(num_unused_bytes_in_start_limb);
-    let num_remaining_bytes = num_bytes as Field - num_unused_bytes_in_start_limb;
+    let num_remaining_bytes = num_bytes - num_unused_bytes_in_start_limb;
 
     // 4.5, 21.5
     let mut (num_whole_limbs, num_overflow_bytes) = divmod(num_remaining_bytes, 31);
@@ -551,13 +551,13 @@ pub fn slice_fields<let InputFields: u16, let OutputFields: u16>(
     }
 
     // 2, 130.5
-    let slice_size = (num_bytes as Field + start_mod_31) * bytes_fit_into_limb + num_overflow_bytes;
+    let slice_size = (num_bytes + start_mod_31) * bytes_fit_into_limb + num_overflow_bytes;
 
     // 1, 131.5
     let use_previous_for_last_limb: Field = extra_head_section + bytes_fit_into_limb;
 
     // 1, 132.5
-    let mut index_of_overflow_limb = start_index as Field + num_whole_limbs + 1;
+    let mut index_of_overflow_limb = start_index + num_whole_limbs + 1;
     // 2, 134.5
     let last_limb_from_data = data[index_of_overflow_limb];
     // 2, 136.5
@@ -646,7 +646,7 @@ fn test_slice_fields_nolength() {
     let num_bytes = 0;
     let start_byte: u32 = 0;
     let mut expected_slices: [Field; 3] = build_slices_for_test(text, start_byte, num_bytes);
-    let result_slices: [Field; 3] = slice_fields(slices, start_byte as u16, num_bytes as u16);
+    let result_slices: [Field; 3] = slice_fields(slices, start_byte as Field, num_bytes as Field);
     assert(result_slices == expected_slices);
 }
 
@@ -705,14 +705,14 @@ fn test_slice_fields() {
         for j in 0..18 {
             let start_byte: u32 = byte_positions[j];
             let mut expected_slices: [Field; 3] = build_slices_for_test(text, start_byte, num_bytes);
-            let result_slices: [Field; 3] = slice_fields(slices, start_byte as u16, num_bytes as u16);
+            let result_slices: [Field; 3] = slice_fields(slices, start_byte as Field, num_bytes as Field);
             assert(result_slices == expected_slices);
         }
 
         for j in 0..18 {
             let start_byte: u32 = text.len() - num_bytes - byte_positions[j];
             let mut expected_slices: [Field; 3] = build_slices_for_test(text, start_byte, num_bytes);
-            let result_slices: [Field; 3] = slice_fields(slices, start_byte as u16, num_bytes as u16);
+            let result_slices: [Field; 3] = slice_fields(slices, start_byte as Field, num_bytes as Field);
             assert(result_slices == expected_slices);
         }
     }

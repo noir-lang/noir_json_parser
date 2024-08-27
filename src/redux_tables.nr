@@ -21,6 +21,9 @@ global OBJECT_LAYER = 0;
 global ARRAY_LAYER = 1;
 global SINGLE_VALUE_LAYER = 2;
 
+global TOKEN_BEGINS_OBJECT_OR_ARRAY : [Field; 11] = [
+0,1,0,1,0,0,0,0,0,0,0
+];
 global TOKEN_IS_NUMERIC_OR_LITERAL: [Field; 11] = [
 0,0,0,0,0,0,0,0,1,1,0
 ];

@@ -304,7 +304,7 @@ fn mainslice(foo: [Field; 100], bar: [u8; 1000], num_bytes: [u16; 100], start_by
 
     // CURRENT VALUE OF SLICE_FIELDS IS 182 GATES 26 AUGUST
     for i in 0..89 {
-        let x: [Field; 2] = slice_fields(foo, start_bytes[i], num_bytes[i]);
+        let x: [Field; 2] = slice_fields(foo, start_bytes[i] as Field, num_bytes[i] as Field);
         // let x = slice_field(foo[i], start_bytes[i] as Field);
         println(f"{x}");
         //  assert(x[0] == x[1]);

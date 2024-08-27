@@ -34,6 +34,70 @@ impl JSONEntry {
         // 4 gates. oof
     }
 
+    unconstrained fn __extract_parent_index_from_field(f: Field) -> (Field, Field, Field) {
+        let entry = JSONEntry::from_field(f);
+        let low = entry.id;
+        let mid = entry.parent_index;
+        let hi = (f - low - mid * 0x10000) / 0x100000000;
+        (low, mid, hi)
+    }
+    fn add_child_pointer_into_field(f: Field, child_pointer: Field) -> Field {
+        f + child_pointer * 0x1000000000000
+    }
+    unconstrained fn __extract_entry_type_and_id_from_field(f: Field) -> (Field, Field, Field) {
+        let entry = JSONEntry::from_field(f);
+        let id = entry.id;
+        let entry_type = entry.entry_type;
+        let mid = (f - id - entry_type * 0x100000000000000000000000000000000000000) / 0x10000;
+        (id, mid, entry_type)
+    }
+    unconstrained fn __extract_entry_type_id_and_parent_index_from_field(f: Field) -> (Field, Field, Field, Field) {
+        let entry = JSONEntry::from_field(f);
+        let id = entry.id;
+        let entry_type = entry.entry_type;
+        let parent_index = entry.parent_index;
+        let mid = (f - id - parent_index * 0x10000 - entry_type * 0x100000000000000000000000000000000000000)
+            / 0x100000000;
+        (id, parent_index, mid, entry_type)
+    }
+
+    // 11.75 gates
+    fn extract_entry_type_id_and_parent_index_from_field(f: Field) -> (Field, Field, Field) {
+        let (id, parent_index, mid, entry_type) = JSONEntry::__extract_entry_type_id_and_parent_index_from_field(f);
+        id.assert_max_bit_size(8); // 1.25
+        parent_index.assert_max_bit_size(16); // 1.5
+        entry_type.assert_max_bit_size(16); // 1.5
+        mid.assert_max_bit_size(136); // 5.5
+
+        assert(
+            id
+            + parent_index * 0x10000
+            + mid * 0x100000000
+            + entry_type * 0x100000000000000000000000000000000000000
+            == f
+        );
+
+        (id, parent_index, entry_type)
+    }
+    fn extract_entry_type_and_id_from_field(f: Field) -> (Field, Field) {
+        let (id, mid, entry_type) = JSONEntry::__extract_entry_type_and_id_from_field(f);
+        id.assert_max_bit_size(8); // 1.25
+        entry_type.assert_max_bit_size(16); // 1.5
+        mid.assert_max_bit_size(136); // 5.5
+
+        assert(id + mid * 0x10000 + entry_type * 0x100000000000000000000000000000000000000 == f);
+        (id, entry_type)
+    }
+    fn extract_parent_index_from_field(f: Field) -> Field {
+        let (low, parent_index, hi) = JSONEntry::__extract_parent_index_from_field(f);
+
+        low.assert_max_bit_size(16); // 1.75
+        hi.assert_max_bit_size(128); // 5.5
+        parent_index.assert_max_bit_size(16); // 1.75
+        assert(low + parent_index * 0x10000 + hi * 0x100000000 == f); // 1
+        // 10 gates?
+        parent_index
+    }
     fn from_field(f: Field) -> Self {
         let bytes: [u8; 20] = f.to_be_bytes(20).as_array(); // 10.5 gates
 

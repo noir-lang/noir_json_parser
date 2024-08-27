@@ -377,7 +377,7 @@ struct Hasher<let KeyFields: u16>
 
 impl<let KeyFields: u16> Hasher<KeyFields> {
 
-    fn get_keyhash<let NumPackedFields: u16>(_: Self, packed_fields: [Field; NumPackedFields], body_index: u16, key_length: u16) -> Field {
+    fn get_keyhash<let NumPackedFields: u16>(_: Self, packed_fields: [Field; NumPackedFields], body_index: Field, key_length: Field) -> Field {
         let key_fields: [Field; KeyFields] = slice_fields(packed_fields, body_index, key_length);
 
         let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFields as u32);
