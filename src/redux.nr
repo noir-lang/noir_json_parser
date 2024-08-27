@@ -603,7 +603,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
             let object_or_array_entry: JSONEntry = JSONEntry {
                     array_pointer: previous_stack_entry.num_entries, // duplicated lookup remove once working 
                     entry_type: json_entry_type,
-                    child_pointer: previous_stack_entry.entry_pointer, // need a stack to figure this out. is depth value correct here?
+                    child_pointer: 0,// previous_stack_entry.entry_pointer, // need a stack to figure this out. is depth value correct here?
                     num_children: num_entries_at_current_depth, // no children
                     json_pointer: previous_stack_entry.json_index,
                     json_length: length,
@@ -726,7 +726,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
             // 1 gate to compute index
             // 2 gates to read
             let capture_context = CAPTURE_TABLE_ENCODED_FLAT[scan_mode * 128 + ascii as Field];
-            // 2 gates for 5 bytes + 1.25 range gates = 3.25
+            // 2 gates for 5 bytes + 5 range gates = 8.25
             let bytes = capture_context.to_be_bytes(5);
             let new_scan_mode = bytes[4] as Field;
             let scan_token = bytes[3] as Field;
@@ -734,9 +734,32 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
             let increase_length = bytes[1] as Field;
             let error_flag = bytes[0] as Field;
 
+            // what if we store the following:
+            // 1 ascii
+            // 2 scan mode
+            // 3 push_transcript
+            // 4 error flag (ick)
+            // but we avoid scan token, we use a future lookup for that
+
+            // ascii
+            // scan mode
+            // push transcript
+            // update length
+            // convert bytes would cost 4.75 instead of 8.25?
+            // 3.5 gate saving
+            // + remove error flag check = 1 gate saving
+
+            // + can fiddle with length for 1 gate saving
+            // 5.5 gate delta on 19.75
+            // -> 14.25 gates per byte
+            // could cut 0.75 by doing dumb bool checks
+            // = 6.25 delta
+            // use ROM array instead of RAM = 0.5
+            // 6.75 gate delta
+            // 13 per byte
             // 1 gate for i - length
             // 1 gate for to_field
-            // subtotal: 8.25
+            // subtotal: 13.25
             let new_entry = TranscriptEntry::to_field(TranscriptEntry { token: scan_token, index: i as Field - length, length });
 
             // let old_entry = transcript[transcript_ptr];
@@ -744,14 +767,20 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
             // let entry = (new_entry - old_entry) * push_transcript + old_entry;
             // 3.5 gates to write
             // TODO might be a problem this last token
+            // 16.75
             transcript[transcript_ptr] = new_entry; //  * push_transcript;
             // 1 gate to update length
             length = length * (1 - push_transcript) + increase_length;
+            std::as_witness(length);
             // 1 gate to update transcript_ptr
-            // 13.75
+            // 18.75
             transcript_ptr += push_transcript;
 
             // hmm should be 0 gates but might be 1
+            // 19.75
+            // actual cost = 20
+            // missing a gate from transcript entry length param?
+            // odd maybe 1.25 not being used
             assert(error_flag == 0, "bad token?");
 
             scan_mode = new_scan_mode;
@@ -1050,7 +1079,7 @@ struct JSONEntry {
         json_entries[3] == JSONEntry {
             array_pointer: 1,
             entry_type: BEGIN_OBJECT_TOKEN,
-            child_pointer: 1, // first child of object is json entry 1
+            child_pointer: 0, // first child of object is json entry 1
             num_children: 2,
             json_pointer: get(7).index,
             json_length: get(7).length,

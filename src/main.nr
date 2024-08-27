@@ -612,7 +612,8 @@ fn mainkjghg(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: [u16; 
 
 // ok new
 
-// build_transcript: 23375
+// empty: 1332
+// build_transcript: 21332
 // + capture_missing_tokens: 24233
 // + keyswap: 33605 (9k?)
 // + create_json_entries: 53989 (20k?)
@@ -691,15 +692,16 @@ fn main(text: str<1024>) {
     json.keyswap();
     json.compute_packed_json();
     json.create_json_entries();
-    // assert(json.packed_json[inputs[3]] == 1234);
-
-    for i in 0..63 {
-        assert(json.key_data[i] == json.key_data[i + 1]);
-    }
+    // // assert(json.packed_json[inputs[3]] == 1234);
+    // for i in 0..63 {
+    //     assert(json.key_data[i] == json.key_data[i + 1]);
+    // }
     //  let keymap::KeyIndexData{ json_index, json_length, parent_id, array_index } = keymap::KeyIndexData::from_field(json.key_data[0]);
     // assert(json_index == json_length);
     // assert(parent_id == array_index);
-    // json.compute_keyhash_and_sort_json_entries();
+
+    // 62578
+    json.compute_keyhash_and_sort_json_entries();
     // 51810 57908
     // 51889 57911
     // delta of 6,098 even after initing range tables

@@ -47,6 +47,13 @@ impl JSONEntry {
         let parent_index = bytes[16] as Field * 0x100 + bytes[17] as Field; // 6 gates
         let id = bytes[18] as Field * 0x100 + bytes[19] as Field; // 6 gates
 
+        std::as_witness(json_length);
+        std::as_witness(json_pointer);
+        std::as_witness(num_children);
+        std::as_witness(child_pointer);
+        std::as_witness(array_pointer);
+        std::as_witness(parent_index);
+        std::as_witness(id);
         // this might cost 17 gates? oof
         JSONEntry { array_pointer, child_pointer, num_children, json_pointer, json_length, entry_type, parent_index, id }
     }

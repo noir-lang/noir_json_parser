@@ -104,6 +104,8 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JS
         //
 
         let sort_result = noir_sort::sort_advanced(hashlist, lte_field_240_bit, assert_lte_240_bit);
+        // about 2k to sort. no biggie
+
         let mut sorted_entries: [Field; TranscriptEntries] = [0; TranscriptEntries];
 
         for i in 0..TranscriptEntries {
@@ -113,36 +115,48 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JS
         let mut identity_to_json_map: [Field; TranscriptEntries] = [0; TranscriptEntries];
         for i in 0..TranscriptEntries {
             let E = JSONEntry::from_field(sorted_entries[i]);
-            //let update = ((E.entry_type == BEGIN_OBJECT_TOKEN) | (E.entry_type == BEGIN_ARRAY_TOKEN));
+            let update = ((E.entry_type == BEGIN_OBJECT_TOKEN) | (E.entry_type == BEGIN_ARRAY_TOKEN));
             // NOTE THIS RELIES ON TRANSCRIPTENTRIES ACTUALLY DESCRIBING NUMTRANSCRIPTENTRIES + 1
-            // let index = (E.id - (TranscriptEntries as Field - 1)) * update as Field
-            //     + (TranscriptEntries as Field - 1);
-            // identity_to_json_map[index] = i as Field;
-            if ((E.entry_type == BEGIN_OBJECT_TOKEN) | (E.entry_type == BEGIN_ARRAY_TOKEN)) {
-                identity_to_json_map[E.id] = i as Field;
-            }
+            let index = (E.id - (TranscriptEntries as Field - 1)) * update as Field
+                + (TranscriptEntries as Field - 1);
+            identity_to_json_map[index] = i as Field;
+            // if ((E.entry_type == BEGIN_OBJECT_TOKEN) | (E.entry_type == BEGIN_ARRAY_TOKEN)) {
+            //     identity_to_json_map[E.id] = i as Field;
+            // }
         }
+        // 67,802
+        // 105,261
+        // almost 40k?
 
+        // this one is expensive... if statement!
+        /*
+            ok wtf is going on here
+            a json entry has a "parent_index"
+            if the parent index changes, we are changing context
+            if this happens then we need to find the owner of this new entry
+            and update its "child pointer" location
+        */
         for i in 0..TranscriptEntries - 1 {
+            // 35 gates per unpack = 105 gates per iteration
+            // 110 * 64 = 6500 ish
             let parent_identity_pre = JSONEntry::from_field(sorted_entries[i]).parent_index;
             let parent_identity_post = JSONEntry::from_field(sorted_entries[i + 1]).parent_index;
             // if the parent identity changes,
             let new_parent = parent_identity_post != parent_identity_pre;
 
             let index_of_parent = identity_to_json_map[parent_identity_post];
-            // let mut updated = JSONEntry::from_field(sorted_entries[index_of_parent]);
-            // updated.child_pointer = i as Field + 1;
+            let mut updated = JSONEntry::from_field(sorted_entries[index_of_parent]);
+            updated.child_pointer = i as Field + 1;
 
             // // RELIES ON THE SMALLEST ENTRY IN THE SORTED LIST BEING EMPTY
-            // let index = ((index_of_parent - 0) * new_parent as Field) + 0;
-
-            // sorted_entries[index] = updated.to_field();
-            if (new_parent) {
-                let index_of_parent = identity_to_json_map[parent_identity_post];
-                let mut updated = JSONEntry::from_field(sorted_entries[index_of_parent]);
-                updated.child_pointer = i as Field + 1;
-                sorted_entries[index_of_parent] = updated.to_field();
-            }
+            let index = ((index_of_parent - 0) * new_parent as Field) + 0;
+            sorted_entries[index] = updated.to_field();
+            // if (new_parent) {
+            //     let index_of_parent = identity_to_json_map[parent_identity_post];
+            //     let mut updated = JSONEntry::from_field(sorted_entries[index_of_parent]);
+            //     updated.child_pointer = i as Field + 1;
+            //     sorted_entries[index_of_parent] = updated.to_field();
+            // }
             // i + 1 is the starting index of a new set of children
         }
 
@@ -164,6 +178,9 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JS
         self.packed_json_entries = sorted_entries;
 
         self.key_hashes = sort_result.sorted;
+        // 38050
+        // 60707 <-- cost after hashing keuys
+        // 77244 <-- cost after sorting and updating children
     }
 }
 
