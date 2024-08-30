@@ -1,16 +1,18 @@
 use crate::redux_tables::{
-    BEGIN_ARRAY_TOKEN, NO_TOKEN, END_OBJECT_TOKEN, END_ARRAY_TOKEN, KEY_SEPARATOR_TOKEN,
-    VALUE_SEPARATOR_TOKEN, KEY_TOKEN, BEGIN_OBJECT_TOKEN, NUMERIC_TOKEN, STRING_TOKEN, LITERAL_TOKEN,
-    OBJECT_CONTEXT, ARRAY_CONTEXT, NUM_TOKENS, GRAMMAR_CAPTURE_TABLE, STRING_CAPTURE_TABLE,
-    NUMERIC_CAPTURE_TABLE, LITERAL_CAPTURE_TABLE, GRAMMAR_CAPTURE_TOKEN, STRING_CAPTURE_TOKEN,
-    NUMERIC_CAPTURE_TOKEN, LITERAL_CAPTURE_TOKEN, GRAMMAR_CAPTURE_PUSH_TRANSCRIPT,
-    STRING_CAPTURE_PUSH_TRANSCRIPT, NUMERIC_CAPTURE_PUSH_TRANSCRIPT, LITERAL_CAPTURE_PUSH_TRANSCRIPT,
-    GRAMMAR_CAPTURE_INCREASE_LENGTH, STRING_CAPTURE_INCREASE_LENGTH, NUMERIC_CAPTURE_INCREASE_LENGTH,
-    LITERAL_CAPTURE_INCREASE_LENGTH, GRAMMAR_CAPTURE_ERROR_FLAG, STRING_CAPTURE_ERROR_FLAG,
-    NUMERIC_CAPTURE_ERROR_FLAG, LITERAL_CAPTURE_ERROR_FLAG, TOKEN_IS_NUMERIC_OR_LITERAL
+    OBJECT_LAYER, ARRAY_LAYER, SINGLE_VALUE_LAYER, STRING_CAPTURE, BEGIN_ARRAY_TOKEN, NO_TOKEN,
+    END_OBJECT_TOKEN, END_ARRAY_TOKEN, KEY_SEPARATOR_TOKEN, VALUE_SEPARATOR_TOKEN, KEY_TOKEN,
+    BEGIN_OBJECT_TOKEN, NUMERIC_TOKEN, STRING_TOKEN, LITERAL_TOKEN, OBJECT_CONTEXT, ARRAY_CONTEXT,
+    NUM_TOKENS, GRAMMAR_CAPTURE_TABLE, STRING_CAPTURE_TABLE, NUMERIC_CAPTURE_TABLE,
+    LITERAL_CAPTURE_TABLE, GRAMMAR_CAPTURE_TOKEN, STRING_CAPTURE_TOKEN, NUMERIC_CAPTURE_TOKEN,
+    LITERAL_CAPTURE_TOKEN, GRAMMAR_CAPTURE_PUSH_TRANSCRIPT, STRING_CAPTURE_PUSH_TRANSCRIPT,
+    NUMERIC_CAPTURE_PUSH_TRANSCRIPT, LITERAL_CAPTURE_PUSH_TRANSCRIPT, GRAMMAR_CAPTURE_INCREASE_LENGTH,
+    STRING_CAPTURE_INCREASE_LENGTH, NUMERIC_CAPTURE_INCREASE_LENGTH, LITERAL_CAPTURE_INCREASE_LENGTH,
+    GRAMMAR_CAPTURE_ERROR_FLAG, STRING_CAPTURE_ERROR_FLAG, NUMERIC_CAPTURE_ERROR_FLAG,
+    LITERAL_CAPTURE_ERROR_FLAG, TOKEN_IS_NUMERIC_OR_LITERAL
 };
 
 use crate::token_flags::TokenFlags;
+use crate::transcript_entry::ValidationFlags;
 
 global CAPTURE_TABLE: [[Field; 128]; 4] = [GRAMMAR_CAPTURE_TABLE, STRING_CAPTURE_TABLE, NUMERIC_CAPTURE_TABLE, LITERAL_CAPTURE_TABLE];
 global CAPTURE_TOKEN: [[Field; 128]; 4] = [GRAMMAR_CAPTURE_TOKEN, STRING_CAPTURE_TOKEN, NUMERIC_CAPTURE_TOKEN, LITERAL_CAPTURE_TOKEN];
@@ -54,27 +56,337 @@ unconstrained fn make_ascii_to_token_table() -> [Field; 1024] {
     result
 }
 
+unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKENS * 3] {
+    // index = layer type, current token and next token
+    // output is layer type
+    // 11 tokens , 3 layers = 11 * 11 * 3 = 121 * 3 = 343
+    // object contexts
+    let no_change = ValidationFlags { push_layer: 0, push_layer_id: 0, pop_layer: 0, error: 0 };
+    let error_flags = ValidationFlags { push_layer: 0, push_layer_id: 0, pop_layer: 0, error: 1 };
+    let begin_new_object_flags = ValidationFlags { push_layer: 1, push_layer_id: OBJECT_LAYER, pop_layer: 0, error: 0 };
+    let begin_new_array_flags = ValidationFlags { push_layer: 1, push_layer_id: ARRAY_LAYER, pop_layer: 0, error: 0 };
+    let end_object_or_array_flags: ValidationFlags = ValidationFlags { push_layer: 0, push_layer_id: 0, pop_layer: 1, error: 0 };
+
+    let token_ids: [Field; NUM_TOKENS] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+    let error_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|_| error_flags.to_field());
+    let object_layer_begin_object_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+        let mut result = error_flags.to_field();
+        if (token == KEY_TOKEN)
+        {
+            result = no_change.to_field();
+        }
+        if (token == END_OBJECT_TOKEN)
+        {
+            result = end_object_or_array_flags.to_field();
+        }
+        result
+    }
+    );
+
+    let object_layer_key_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+            let mut result = no_change.to_field();
+            if (token != KEY_SEPARATOR_TOKEN)
+            {
+                result = error_flags.to_field();
+            }
+            result
+        }
+    );
+
+    let object_layer_key_separator_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+            let mut result = error_flags.to_field();
+            if (token == STRING_TOKEN) | (token == LITERAL_TOKEN) | (token == NUMERIC_TOKEN)
+            {
+                result = no_change.to_field();
+            }
+            if (token == BEGIN_ARRAY_TOKEN)
+            {
+                result = begin_new_array_flags.to_field();
+            }
+            if (token == BEGIN_OBJECT_TOKEN)
+            {
+                result = begin_new_object_flags.to_field();
+            }
+            result
+        }
+    );
+
+    let object_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+            let mut result = error_flags.to_field();
+            if (token == VALUE_SEPARATOR_TOKEN)
+            {
+                result = no_change.to_field();
+            }
+            if (token == END_OBJECT_TOKEN)
+            {
+                result = end_object_or_array_flags.to_field();
+            }
+            result
+        }
+    );
+
+    let object_layer_end_object_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+            let mut result = error_flags.to_field();
+            if (token == VALUE_SEPARATOR_TOKEN)
+            {
+                result = no_change.to_field();
+            }
+            if (token == END_OBJECT_TOKEN)
+            {
+                result = end_object_or_array_flags.to_field();
+            }
+            // we can reach the end of the JSON via this path
+            if (token == NO_TOKEN)
+            {
+                result = no_change.to_field();
+            }
+            result
+        }
+    );
+
+    let object_layer_value_separator_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+            let mut result = error_flags.to_field();
+            if (token == KEY_TOKEN)
+            {
+                result = no_change.to_field();
+            }
+            result
+        }
+    );
+
+    let mut object_layer_flags: [[Field; NUM_TOKENS]; NUM_TOKENS] = [[0; NUM_TOKENS]; NUM_TOKENS];
+    let mut array_layer_flags: [[Field; NUM_TOKENS]; NUM_TOKENS] = [[0; NUM_TOKENS]; NUM_TOKENS];
+    let mut single_value_layer_flags: [[Field; NUM_TOKENS]; NUM_TOKENS] = [[0; NUM_TOKENS]; NUM_TOKENS];
+
+    let no_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+        let mut result = error_flags.to_field();
+        if (token == NO_TOKEN)
+        {
+            result = no_change.to_field();
+        }
+        result
+    }
+    );
+
+    object_layer_flags[NO_TOKEN] = no_token_outcomes;
+    object_layer_flags[BEGIN_OBJECT_TOKEN] = object_layer_begin_object_token_outcomes;
+    object_layer_flags[END_OBJECT_TOKEN] = object_layer_end_object_outcomes;
+    object_layer_flags[BEGIN_ARRAY_TOKEN] = error_token_outcomes;
+    object_layer_flags[END_ARRAY_TOKEN] = object_layer_value_token_outcomes;
+    object_layer_flags[KEY_SEPARATOR_TOKEN] = object_layer_key_separator_token_outcomes;
+    object_layer_flags[VALUE_SEPARATOR_TOKEN] = object_layer_value_separator_token_outcomes;
+    object_layer_flags[STRING_TOKEN] = object_layer_value_token_outcomes;
+    object_layer_flags[NUMERIC_TOKEN] = object_layer_value_token_outcomes;
+    object_layer_flags[LITERAL_TOKEN] = object_layer_value_token_outcomes;
+    object_layer_flags[KEY_TOKEN] = object_layer_key_token_outcomes;
+
+    let array_layer_begin_array_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+        let mut result = error_flags.to_field();
+        if (token == STRING_TOKEN ) | (token == LITERAL_TOKEN) | (token == NUMERIC_TOKEN)
+        {
+            result = no_change.to_field();
+        }
+        if (token == BEGIN_OBJECT_TOKEN)
+        {
+            result = begin_new_object_flags.to_field();
+        }
+        if (token == BEGIN_ARRAY_TOKEN)
+        {
+            result = begin_new_array_flags.to_field();
+        }
+        if (token == END_ARRAY_TOKEN)
+        {
+            result = end_object_or_array_flags.to_field();
+        }
+        result
+    }
+    );
+
+    let array_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+        let mut result = error_flags.to_field();
+        if (token == VALUE_SEPARATOR_TOKEN )
+        {
+            result = no_change.to_field();
+        }
+        if (token == END_ARRAY_TOKEN)
+        {
+            result = end_object_or_array_flags.to_field();
+        }
+        result
+    }
+    );
+
+    let array_layer_value_separator_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+        let mut result = error_flags.to_field();
+        if (token == STRING_TOKEN ) | (token == LITERAL_TOKEN) | (token == NUMERIC_TOKEN)
+        {
+            result = no_change.to_field();
+        }
+        if (token == BEGIN_OBJECT_TOKEN)
+        {
+            result = begin_new_object_flags.to_field();
+        }
+        if (token == BEGIN_ARRAY_TOKEN)
+        {
+            result = begin_new_array_flags.to_field();
+        }
+        result
+    }
+    );
+
+    let array_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+            let mut result = error_flags.to_field();
+            if (token == VALUE_SEPARATOR_TOKEN)
+            {
+                result = no_change.to_field();
+            }
+            if (token == END_ARRAY_TOKEN)
+            {
+                result = end_object_or_array_flags.to_field();
+            }
+            result
+        }
+    );
+    let array_layer_end_array_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+            let mut result = error_flags.to_field();
+            if (token == VALUE_SEPARATOR_TOKEN)
+            {
+                result = no_change.to_field();
+            }
+            if (token == END_ARRAY_TOKEN)
+            {
+                result = end_object_or_array_flags.to_field();
+            }
+            // we can reach the end of the JSON via this path
+            if (token == NO_TOKEN)
+            {
+                result = no_change.to_field();
+            }
+            result
+        }
+    );
+    let array_layer_end_object_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+            let mut result = error_flags.to_field();
+            if (token == VALUE_SEPARATOR_TOKEN)
+            {
+                result = no_change.to_field();
+            }
+            if (token == END_ARRAY_TOKEN)
+            {
+                result = end_object_or_array_flags.to_field();
+            }
+            result
+        }
+    );
+
+    array_layer_flags[NO_TOKEN] = no_token_outcomes;
+    array_layer_flags[BEGIN_OBJECT_TOKEN] = error_token_outcomes;
+    array_layer_flags[END_OBJECT_TOKEN] = array_layer_end_object_outcomes;
+    array_layer_flags[BEGIN_ARRAY_TOKEN] = array_layer_begin_array_token_outcomes;
+    array_layer_flags[END_ARRAY_TOKEN] = array_layer_end_array_outcomes;
+    array_layer_flags[KEY_SEPARATOR_TOKEN] = error_token_outcomes;
+    array_layer_flags[VALUE_SEPARATOR_TOKEN] = array_layer_value_separator_token_outcomes;
+    array_layer_flags[STRING_TOKEN] = array_layer_value_token_outcomes;
+    array_layer_flags[NUMERIC_TOKEN] = array_layer_value_token_outcomes;
+    array_layer_flags[LITERAL_TOKEN] = array_layer_value_token_outcomes;
+    array_layer_flags[KEY_TOKEN] = error_token_outcomes;
+
+    let single_value_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(
+        |token| {
+        let mut result = error_flags.to_field();
+        // we have reached the end of json
+        if (token == NO_TOKEN)
+        {
+            result = no_change.to_field();
+        }
+        result
+    }
+    );
+    single_value_layer_flags[NO_TOKEN] = no_token_outcomes;
+    single_value_layer_flags[BEGIN_OBJECT_TOKEN] = error_token_outcomes;
+    single_value_layer_flags[END_OBJECT_TOKEN] = single_value_layer_value_token_outcomes;
+    single_value_layer_flags[BEGIN_ARRAY_TOKEN] = error_token_outcomes;
+    single_value_layer_flags[END_ARRAY_TOKEN] = single_value_layer_value_token_outcomes;
+    single_value_layer_flags[KEY_SEPARATOR_TOKEN] = object_layer_key_separator_token_outcomes;
+    single_value_layer_flags[VALUE_SEPARATOR_TOKEN] = error_token_outcomes;
+    single_value_layer_flags[STRING_TOKEN] = single_value_layer_value_token_outcomes;
+    single_value_layer_flags[NUMERIC_TOKEN] = single_value_layer_value_token_outcomes;
+    single_value_layer_flags[LITERAL_TOKEN] = single_value_layer_value_token_outcomes;
+    single_value_layer_flags[KEY_TOKEN] = no_token_outcomes;
+
+    let mut flattened_flags: [Field; NUM_TOKENS * NUM_TOKENS * 3] = [0; NUM_TOKENS * NUM_TOKENS * 3];
+    let NN = NUM_TOKENS * NUM_TOKENS as Field;
+    for j in 0..NUM_TOKENS as u32 {
+        for k in 0..NUM_TOKENS as u32 {
+            flattened_flags[OBJECT_LAYER * NN + j as Field * NUM_TOKENS + k as Field] = object_layer_flags[j][k];
+            flattened_flags[ARRAY_LAYER * NN + j as Field * NUM_TOKENS + k as Field] = array_layer_flags[j][k];
+            flattened_flags[SINGLE_VALUE_LAYER * NN + j as Field * NUM_TOKENS + k as Field] = single_value_layer_flags[j][k];
+        }
+    }
+    flattened_flags
+}
+
+// #[test]
+// fn test_make_validation_flags() {
+//     let f = make_token_validation_table();
+//     println(f"global TOKEN_VALIDATION_TABLE: [Field; 363] = {f};");
+// }
 // #[test]
 // fn test_make_ascii_to_token_table() {
 //     let r = make_ascii_to_token_table();
 //     println(f"table = {r}");
 // }
-unconstrained fn make_reduced_capture_table() -> [Field; 1024] {
-    let mut result: [Field; 256 * 4] = [0; 256 * 4];
-    for i in 0..4 {
-        for j in 0..128 {
-            let scan_token = CAPTURE_TABLE[i][j];
-            let push_transcript = CAPTURE_PUSH_TRANSCRIPT[i][j] as Field;
-            let increase_length = CAPTURE_INCREASE_LENGTH[i][j] as Field;
-            let error = CAPTURE_ERROR_FLAG[i][j] as Field;
+unconstrained fn make_reduced_capture_table() -> [Field; 2048] {
+    let backslash: u32 = "\\".as_bytes()[0] as u32;
+    let quotes: u32 = "\"".as_bytes()[0] as u32;
+    let mut result: [Field; 2048] = [0; 2048];
+    for previous_was_potential_capture_escape in 0..2 {
+        for i in 0..4 {
+            for j in 0..128 {
+                let mut scan_token = CAPTURE_TABLE[i][j];
+                let mut push_transcript = CAPTURE_PUSH_TRANSCRIPT[i][j] as Field;
+                let mut increase_length = CAPTURE_INCREASE_LENGTH[i][j] as Field;
+                let mut error = CAPTURE_ERROR_FLAG[i][j] as Field;
 
-            let full = scan_token + push_transcript * 4 + increase_length * 16 + error * 64;
-            result[i * 256 + j] = full;
-        }
-        for j in 0..128 {
-            result[i * 256 + j + 128] = 64; // error flag
+                let mut is_potential_capture_escape = 0;
+                if (scan_token == STRING_CAPTURE) & (j == backslash) {
+                    is_potential_capture_escape = 1;
+                }
+                if ((previous_was_potential_capture_escape == 1) & (j == quotes)) {
+                    scan_token = STRING_CAPTURE;
+                    push_transcript = 0;
+                    increase_length = 1;
+                    error = 0;
+                }
+                let full = scan_token
+                    + push_transcript * 0x100
+                    + increase_length * 0x10000
+                    + is_potential_capture_escape * 0x1000000
+                    + error * 0x100000000;
+                let index = i * 256 + previous_was_potential_capture_escape * 1024 + j;
+                result[index] = full;
+            }
+            for j in 0..128 {
+                let index = i * 256 + previous_was_potential_capture_escape * 1024 + j + 128;
+                result[index] = 0x100000000; // error flag
+            }
         }
     }
+
     result
 }
 // #[test]

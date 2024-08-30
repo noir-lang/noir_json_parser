@@ -23,6 +23,11 @@ mod getters;
 mod keyhash;
 mod slice_field;
 use crate::redux::JSON;
+mod get_string;
+mod get_number;
+mod get_literal;
+mod get_object;
+mod get_array;
 use crate::slice_field::{slice_fields, slice_field};
 use crate::keyhash::{Hasher, slice_200_bits_from_field, get_keyhash_chunky, sum_var_bytes_into_field};
 use crate::lt::lt_field_16_bit;
@@ -696,7 +701,37 @@ fn main(text: str<1024>) {
     json.keyswap(); // 24,341
     json.compute_packed_json(); // 24,836
     json.create_json_entries(); // 29,603
+    //  json.validate_tokens();
     json.compute_keyhash_and_sort_json_entries(); // 55,853
+    // 55300: 0 ow
+    // 57174 get entry
+    // 57373 : 1
+    // 57697 : 2
+    // ????
+    for i in 0..63 {
+        let x = json.key_hashes[i];
+        let y = json.key_hashes[x];
+        assert(x + y == x * y);
+        //       assert(json.key_hashes[i] == json.key_hashes[json.key_hashes[i]]);
+    }
+    // 55552
+    let foo = json.find_key_in_map(293462387461827346);
+    assert(foo == json.key_hashes[0]);
+    let foo = json.find_key_in_map(2934623874618297346);
+    assert(foo == json.key_hashes[0]);
+    let foo = json.find_key_in_map(2934623887461827346);
+    assert(foo == json.key_hashes[0]);
+    let foo = json.find_key_in_map(29346235487461827346);
+    assert(foo == json.key_hashes[0]);
+    // let  entry = json.get_entry_unchecked("hello".as_bytes());
+    //    assert(exists == true);
+    // assert(entry.json_length == 100);
+    // let x: [u8; 10] = json.get_string_unchecked("hello".as_bytes());
+    // assert(x[9] == 10);
+    // let x: [u8; 10] = json.get_string_unchecked("world".as_bytes());
+    // assert(x[9] == 10);
+    //  let r: [u8; 10] = json.slice_string_61(10, 100);
+    //assert(r[0] == 1);
     // // assert(json.packed_json[inputs[3]] == 1234);
     // for i in 0..63 {
     //     assert(json.key_data[i] == json.key_data[i + 1]);
@@ -717,7 +752,6 @@ fn main(text: str<1024>) {
     // 58082 58394
     // 55359 53989
     // 1,370 for 1st which makes sense because of all the tables. hmm
-    // let x = json.get_number_unchecked("hello".as_bytes(), 5);
     // println(f"{x}");
 }
 

@@ -1,5 +1,51 @@
 use crate::redux_tables::ASCII_TO_TOKEN_TABLE;
 
+struct ValidationFlags
+{
+    push_layer: Field,
+    push_layer_id: Field,
+    pop_layer: Field,
+    error: Field,
+}
+
+impl ValidationFlags {
+    fn to_field(self) -> Field {
+        self.push_layer
+            + self.push_layer_id * 0x100
+            + self.pop_layer * 0x10000
+            + self.error * 0x1000000
+    }
+
+    unconstrained fn __from_field(f: Field) -> Self {
+        let bytes = f.to_be_bytes(4);
+        let mut push_layer= bytes[3] as Field;
+        let push_layer_id = bytes[2] as Field;
+        let pop_layer = bytes[1] as Field;
+        let error = bytes[0] as Field;
+
+        assert(error == 0, "ValidationFlags: grammar error");
+        // we are doing something very degenerate here.
+        // in `validate_tokens` update a `depth` parameter via `depth = depth + push_layer - pop_layer`
+        // we index a size-32 array `parent_layer_stack` using the `depth_parameter` immediately after updating `depth`
+        // i.e. we implicitly validate `push_layer < 32`
+        // If the Prover incorrectly generates the `push_layer` witness via encoding any other flag data within it,
+        // an out of bounds error will be triggered
+        // n.b. reason for doing this is that by only having 3 flags stored in our lookup table,
+        // we can extract them all with 1 add gate. combined with 2 bool checks = 3 gates instead of 5/6 gates if we had 4 flags
+        push_layer = push_layer + error * 0x1000000;
+        ValidationFlags { push_layer, push_layer_id, pop_layer, error: 0 }
+    }
+
+    // 3 gates
+    fn from_field(f: Field) -> Self {
+        let r = ValidationFlags::__from_field(f);
+        assert(r.pop_layer * r.pop_layer == r.pop_layer);
+        assert(r.push_layer_id * r.push_layer_id == r.push_layer_id);
+        assert(r.pop_layer * 0x10000 + r.push_layer_id * 0x100 + r.push_layer == f);
+        r
+    }
+}
+
 struct RawTranscriptEntry {
     encoded_ascii: Field,
     index: Field,
@@ -59,28 +105,40 @@ struct TranscriptEntry {
 struct ScanData {
     scan_token: Field,
     push_transcript: Field,
-    increase_length: Field
+    increase_length: Field,
+    is_potential_escape_sequence: Field,
 }
 
 impl ScanData {
     unconstrained fn __from_field(f: Field) -> Self {
-        let nibbles = f.to_le_radix(4, 4);
+        let bytes = f.to_le_bytes(5); // (4, 4);
 
-        let mut scan_token = nibbles[0] as Field;
-        let push_transcript = nibbles[1] as Field;
-        let increase_length = nibbles[2] as Field;
-        let error = nibbles[3] as Field;
+        let mut scan_token = bytes[0] as Field;
+        let push_transcript = bytes[1] as Field;
+        let increase_length = bytes[2] as Field;
+        let is_potential_escape_sequence = bytes[3] as Field;
+        let error = bytes[4] as Field;
         assert(error == 0, "ScanData: Invalid token");
         // TODO document this
-        scan_token = scan_token + error * 64;
-        ScanData { scan_token, push_transcript, increase_length }
+        scan_token = scan_token + error * 0x100000000;
+        ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence }
     }
     fn from_field(f: Field) -> Self {
         let result = ScanData::__from_field(f);
 
         assert(result.increase_length * result.increase_length == result.increase_length);
         assert(result.push_transcript * result.push_transcript == result.push_transcript);
-        assert(result.scan_token + result.push_transcript * 4 + result.increase_length * 16 == f);
+        assert(
+            result.is_potential_escape_sequence * result.is_potential_escape_sequence
+            == result.is_potential_escape_sequence
+        );
+        assert(
+            result.scan_token
+            + result.push_transcript * 0x100
+            + result.increase_length * 0x10000
+            + result.is_potential_escape_sequence * 0x1000000
+            == f
+        );
         result
     }
 }
@@ -115,6 +173,22 @@ impl TranscriptEntry {
         Self { token, index, length }
     }
 
+    unconstrained fn __get_token(f: Field) -> (Field, Field) {
+        let r = TranscriptEntry::__from_field(f);
+        (r.token, (r.index + r.length * 0x10000))
+    }
+
+    // 4 gates
+    fn get_token(f: Field) -> Field {
+        let (token, remainder) = TranscriptEntry::__get_token(f);
+
+        remainder.assert_max_bit_size(32);
+        token.assert_max_bit_size(8);
+
+        assert(token + remainder * 0x100 == f);
+
+        token
+    }
     fn from_field(felt: Field) -> Self {
         // 2 gates to add bytes into sum
         // 1.25 gates for range checks

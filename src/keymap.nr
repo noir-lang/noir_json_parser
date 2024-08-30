@@ -62,6 +62,10 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             hashlist[i] = hash + array_index * two_pow_200 + parent_id * two_pow_216;
         }
 
+        hashlist[MaxNumValues - 1] = 0; // we always ensure the last (unused hopefully!) entry goes first.
+
+        self.packed_json_entries[MaxNumValues - 1] = 0;
+        // when updating identity_to_json_map we are relying on the fact that we can update sorted entry 0? maybe? oof document better
         let sort_result = noir_sort::sort_advanced(hashlist, lte_field_240_bit, assert_lte_240_bit);
 
         let mut sorted_entries: [Field; MaxNumValues] = [0; MaxNumValues];
@@ -109,6 +113,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
             // 3.5 gates
             let index_of_parent = identity_to_json_map[parent_identity_post];
+
             // 1 gate + 3.5 gates
             let updated = JSONEntry::add_child_pointer_into_field(sorted_entries[index_of_parent], i as Field);
 
@@ -120,9 +125,33 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
             parent_identity_pre = parent_identity_post;
         }
-
+        sorted_entries[0] = 0; // TODO document why we want to always make 0 a dead entry
         self.packed_json_entries = sorted_entries;
         self.key_hashes = sort_result.sorted;
+        self.set_root_entry();
+    }
+
+    unconstrained fn __find_root_entry(self) -> Field {
+        let mut found_index = 0;
+        for i in 0..MaxNumValues {
+            let entry = JSONEntry::from_field(self.packed_json_entries[i]);
+            if (entry.parent_index == 0) & (self.packed_json_entries[i] != 0) {
+                found_index = i as Field;
+                break;
+            }
+        }
+        found_index
+    }
+
+    fn set_root_entry(&mut self) {
+        let root_index = self.__find_root_entry();
+
+        let packed_entry = self.packed_json_entries[root_index];
+        let entry = JSONEntry::from_field(packed_entry);
+
+        assert(packed_entry != 0);
+        assert(entry.parent_index == 0);
+        self.layer_index_in_transcript = root_index;
     }
 }
 

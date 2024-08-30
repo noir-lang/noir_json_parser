@@ -259,6 +259,32 @@ impl<let KeyFields: u16> Hasher<KeyFields> {
         let hashed = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFields as u32);
         slice_200_bits_from_field(hashed)
     }
+
+    fn get_keyhash_fixed<let N: u16>(_: Self, key_text: [u8; N]) -> Field {
+        let mut key_fields: [Field; KeyFields] = [0; KeyFields];
+
+        let mut key_idx: u16 = 0;
+        let num_limbs = (MaxKeyBytes / 31) + 1; // N.B. will be funky if MaxKeyBytes is multiple of 31
+        let mut limb = 0;
+
+        for j in 0..num_limbs {
+            limb = 0;
+
+            for i in 0..31 {
+                let valid = ((j * 31 + i) < N) as Field;
+                limb *= 0x100;
+                let byte_index = key_idx as Field * valid;
+                let byte = key_text[byte_index] as Field;
+                limb += byte * valid;
+                key_idx += 1;
+            }
+            key_fields[j] = limb;
+        }
+        let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFieldsTemp as u32);
+
+        let mut r = slice_200_bits_from_field(hashed_full);
+        r
+    }
 }
 
 global KeyFieldsTemp = 2; // TODO replace
@@ -288,6 +314,5 @@ fn get_keyhash<let N: u32>(body_text: [u8; N], body_index: u16, key_length: u16)
     let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFieldsTemp as u32);
 
     let mut r = slice_200_bits_from_field(hashed_full);
-    // println(f"old result {r}");
     r
 }
