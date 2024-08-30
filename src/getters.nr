@@ -11,8 +11,6 @@ use crate::redux_tables::{
 };
 use crate::keyhash::get_keyhash;
 
-use crate::keymap::KeyLen; // todo make param
-
 struct KeySearchResult {
     found: bool,
     target_lt_smallest_entry: bool,
@@ -59,12 +57,12 @@ impl JSONLiteral {
 }
 global MaxKeyBytes = 32;
 
-impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JSON<NumBytes,NumPackedFields,TranscriptEntries> {
+impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues> {
 
     unconstrained fn find_key_in_map(self, target: Field) -> Field {
         let mut found_index: Field = 0;
         let mut found: bool = false;
-        for i in 0..TranscriptEntries {
+        for i in 0..MaxNumValues {
             let key_hash= self.key_hashes[i];
             if (key_hash == target) {
                 found_index = i as Field;
@@ -84,7 +82,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JS
         let mut rhs_minimum: Field = -1;
         let mut lhs_maximum_index: Field = 0;
         let mut rhs_minimum_index: Field = 0;
-        for i in 0..TranscriptEntries {
+        for i in 0..MaxNumValues {
             let key_hash= self.key_hashes[i];
             if (key_hash == target) {
                 found_index = i as Field;
@@ -102,7 +100,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JS
             }
         }
         let target_lt_smallest_entry = target.lt(self.key_hashes[0]);
-        let target_gt_largest_entry = self.key_hashes[TranscriptEntries - 1].lt(target);
+        let target_gt_largest_entry = self.key_hashes[MaxNumValues - 1].lt(target);
 
         let result_not_first_or_last = !target_lt_smallest_entry & !target_gt_largest_entry & !found;
 
@@ -114,7 +112,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JS
         rhs_index = rhs_index * (1 - target_lt_smallest_entry as Field);
 
         // we rely here on the fact that target_gt_largest_entry and result_not_first_or_last are mutually exclusive
-        lhs_index = lhs_index  + target_gt_largest_entry as Field * (TranscriptEntries as Field - 1);
+        lhs_index = lhs_index  + target_gt_largest_entry as Field * (MaxNumValues as Field - 1);
 
         // If target is FOUND, we want the following:
         // keyhash[target_index] - 1 < hash < keyhash[target_index] + 1
@@ -419,7 +417,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JS
 
         assert(entry.entry_type == BEGIN_OBJECT_TOKEN, "key does not describe an object");
 
-        let mut result: Option<JSON<NumBytes, NumPackedFields, TranscriptEntries>> = Option::none();
+        let mut result: Option<JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues>> = Option::none();
         if (exists) {
             let mut r = self;
             r.layer_id = entry.parent_index;
@@ -438,7 +436,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> JS
         // TODO: ADD A layer_context VARIABLE INTO JSON WHICH DESCRIBES WHETHER WE ARE AN OBJECT, ARRAY OR SINGLE VALUE
         assert(entry.entry_type == BEGIN_ARRAY_TOKEN, "key does not describe an object");
 
-        let mut result: Option<JSON<NumBytes, NumPackedFields, TranscriptEntries>> = Option::none();
+        let mut result: Option<JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues>> = Option::none();
         if (exists) {
             let mut r = self;
             r.layer_id = entry.parent_index;

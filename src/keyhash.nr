@@ -164,113 +164,6 @@ global tail_path_multipliers_chunk3: [Field; 32] = [0x01000000000000000000000000
 global tail_path_multipliers_chunk2: [Field; 32] = [0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x010000000000000000, 0x010000000000000000, 0x010000000000000000, 0x010000000000000000, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00];
 global tail_path_multipliers_chunk1: [Field; 32] = [0x0100000000000000000000000000000000000000000000000000000000, 0x0100000000000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x010000000000000000000000000000000000000000, 0x010000000000000000000000000000000000000000, 0x00, 0x00, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x00, 0x00, 0x01000000000000000000000000, 0x01000000000000000000000000, 0x00, 0x00, 0x010000000000000000, 0x010000000000000000, 0x00, 0x00, 0x0100000000, 0x0100000000, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00];
 global tail_path_multipliers_chunk0: [Field; 32] = [0x01000000000000000000000000000000000000000000000000000000000000, 0x00, 0x0100000000000000000000000000000000000000000000000000000000, 0x00, 0x010000000000000000000000000000000000000000000000000000, 0x00, 0x01000000000000000000000000000000000000000000000000, 0x00, 0x0100000000000000000000000000000000000000000000, 0x00, 0x010000000000000000000000000000000000000000, 0x00, 0x01000000000000000000000000000000000000, 0x00, 0x0100000000000000000000000000000000, 0x00, 0x010000000000000000000000000000, 0x00, 0x01000000000000000000000000, 0x00, 0x0100000000000000000000, 0x00, 0x010000000000000000, 0x00, 0x01000000000000, 0x00, 0x0100000000, 0x00, 0x010000, 0x00, 0x01, 0x00];
-// // what do we multiply 4 byte chunk by
-// global tail_path_multipliers_chunk2: [Field; 32] = [
-//     /* 0  (00000) */ 0,
-//     /* 1  (00001) */ 0,
-//     /* 2  (00010) */ 0,
-//     /* 3  (00011) */ 0,
-//     /* 4  (00100) */ 1,
-//     /* 5  (00101) */ 1,
-//     /* 6  (00110) */ 1,
-//     /* 7  (00111) */ 1,
-//     /* 8  (01000) */ 0,
-//     /* 9  (01001) */ 0,
-//     /* 10 (01010) */ 0,
-//     /* 11 (01011) */ 0,
-//     /* 12 (01100) */ two_pow_64,
-//     /* 13 (01101) */ two_pow_64,
-//     /* 14 (01110) */ two_pow_64,
-//     /* 15 (01111) */ two_pow_64,
-//     /* 16 (10000) */ 0,
-//     /* 17 (10001) */ 0,
-//     /* 18 (10010) */ 0,
-//     /* 19 (10011) */ 0,
-//     /* 20 (10100) */ two_pow_128,
-//     /* 21 (10101) */ two_pow_128,
-//     /* 22 (10110) */ two_pow_128,
-//     /* 23 (10111) */ two_pow_128,
-//     /* 24 (11000) */ 0,
-//     /* 25 (11001) */ 0,
-//     /* 26 (11010) */ 0,
-//     /* 27 (11011) */ 0,
-//     /* 28 (11100) */ two_pow_128 * two_pow_64,
-//     /* 29 (11101) */ two_pow_128 * two_pow_64,
-//     /* 30 (11110) */ two_pow_128 * two_pow_64,
-//     /* 31 (11111) */ two_pow_128 * two_pow_64
-// ];
-
-// // what do we multiply 2 byte chunk by
-// global tail_path_multipliers_chunk1: [Field; 32] = [
-//     /* 0  (00000) */ 0,
-//     /* 1  (00001) */ 0,
-//     /* 2  (00010) */ 1,
-//     /* 3  (00011) */ 1,
-//     /* 4  (00100) */ 0,
-//     /* 5  (00101) */ 0,
-//     /* 6  (00110) */ two_pow_32,
-//     /* 7  (00111) */ two_pow_32,
-//     /* 8  (01000) */ 0,
-//     /* 9  (01001) */ 0,
-//     /* 10 (01010) */ two_pow_64,
-//     /* 11 (01011) */ two_pow_64,
-//     /* 12 (01100) */ 0,
-//     /* 13 (01101) */ 0,
-//     /* 14 (01110) */ two_pow_64 * two_pow_32,
-//     /* 15 (01111) */ two_pow_64 * two_pow_32,
-//     /* 16 (10000) */ 0,
-//     /* 17 (10001) */ 0,
-//     /* 18 (10010) */ two_pow_128,
-//     /* 19 (10011) */ two_pow_128,
-//     /* 20 (10100) */ 0,
-//     /* 21 (10101) */ 0,
-//     /* 22 (10110) */ two_pow_128 * two_pow_32,
-//     /* 23 (10111) */ two_pow_128 * two_pow_32,
-//     /* 24 (11000) */ 0,
-//     /* 25 (11001) */ 0,
-//     /* 26 (11010) */ two_pow_128 * two_pow_64,
-//     /* 27 (11011) */ two_pow_128 * two_pow_64,
-//     /* 28 (11100) */ 0,
-//     /* 29 (11101) */ 0,
-//     /* 30 (11110) */ two_pow_128 * two_pow_64 * two_pow_32,
-//     /* 31 (11111) */ two_pow_128 * two_pow_64 * two_pow_32
-// ];
-
-// // what do we multiply 1 byte chunk by
-// global tail_path_multipliers_chunk0: [Field; 32] = [
-//     /* 0  (00000) */ 0,
-//     /* 1  (00001) */ 1,
-//     /* 2  (00010) */ 0,
-//     /* 3  (00011) */ two_pow_16,
-//     /* 4  (00100) */ 0,
-//     /* 5  (00101) */ two_pow_32,
-//     /* 6  (00110) */ 0,
-//     /* 7  (00111) */ two_pow_16 * two_pow_32,
-//     /* 8  (01000) */ 0,
-//     /* 9  (01001) */ two_pow_64,
-//     /* 10 (01010) */ 0,
-//     /* 11 (01011) */ two_pow_64 * two_pow_16,
-//     /* 12 (01100) */ 0,
-//     /* 13 (01101) */ two_pow_64 * two_pow_32,
-//     /* 14 (01110) */ 0,
-//     /* 15 (01111) */ two_pow_64 * two_pow_32 * two_pow_16,
-//     /* 16 (10000) */ 0,
-//     /* 17 (10001) */ two_pow_128,
-//     /* 18 (10010) */ 0,
-//     /* 19 (10011) */ two_pow_128 * two_pow_16,
-//     /* 20 (10100) */ 0,
-//     /* 21 (10101) */ two_pow_128 * two_pow_32,
-//     /* 22 (10110) */ 0,
-//     /* 23 (10111) */ two_pow_128 * two_pow_32 * two_pow_16,
-//     /* 24 (11000) */ 0,
-//     /* 25 (11001) */ two_pow_128 * two_pow_64,
-//     /* 26 (11010) */ 0,
-//     /* 27 (11011) */ two_pow_128 * two_pow_64 * two_pow_16,
-//     /* 28 (11100) */ 0,
-//     /* 29 (11101) */ two_pow_128 * two_pow_64 * two_pow_32,
-//     /* 30 (11110) */ 0,
-//     /* 31 (11111) */ two_pow_128 * two_pow_64 * two_pow_32 * two_pow_16
-// ];
 
 fn sum_var_bytes_into_field<let N: u32>(body_text: [u8; N], body_index: Field, num_bytes: Field) -> Field {
     let path = get_path(num_bytes); // 5 gates
@@ -307,7 +200,6 @@ fn sum_var_bytes_into_field<let N: u32>(body_text: [u8; N], body_index: Field, n
     + body_text[idx + 12] as Field * 0x1000000 + body_text[idx + 13] as Field * 0x10000
     + body_text[idx + 14] as Field * 0x100 + body_text[idx + 15] as Field;
 
-    //chunks[4] = chunks[3] * chunks[3];
     chunks[0] *= path_f[0];
     chunks[1] *= path_f[1];
     chunks[2] *= path_f[2];
@@ -316,15 +208,7 @@ fn sum_var_bytes_into_field<let N: u32>(body_text: [u8; N], body_index: Field, n
 
     let mut sum: Field = 0;
 
-    // if 0 0 1 1
-
-    // if 0 1 0 1 (little endian)
-    // we have chunk[1] and chunk[3]
-    // therefore we need chunk[1] * 8^16
-    // if 0 1 1 1 (little endian)
-    // we need chunk[2] * 8^16, chunk[3] * 8^24
     let mut multiplicand: Field = 1;
-    // println(f"chunks = {chunks}");
     sum += chunks[4];
     multiplicand *= (0x100000000000000000000000000000000 * path_f[4]) + (1 - path_f[4]);
     sum += chunks[3] * multiplicand;
@@ -334,15 +218,8 @@ fn sum_var_bytes_into_field<let N: u32>(body_text: [u8; N], body_index: Field, n
     sum += chunks[1] * multiplicand;
     multiplicand *= (0x10000 * path_f[1]) + (1 - path_f[1]);
     sum += chunks[0] * multiplicand;
-
-    //  sum *= BYTE_SHIFT[num_bytes];
-    // 0x74657374410000000000000000000000000000000000000000000000000000
-    // 0x74657374410000000000000000000000000000000000000000000000000000
-    // length = l, byte_shift = (31 - l)
     sum
 }
-// 0x74657374410000000000000000000000000000000000000000000000000000
-// 0x7465737441
 
 fn get_keyhash_chunky<let N: u32>(body_text: [u8; N], body_index: u16, key_length: u16) -> Field {
     assert(key_length < MaxKeyBytes, "key too large");
@@ -379,15 +256,8 @@ impl<let KeyFields: u16> Hasher<KeyFields> {
 
     fn get_keyhash<let NumPackedFields: u16>(_: Self, packed_fields: [Field; NumPackedFields], body_index: Field, key_length: Field) -> Field {
         let key_fields: [Field; KeyFields] = slice_fields(packed_fields, body_index, key_length);
-
-        let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFields as u32);
-        // let hashed_full: Field = key_fields[0] + key_fields[1] + key_fields[2];
-
-        let r = slice_200_bits_from_field(hashed_full);
-        r
-        // let r = key_fields[0] + key_fields[1] + key_fields[2];
-        // std::as_witness(r);
-        //     key_fields[2]
+        let hashed = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFields as u32);
+        slice_200_bits_from_field(hashed)
     }
 }
 

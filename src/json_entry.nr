@@ -1,3 +1,51 @@
+struct JSONContextStackEntry {
+    num_entries: Field,
+    context: Field,
+    current_key_length: Field,
+    current_key_index: Field,
+    json_index: Field,
+    entry_pointer: Field,
+    current_identity: Field
+}
+impl JSONContextStackEntry {
+    unconstrained fn __from_field(f: Field) -> Self {
+        // 19 + 6 = 25
+        let bytes = f.to_be_bytes(13);
+        let context = bytes[0] as Field;
+        let num_entries = bytes[1] as Field * 0x100 + bytes[2] as Field;
+        let current_key_length = bytes[3] as Field * 0x100 + bytes[4] as Field;
+        let current_key_index = bytes[5] as Field * 0x100 + bytes[6] as Field;
+        let json_index = bytes[7] as Field * 0x100 + bytes[8] as Field;
+        let entry_pointer = bytes[9] as Field * 0x100 + bytes[10] as Field;
+        let current_identity = bytes[11] as Field * 0x100 + bytes[12] as Field;
+        JSONContextStackEntry { num_entries, context, current_key_length, current_key_index, json_index, entry_pointer, current_identity }
+    }
+
+    fn from_field(f: Field) -> Self {
+        let result = JSONContextStackEntry::__from_field(f);
+
+        result.context.assert_max_bit_size(8);
+        result.num_entries.assert_max_bit_size(16);
+        result.current_key_length.assert_max_bit_size(16);
+        result.current_key_index.assert_max_bit_size(16);
+        result.json_index.assert_max_bit_size(16);
+        result.entry_pointer.assert_max_bit_size(16);
+        result.current_identity.assert_max_bit_size(16);
+        assert(result.to_field() == f); // 3
+        result
+    }
+
+    fn to_field(self) -> Field {
+        self.current_identity
+            + self.entry_pointer * 0x10000
+            + self.json_index * 0x100000000
+            + self.current_key_index * 0x1000000000000
+            + self.current_key_length * 0x10000000000000000
+            + self.num_entries * 0x100000000000000000000
+            + self.context * 0x1000000000000000000000000
+    }
+}
+
 struct JSONEntry {
     array_pointer: Field,
     entry_type: Field,
@@ -22,18 +70,6 @@ impl JSONEntry {
         }
     }
 
-    fn to_field(self) -> Field {
-        self.id +
-        self.parent_index *    0x10000
-        + self.array_pointer * 0x10000000000000000                          // 2 bytes
-        + self.child_pointer * 0x100000000000000000000                      // 2 bytes
-        + self.num_children *  0x1000000000000000000000000                  // 2 bytes
-        + self.json_pointer *  0x10000000000000000000000000000              // 2 bytes
-        + self.json_length *   0x100000000000000000000000000000000          // 2 bytes
-        + self.entry_type *    0x100000000000000000000000000000000000000 // 1 byte
-        // 4 gates. oof
-    }
-
     unconstrained fn __extract_parent_index_from_field(f: Field) -> (Field, Field, Field) {
         let entry = JSONEntry::from_field(f);
         let low = entry.id;
@@ -41,8 +77,9 @@ impl JSONEntry {
         let hi = (f - low - mid * 0x10000) / 0x100000000;
         (low, mid, hi)
     }
+
     fn add_child_pointer_into_field(f: Field, child_pointer: Field) -> Field {
-        f + child_pointer * 0x1000000000000
+        f + child_pointer * 0x100000000000000000000
     }
     unconstrained fn __extract_entry_type_and_id_from_field(f: Field) -> (Field, Field, Field) {
         let entry = JSONEntry::from_field(f);
@@ -98,7 +135,7 @@ impl JSONEntry {
         // 10 gates?
         parent_index
     }
-    fn from_field(f: Field) -> Self {
+    unconstrained fn __from_field(f: Field) -> Self {
         let bytes: [u8; 20] = f.to_be_bytes(20).as_array(); // 10.5 gates
 
         let entry_type = bytes[0] as Field;
@@ -111,15 +148,33 @@ impl JSONEntry {
         let parent_index = bytes[16] as Field * 0x100 + bytes[17] as Field; // 6 gates
         let id = bytes[18] as Field * 0x100 + bytes[19] as Field; // 6 gates
 
-        std::as_witness(json_length);
-        std::as_witness(json_pointer);
-        std::as_witness(num_children);
-        std::as_witness(child_pointer);
-        std::as_witness(array_pointer);
-        std::as_witness(parent_index);
-        std::as_witness(id);
         // this might cost 17 gates? oof
         JSONEntry { array_pointer, child_pointer, num_children, json_pointer, json_length, entry_type, parent_index, id }
+    }
+
+    fn to_field(self) -> Field {
+        self.id +
+        self.parent_index *    0x10000
+        + self.array_pointer * 0x10000000000000000                          // 2 bytes
+        + self.child_pointer * 0x100000000000000000000                      // 2 bytes
+        + self.num_children *  0x1000000000000000000000000                  // 2 bytes
+        + self.json_pointer *  0x10000000000000000000000000000              // 2 bytes
+        + self.json_length *   0x100000000000000000000000000000000          // 2 bytes
+        + self.entry_type *    0x100000000000000000000000000000000000000 // 1 byte
+        // 4 gates. oof
+    }
+    fn from_field(f: Field) -> Self {
+        let result = JSONEntry::__from_field(f);
+        result.entry_type.assert_max_bit_size(8);
+        result.json_length.assert_max_bit_size(16);
+        result.json_pointer.assert_max_bit_size(16);
+        result.num_children.assert_max_bit_size(16);
+        result.child_pointer.assert_max_bit_size(16);
+        result.array_pointer.assert_max_bit_size(16);
+        result.parent_index.assert_max_bit_size(16);
+        result.id.assert_max_bit_size(16);
+        assert(result.to_field() == f);
+        result
     }
 }
 

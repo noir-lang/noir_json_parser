@@ -20,417 +20,37 @@ global STRING_TYPE = 2;
 global NUMBER_TYPE = 3;
 global LITERAL_TYPE = 4;
 
+use crate::token_flags::TokenFlags;
 use crate::getters;
 use crate::getters::JSONLiteral;
 use crate::test_data::JSON_WITH_ARRAYS;
 use dep::noir_sort;
-use crate::transcript_entry::TranscriptEntry;
-use crate::json_entry::JSONEntry;
+use crate::transcript_entry::{TranscriptEntry, RawTranscriptEntry, ScanData, PostProcessScanData};
+use crate::json_entry::{JSONContextStackEntry, JSONEntry};
 use crate::keymap;
-use crate::lt::{lt_field_8_bit, lt_field_16_bit};
 use crate::redux_tables::{
-    NUM_TOKENS_MUL_2, CAPTURE_TABLE_ENCODED_FLAT, NUM_TOKENS, NO_TOKEN, TOKEN_IS_ARRAY_OBJECT_OR_VALUE,
-    TOKEN_IS_NUMERIC_OR_LITERAL, OBJECT_LAYER, ARRAY_LAYER, SINGLE_VALUE_LAYER, CAPTURE_TABLE_ENCODED,
-    GRAMMAR_CAPTURE_INCREASE_LENGTH, STRING_CAPTURE_INCREASE_LENGTH, NUMERIC_CAPTURE_INCREASE_LENGTH,
-    LITERAL_CAPTURE_INCREASE_LENGTH, GRAMMAR_CAPTURE_ERROR_FLAG, STRING_CAPTURE_ERROR_FLAG,
-    NUMERIC_CAPTURE_ERROR_FLAG, LITERAL_CAPTURE_ERROR_FLAG, LITERAL_CAPTURE_PUSH_TRANSCRIPT,
-    LITERAL_CAPTURE_TOKEN, LITERAL_CAPTURE_TABLE, NUMERIC_CAPTURE_PUSH_TRANSCRIPT,
-    NUMERIC_CAPTURE_TOKEN, NUMERIC_CAPTURE_TABLE, STRING_CAPTURE_PUSH_TRANSCRIPT, STRING_CAPTURE_TOKEN,
-    STRING_CAPTURE_TABLE, GRAMMAR_CAPTURE_PUSH_TRANSCRIPT, GRAMMAR_CAPTURE_TOKEN, GRAMMAR_CAPTURE_TABLE,
-    GRAMMAR_CAPTURE, STRING_CAPTURE, NUMERIC_CAPTURE, LITERAL_CAPTURE, ERROR_CAPTURE,
-    BEGIN_OBJECT_TOKEN, END_OBJECT_TOKEN, BEGIN_ARRAY_TOKEN, END_ARRAY_TOKEN, KEY_SEPARATOR_TOKEN,
-    VALUE_SEPARATOR_TOKEN, STRING_TOKEN, NUMERIC_TOKEN, LITERAL_TOKEN, KEY_TOKEN
+    OBJECT_CONTEXT, ARRAY_CONTEXT, PROCESS_RAW_TRANSCRIPT_TABLE, REDUCED_CAPTURE_TABLE,
+    TOKEN_FLAGS_TABLE, CAPTURE_TABLE_ENCODED_FLAT, NUM_TOKENS, TOKEN_IS_ARRAY_OBJECT_OR_VALUE,
+    TOKEN_IS_NUMERIC_OR_LITERAL, OBJECT_LAYER, ARRAY_LAYER, SINGLE_VALUE_LAYER, BEGIN_OBJECT_TOKEN,
+    END_OBJECT_TOKEN, BEGIN_ARRAY_TOKEN, END_ARRAY_TOKEN, KEY_SEPARATOR_TOKEN, VALUE_SEPARATOR_TOKEN,
+    STRING_TOKEN, NUMERIC_TOKEN, LITERAL_TOKEN, KEY_TOKEN
 };
 
-fn get_flattened_capture_table() {}
-// todo: single value context?
-global OBJECT_CONTEXT: Field = 0;
-global ARRAY_CONTEXT: Field = 1;
-
-global CAPTURE_TABLE: [[Field; 128]; 4] = [GRAMMAR_CAPTURE_TABLE, STRING_CAPTURE_TABLE, NUMERIC_CAPTURE_TABLE, LITERAL_CAPTURE_TABLE];
-global CAPTURE_TOKEN: [[Field; 128]; 4] = [GRAMMAR_CAPTURE_TOKEN, STRING_CAPTURE_TOKEN, NUMERIC_CAPTURE_TOKEN, LITERAL_CAPTURE_TOKEN];
-global CAPTURE_PUSH_TRANSCRIPT: [[bool; 128]; 4] = [GRAMMAR_CAPTURE_PUSH_TRANSCRIPT, STRING_CAPTURE_PUSH_TRANSCRIPT, NUMERIC_CAPTURE_PUSH_TRANSCRIPT, LITERAL_CAPTURE_PUSH_TRANSCRIPT];
-global CAPTURE_INCREASE_LENGTH: [[bool; 128]; 4] = [GRAMMAR_CAPTURE_INCREASE_LENGTH, STRING_CAPTURE_INCREASE_LENGTH, NUMERIC_CAPTURE_INCREASE_LENGTH, LITERAL_CAPTURE_INCREASE_LENGTH];
-global CAPTURE_ERROR_FLAG: [[bool; 128]; 4] = [GRAMMAR_CAPTURE_ERROR_FLAG, STRING_CAPTURE_ERROR_FLAG, NUMERIC_CAPTURE_ERROR_FLAG, LITERAL_CAPTURE_ERROR_FLAG];
-
-unconstrained fn make_capture_table_full() -> [[Field; 128]; 4] {
-    let mut result: [[Field; 128]; 4] = [[0; 128]; 4];
-    for i in 0..4 {
-        for j in 0..128 {
-            let table = CAPTURE_TABLE[i][j];
-            let token = CAPTURE_TOKEN[i][j];
-            let push_transcript = CAPTURE_PUSH_TRANSCRIPT[i][j] as Field;
-            let increase_length = CAPTURE_INCREASE_LENGTH[i][j] as Field;
-            let error = CAPTURE_ERROR_FLAG[i][j] as Field;
-
-            let full = table
-                + token * 0x100
-                + push_transcript * 0x10000
-                + increase_length * 0x1000000
-                + error * 0x100000000;
-            result[i][j] = full;
-        }
-    }
-
-    result
-}
-
-/*
-                parent_num_entries_stack[depth] = num_entries_at_current_depth; // add one because we include the array/object
-                parent_context[depth] = context;
-                parent_key_length[depth] = current_key_length;
-                parent_key_index[depth] = current_key_index;
-                parent_json_index[depth] = index;
-                entry_ptr_stack[depth] = entry_ptr;
-                parent_identity_stack[depth] = current_identity_value;
-
-*/
-
-struct TranscriptMetaData {
-    entry_ptr: Field,
-    depth: Field,
-    num_entries_at_current_depth: Field,
-    next_identity_value: Field,
-    current_identity_value: Field,
-    context: Field,
-    key_ptr: Field,
-    current_key_index: Field,
-    current_key_length: Field,
-}
-struct JSONContextStackEntry {
-    num_entries: Field,
-    context: Field,
-    current_key_length: Field,
-    current_key_index: Field,
-    json_index: Field,
-    entry_pointer: Field,
-    current_identity: Field
-}
-impl JSONContextStackEntry {
-    fn from_field(f: Field) -> Self {
-        // 19 + 6 = 25
-        let bytes = f.to_be_bytes(13);
-        let context = bytes[0] as Field;
-        let num_entries = bytes[1] as Field * 0x100 + bytes[2] as Field;
-        let current_key_length = bytes[3] as Field * 0x100 + bytes[4] as Field;
-        let current_key_index = bytes[5] as Field * 0x100 + bytes[6] as Field;
-        let json_index = bytes[7] as Field * 0x100 + bytes[8] as Field;
-        let entry_pointer = bytes[9] as Field * 0x100 + bytes[10] as Field;
-        let current_identity = bytes[11] as Field * 0x100 + bytes[12] as Field;
-        JSONContextStackEntry { num_entries, context, current_key_length, current_key_index, json_index, entry_pointer, current_identity }
-    }
-
-    fn to_field(self) -> Field {
-        self.current_identity
-            + self.entry_pointer * 0x10000
-            + self.json_index * 0x100000000
-            + self.current_key_index * 0x1000000000000
-            + self.current_key_length * 0x10000000000000000
-            + self.num_entries * 0x100000000000000000000
-            + self.context * 0x1000000000000000000000000
-    }
-}
-
-struct TokenFlags {
-    create_json_entry: Field,
-    json_entry_type: Field,
-    is_end_of_object_or_array: Field,
-    is_start_of_object_or_array: Field,
-    new_context: Field,
-    is_key_token: Field,
-    is_value_token: Field,
-    is_value_token_in_array_context: Field,
-    create_key_entry: Field,
-    is_end_of_object_or_array_in_array_context: Field,
-    preserve_identity_value: Field,
-    preserve_num_entries: Field,
-}
-
-impl TokenFlags {
-
-    fn from_field(f: Field) -> Self {
-        // 18 gates!
-        let bytes = f.to_be_bytes(12);
-        let create_json_entry = bytes[0] as Field;
-        let json_entry_type = bytes[1] as Field;
-        let is_end_of_object_or_array = bytes[2] as Field;
-        let is_start_of_object_or_array = bytes[3] as Field;
-        let new_context = bytes[4] as Field;
-        let is_key_token = bytes[5] as Field;
-
-        let is_value_token = bytes[6] as Field;
-        let is_value_token_in_array_context = bytes[7] as Field;
-        let create_key_entry = bytes[8] as Field;
-        let is_end_of_object_or_array_in_array_context = bytes[9] as Field;
-        let preserve_identity_value = bytes[10] as Field;
-        let preserve_num_entries = bytes[11] as Field;
-
-        TokenFlags {
-            create_json_entry,
-            json_entry_type,
-            is_end_of_object_or_array,
-            is_start_of_object_or_array,
-            new_context,
-            is_key_token,
-            is_value_token,
-            is_value_token_in_array_context,
-            create_key_entry,
-            is_end_of_object_or_array_in_array_context,
-            preserve_identity_value,
-            preserve_num_entries
-        }
-    }
-
-    fn to_field(self) -> Field {
-        self.preserve_num_entries
-            + self.preserve_identity_value * 0x100
-            + self.is_end_of_object_or_array_in_array_context * 0x10000
-            + self.create_key_entry * 0x1000000
-            + self.is_value_token_in_array_context * 0x100000000
-            + self.is_value_token * 0x10000000000
-            + self.is_key_token * 0x1000000000000
-            + self.new_context * 0x100000000000000
-            + self.is_start_of_object_or_array * 0x10000000000000000
-            + self.is_end_of_object_or_array * 0x1000000000000000000
-            + self.json_entry_type * 0x100000000000000000000
-            + self.create_json_entry
-                                                        * 0x10000000000000000000000
-    }
-
-    fn default() -> Self {
-        TokenFlags {
-            create_json_entry: 0,
-            json_entry_type: 0,
-            is_end_of_object_or_array: 0,
-            is_start_of_object_or_array: 0,
-            new_context: 0,
-            is_key_token: 0,
-            preserve_num_entries: 0,
-            preserve_identity_value: 0,
-            is_end_of_object_or_array_in_array_context: 0,
-            create_key_entry: 0,
-            is_value_token_in_array_context: 0,
-            is_value_token: 0
-        }
-    }
-    // fn new(a: Field, b: Field, c: Field, d: Field, e: Field, f: Field) -> Self {
-    //     TokenFlags {
-    //         create_json_entry: a,
-    //         json_entry_type: b,
-    //         is_end_of_object_or_array: c,
-    //         is_start_of_object_or_array: d,
-    //         new_context: e,
-    //         is_key_token: f
-    //     }
-    // }
-}
-unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
-    let mut flags: [TokenFlags; NUM_TOKENS * 2] = [TokenFlags::default(); NUM_TOKENS * 2];
-
-    let mut no_token_flags: TokenFlags = TokenFlags {
-        create_json_entry: 0,
-        json_entry_type: 0,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 0,
-        new_context: OBJECT_CONTEXT,
-        is_key_token: 0,
-        is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 0,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 1,
-        preserve_num_entries: 1
-    };
-    let mut key_token_flags: TokenFlags = TokenFlags {
-        create_json_entry: 0,
-        json_entry_type: 0,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 0,
-        new_context: OBJECT_CONTEXT,
-        is_key_token: 1,
-        is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 0,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 1,
-        preserve_num_entries: 1
-    };
-    let begin_object_flags = TokenFlags {
-        create_json_entry: 0,
-        json_entry_type: 0,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 1,
-        new_context: OBJECT_CONTEXT,
-        is_key_token: 0,
-        is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 0,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 0,
-        preserve_num_entries: 0
-    };
-
-    let begin_array_flags = TokenFlags {
-        create_json_entry: 0,
-        json_entry_type: 0,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 1,
-        new_context: ARRAY_CONTEXT,
-        is_key_token: 0,
-        is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 0,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 0,
-        preserve_num_entries: 0
-    };
-
-    let mut end_object_flags = TokenFlags {
-        create_json_entry: 1,
-        json_entry_type: BEGIN_OBJECT_TOKEN,
-        is_end_of_object_or_array: 1,
-        is_start_of_object_or_array: 0,
-        new_context: 0,
-        is_key_token: 0,
-        is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 1,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 0,
-        preserve_num_entries: 0
-    };
-
-    let mut end_array_flags = TokenFlags {
-        create_json_entry: 1,
-        json_entry_type: BEGIN_ARRAY_TOKEN,
-        is_end_of_object_or_array: 1,
-        is_start_of_object_or_array: 0,
-        new_context: 0,
-        is_key_token: 0,
-        is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 1,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 0,
-        preserve_num_entries: 0
-    };
-
-    let mut string_flags = TokenFlags {
-        create_json_entry: 1,
-        json_entry_type: STRING_TOKEN,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 0,
-        new_context: OBJECT_CONTEXT,
-        is_key_token: 0,
-        is_value_token: 1,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 1,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 1,
-        preserve_num_entries: 1
-    };
-
-    let mut numeric_flags = TokenFlags {
-        create_json_entry: 1,
-        json_entry_type: NUMERIC_TOKEN,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 0,
-        new_context: OBJECT_CONTEXT,
-        is_key_token: 0,
-        is_value_token: 1,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 1,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 1,
-        preserve_num_entries: 1
-    };
-
-    let mut literal_flags = TokenFlags {
-        create_json_entry: 1,
-        json_entry_type: LITERAL_TOKEN,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 0,
-        new_context: OBJECT_CONTEXT,
-        is_key_token: 0,
-        is_value_token: 1,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 1,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 1,
-        preserve_num_entries: 1
-    };
-
-    flags[NO_TOKEN] = no_token_flags;
-    flags[BEGIN_OBJECT_TOKEN] = begin_object_flags;
-    flags[END_OBJECT_TOKEN] = end_object_flags;
-    flags[BEGIN_ARRAY_TOKEN] = begin_array_flags;
-    flags[END_ARRAY_TOKEN] = end_array_flags;
-    flags[KEY_SEPARATOR_TOKEN] = no_token_flags;
-    flags[VALUE_SEPARATOR_TOKEN] = no_token_flags;
-    flags[STRING_TOKEN] = string_flags;
-    flags[NUMERIC_TOKEN] = numeric_flags;
-    flags[LITERAL_TOKEN] = literal_flags;
-    flags[KEY_TOKEN] = key_token_flags;
-
-    no_token_flags.new_context = ARRAY_CONTEXT;
-    key_token_flags.new_context = ARRAY_CONTEXT;
-    string_flags.new_context = ARRAY_CONTEXT;
-    numeric_flags.new_context = ARRAY_CONTEXT;
-    literal_flags.new_context = ARRAY_CONTEXT;
-
-    end_object_flags.is_end_of_object_or_array_in_array_context = 1;
-    end_array_flags.is_end_of_object_or_array_in_array_context = 1;
-    string_flags.is_value_token_in_array_context = 1;
-    numeric_flags.is_value_token_in_array_context = 1;
-    literal_flags.is_value_token_in_array_context = 1;
-    flags[NUM_TOKENS + NO_TOKEN] = no_token_flags;
-    flags[NUM_TOKENS + BEGIN_OBJECT_TOKEN] = begin_object_flags;
-    flags[NUM_TOKENS + END_OBJECT_TOKEN] = end_object_flags;
-    flags[NUM_TOKENS + BEGIN_ARRAY_TOKEN] = begin_array_flags;
-    flags[NUM_TOKENS + END_ARRAY_TOKEN] = end_array_flags;
-    flags[NUM_TOKENS + KEY_SEPARATOR_TOKEN] = no_token_flags;
-    flags[NUM_TOKENS + VALUE_SEPARATOR_TOKEN] = no_token_flags;
-    flags[NUM_TOKENS + STRING_TOKEN] = string_flags;
-    flags[NUM_TOKENS + NUMERIC_TOKEN] = numeric_flags;
-    flags[NUM_TOKENS + LITERAL_TOKEN] = literal_flags;
-    flags[NUM_TOKENS + KEY_TOKEN] = key_token_flags;
-
-    let mut result: [Field; NUM_TOKENS * 2] = [0; NUM_TOKENS * 2];
-    for i in 0..(NUM_TOKENS as u32 * 2) {
-        result[i] = flags[i].to_field();
-    }
-    println(f"TOKEN FLAGS TABLE = {result}");
-    assert(result[4] == -1);
-    result
-}
-
-global TokenFlagsTable: [Field; NUM_TOKENS_MUL_2] = [0x0101, 0x010000000000000000, 0x010101000000000001000000, 0x010100000000000000, 0x010301000000000001000000, 0x0101, 0x0101, 0x010700000000010001000101, 0x010800000000010001000101, 0x010900000000010001000101, 0x01000000000101, 0x0100000000000101, 0x010000000000000000, 0x010101000000000001010000, 0x010100000000000000, 0x010301000000000001010000, 0x0100000000000101, 0x0100000000000101, 0x010700000100010101000101, 0x010800000100010101000101, 0x010900000100010101000101, 0x0101000000000101];
-
-// #[test]
-// fn woo() {
-//     make_capture_table_full();
-// }
-// global CAPTURE_TABLE_ENCODED = make_capture_table_full();
-
-struct JSON<let NumBytes: u32, let NumPackedFields: u16, let TranscriptEntries: u32> {
+struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> {
     json: [u8; NumBytes],
-    transcript: [Field; TranscriptEntries],
+    raw_transcript: [Field; MaxNumTokens],
+    transcript: [Field; MaxNumTokens],
     transcript_length: u16,
-    key_data: [Field; TranscriptEntries], // todo make smaller? somehow? urgh
-    key_hashes: [Field; TranscriptEntries],
+    key_data: [Field; MaxNumValues], // todo make smaller? somehow? urgh
+    key_hashes: [Field; MaxNumValues],
     layer_id: Field,
     layer_context: Field, // is the current layer an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER
     layer_index_in_transcript: Field,
-    packed_json_entries: [Field; TranscriptEntries],
+    packed_json_entries: [Field; MaxNumValues],
     packed_json: [Field; NumPackedFields]
 }
 
-/*
-NEXT UP: HANDLE ARRAYS
-this requires adding an array index into the key data being hashed to form our list of objects
-
-*/
-impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JSON<NumBytes, NumPackedFields, TranscriptEntries> {
+impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues> {
 
     fn compute_packed_json(&mut self) {
         let NumWholeLimbs = NumBytes / 31;
@@ -450,63 +70,11 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
             limb *= 0x100;
             limb += self.json[NumWholeLimbs * 31 + j] as Field;
         }
-        for j in NumRemainingBytes..31 {
+        for _ in NumRemainingBytes..31 {
             limb *= 0x100;
         }
         std::as_witness(limb);
         self.packed_json[NumWholeLimbs + (NumRemainingBytes == 0) as u16] = limb;
-    }
-    fn capture_missing_tokens(&mut self) {
-        let mut updated_transcript: [Field; TranscriptEntries] = [0; TranscriptEntries];
-        let mut transcript_ptr: Field = 0;
-        // hmm probably need a null transcript value?!?!
-
-        for i in 0..TranscriptEntries {
-            let index_valid = (i < self.transcript_length) as Field; // 4.5 gates?
-            // 5.25 gates
-            let TranscriptEntry{token, index, length} = TranscriptEntry::from_field(self.transcript[i]);
-            // let old = updated_transcript[transcript_ptr];
-            // let new = self.transcript[i];
-            // let updated = (new - old) * index_valid + old;
-            // TODO: validate it's ok for the head to be invalid. i.e. x[transcript_ptr] will repeatedly be overwritten once i >= transcript_length
-            // this should be fine because num_entries <= transcript_ptr
-            // 7 gates? self.transcript is a RAM array, as is updated_transcript
-            updated_transcript[transcript_ptr] = self.transcript[i];
-            // pdated_transcript[transcript_ptr] = self.transcript[i];
-            // 1 gate
-            // subtotal 17.75 gates
-            transcript_ptr += index_valid;
-
-            // 2 gates
-            let token_is_numeric_or_literal= TOKEN_IS_NUMERIC_OR_LITERAL[token];
-            // TODO we might be able to remove `* token_is_numeric_or_literal`. we do this so that we don't overflow the json
-            // but the original parse shouldn't produce a token where index + length can overflow?
-            // 1 gate or 2 gates
-            let index_of_possible_grammar = (index + length) * token_is_numeric_or_literal;
-            // 2 gates
-            let ascii = self.json[index_of_possible_grammar];
-
-            // TODO: combine new_grammar and scan_token into a single lookup
-            // 2 gates eventually
-            let new_grammar = GRAMMAR_CAPTURE_PUSH_TRANSCRIPT[ascii];
-            let scan_token = GRAMMAR_CAPTURE_TOKEN[ascii];
-            let new_entry = TranscriptEntry { token: scan_token, index: index_of_possible_grammar, length: 0 };
-
-            // let old_transcript = updated_transcript[transcript_ptr];
-            // TODO: the head of the transcript will likely always be filled with a garbage entry
-            // 1 gate
-            let new_transcript = TranscriptEntry::to_field(new_entry);
-            // 3 gates (ow)
-            // 11 + 17.75 = 28.75
-            let update = new_grammar as Field * token_is_numeric_or_literal * index_valid;
-            // let result_transcript = (new_transcript - old_transcript) * update + old_transcript;
-            // 3.5 gates
-            updated_transcript[transcript_ptr] = new_transcript;
-            // 1 gate
-            transcript_ptr += update;
-            // subtotal 33.25 gates. ow
-        }
-        self.transcript = updated_transcript;
     }
 
     // TODO: when impl is more mature, merge this into create_json_entries
@@ -515,7 +83,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
         let mut current= TranscriptEntry::from_field(self.transcript[0]);
         let mut next: TranscriptEntry = TranscriptEntry::new();
 
-        for i in 0..TranscriptEntries - 1 {
+        for i in 0..MaxNumTokens - 1 {
             next = TranscriptEntry::from_field(self.transcript[i + 1]);
 
             let next_is_key = (next.token == KEY_SEPARATOR_TOKEN) as Field;
@@ -532,7 +100,6 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
         }
     }
 
-    //  fn process_transcript_entry(entry: TranscriptEntry)
     fn create_json_entries(&mut self) {
         let mut entry_ptr = 0;
         let mut depth: Field = 1;
@@ -544,15 +111,16 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
         let mut current_key_index: Field = 0;
         let mut current_key_length: Field = 0;
 
-        // TODO why 32?
         let mut parent_context_stack: [Field; 32] = [0; 32];
         // let mut key_data: [Field; TranscriptEntries] = [0; TranscriptEntries];
         // let mut packed_json_entries: [Field; TranscriptEntries] = [0; TranscriptEntries];
 
-        for i in 0..TranscriptEntries {
+        // 93.25 gates per iteration
+        for i in 0..MaxNumTokens {
+            // 5.25 gates
             let TranscriptEntry{token, index, length} = TranscriptEntry::from_field(self.transcript[i]);
 
-            // 18 gates
+            // 21 gates
             let TokenFlags{
                 create_json_entry,
                 json_entry_type,
@@ -566,13 +134,19 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
                 is_end_of_object_or_array_in_array_context,
                 preserve_identity_value,
                 preserve_num_entries
-            } = TokenFlags::from_field(TokenFlagsTable[token + context * NUM_TOKENS]);
+            } = TokenFlags::from_field(TOKEN_FLAGS_TABLE[token + context * NUM_TOKENS]);
 
             // 1 gate
-            current_key_index = (index - current_key_index) * update_key + current_key_index;
+            let diff = index - current_key_index;
+            std::as_witness(diff);
+            // 1 gate
+            current_key_index = diff * update_key + current_key_index;
             std::as_witness(current_key_index);
             // 1 gate
-            current_key_length = (length - current_key_length) * update_key + current_key_length;
+            let diff = length - current_key_length;
+            std::as_witness(diff);
+            // 1 gate
+            current_key_length = diff * update_key + current_key_length;
             std::as_witness(current_key_length);
 
             // 3 gates
@@ -587,18 +161,17 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
                 current_identity: current_identity_value
             }
             );
-            // let is_value_token: Field = create_json_entry - is_end_of_object_or_array; // TODO PUT IN JSONCONTEXTSTACKENTRY
-            // let is_value_token_in_array_context: Field = is_value_token * context; // TODO PUT IN JSONCONTEXTSTACKENTRY
+            // subtotal 23.25
 
             // 1 gate
             let depth_index: Field = (depth - 1);
-            std::as_witness(depth_index);
             // 2 gates
             let previous_stack_entry_packed = parent_context_stack[depth_index];
 
-            // 25 gates
+            // 13.25 gates
             let previous_stack_entry = JSONContextStackEntry::from_field(previous_stack_entry_packed);
 
+            // subtotal 39.5
             // 0
             let object_or_array_entry: JSONEntry = JSONEntry {
                     array_pointer: previous_stack_entry.num_entries, // duplicated lookup remove once working 
@@ -628,28 +201,32 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
             let value_entry_packed = value_entry.to_field();
 
             // 2 gates
-            let new_entry = (object_or_array_entry_packed - value_entry_packed) * is_end_of_object_or_array
-                + value_entry_packed;
+            let diff = object_or_array_entry_packed - value_entry_packed;
+            std::as_witness(diff);
+            let new_entry = diff * is_end_of_object_or_array + value_entry_packed;
             std::as_witness(new_entry);
 
             // 6 gates
-            let mut new_key_data = (current_identity_value + current_key_index * 0x10000 + current_key_length * 0x100000000)
-                * is_value_token;
+            let diff = current_identity_value + current_key_index * 0x10000 + current_key_length * 0x100000000;
+            std::as_witness(diff);
+            let mut new_key_data = diff * is_value_token;
             std::as_witness(new_key_data);
             new_key_data = new_key_data
                 + (num_entries_at_current_depth * 0x1000000000000) * is_value_token_in_array_context;
             std::as_witness(new_key_data);
-            new_key_data = new_key_data
-                + (previous_stack_entry.current_identity
-                        + previous_stack_entry.current_key_index * 0x10000
-                        + previous_stack_entry.current_key_length * 0x100000000)
-                        * is_end_of_object_or_array;
+            let diff = (previous_stack_entry.current_identity
+                + previous_stack_entry.current_key_index * 0x10000
+                + previous_stack_entry.current_key_length * 0x100000000);
+            std::as_witness(diff);
+            new_key_data = new_key_data + diff * is_end_of_object_or_array;
             std::as_witness(new_key_data);
             new_key_data = new_key_data
                 + (previous_stack_entry.num_entries * 0x1000000000000)
                             * is_end_of_object_or_array_in_array_context;
             std::as_witness(new_key_data);
-            // subtotal 67
+
+            // subtotal 55.5
+
             // 3.5 gates
             parent_context_stack[depth] = new_context_stack_entry;
             // 41876 41740 = 136 = 2.125 gates + 1 from assert = 3.125 eh
@@ -661,8 +238,9 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
             // (save 1.5 gates * 1.5 init delta = 3)
             // (repeat with packed_json_entries)
             // 4.5 gates
-            // subtotal 79.5
             self.packed_json_entries[entry_ptr] = new_entry * create_json_entry;
+
+            // subtotal 68
 
             // 3 gates
             let old = current_identity_value;
@@ -688,106 +266,91 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
             std::as_witness(key_ptr);
             // 1 gate
             depth = depth + is_start_of_object_or_array - is_end_of_object_or_array;
-
             // 1 gate
             // subtotal 88.5
+            // 1 gate
             entry_ptr += create_json_entry;
             std::as_witness(entry_ptr);
+
+            // subtotal 78??
+            // +10.5 for initializing 3 ram arrays = 88.5?
+            // actual value = 93.25
             context = new_context;
         }
     }
 
-    fn build_transcript(self) -> Self {
-        let mut transcript: [Field; TranscriptEntries] = [0; TranscriptEntries];
+    unconstrained fn __build_transcript(self) -> [Field; MaxNumTokens] {
+        let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: Field = 0;
         let mut scan_mode = GRAMMAR_SCAN as Field;
         let mut length: Field = 0;
         for i in 0..NumBytes {
-            // assert(lt_field_8_bit(transcript_ptr, TranscriptEntries as Field), "too many tokens");
             let ascii = self.json[i];
 
-            // read from json = 0
-            // capture table idx computation = 1
-            // capture table read = 2
-            // 5 bytes = 3.25
-            // read RAM = 3.5
-            // write RAM = 3.5
-            // compute transcript entry = 1
-            // update length = 1
-            // update transcript_ptr = 1
-            // assert error flag = 1 (should be 0)
-            // 16.25 or 17.25 per byte. pain.
+            let encoded_ascii = scan_mode * 256 + ascii as Field;
 
-            // we could improve by using unconstrained fn to compute transcript
-            // we then are validating what transcript[transcript_ptr] *should* be (because we don't update)
-            // which would cut 5 gates off
-            // 11.25 per byte?
+            let ScanData{ scan_token, push_transcript, increase_length } = ScanData::from_field(REDUCED_CAPTURE_TABLE[encoded_ascii]);
 
-            // 1 gate to compute index
-            // 2 gates to read
-            let capture_context = CAPTURE_TABLE_ENCODED_FLAT[scan_mode * 128 + ascii as Field];
-            // 2 gates for 5 bytes + 5 range gates = 8.25
-            let bytes = capture_context.to_be_bytes(5);
-            let new_scan_mode = bytes[4] as Field;
-            let scan_token = bytes[3] as Field;
-            let push_transcript = bytes[2] as Field;
-            let increase_length = bytes[1] as Field;
-            let error_flag = bytes[0] as Field;
+            let new_entry = RawTranscriptEntry::to_field(RawTranscriptEntry { encoded_ascii, index: i as Field - length, length });
 
-            // what if we store the following:
-            // 1 ascii
-            // 2 scan mode
-            // 3 push_transcript
-            // 4 error flag (ick)
-            // but we avoid scan token, we use a future lookup for that
-
-            // ascii
-            // scan mode
-            // push transcript
-            // update length
-            // convert bytes would cost 4.75 instead of 8.25?
-            // 3.5 gate saving
-            // + remove error flag check = 1 gate saving
-
-            // + can fiddle with length for 1 gate saving
-            // 5.5 gate delta on 19.75
-            // -> 14.25 gates per byte
-            // could cut 0.75 by doing dumb bool checks
-            // = 6.25 delta
-            // use ROM array instead of RAM = 0.5
-            // 6.75 gate delta
-            // 13 per byte
-            // 1 gate for i - length
-            // 1 gate for to_field
-            // subtotal: 13.25
-            let new_entry = TranscriptEntry::to_field(TranscriptEntry { token: scan_token, index: i as Field - length, length });
-
-            // let old_entry = transcript[transcript_ptr];
-
-            // let entry = (new_entry - old_entry) * push_transcript + old_entry;
-            // 3.5 gates to write
-            // TODO might be a problem this last token
-            // 16.75
-            transcript[transcript_ptr] = new_entry; //  * push_transcript;
-            // 1 gate to update length
+            raw_transcript[transcript_ptr] = new_entry;
             length = length * (1 - push_transcript) + increase_length;
-            std::as_witness(length);
-            // 1 gate to update transcript_ptr
-            // 18.75
             transcript_ptr += push_transcript;
 
-            // hmm should be 0 gates but might be 1
-            // 19.75
-            // actual cost = 20
-            // missing a gate from transcript entry length param?
-            // odd maybe 1.25 not being used
-            assert(error_flag == 0, "bad token?");
-
-            scan_mode = new_scan_mode;
+            scan_mode = scan_token;
         }
+
+        raw_transcript
+    }
+
+    fn build_transcript(self) -> Self {
+        let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
+        let mut transcript_ptr: Field = 0;
+        let mut scan_mode = GRAMMAR_SCAN as Field;
+        let mut length: Field = 0;
+
+        let raw_transcript = self.__build_transcript();
+
+        // 12 gates per iteration
+        for i in 0..NumBytes {
+            let ascii = self.json[i];
+
+            // 1 gate
+            let encoded_ascii = scan_mode * 256 + ascii as Field;
+            std::as_witness(encoded_ascii);
+
+            // 5 gates
+            let ScanData{ scan_token, push_transcript, increase_length } = ScanData::from_field(REDUCED_CAPTURE_TABLE[encoded_ascii]);
+
+            // 2 gates
+            let raw = raw_transcript[transcript_ptr];
+
+            // 1 gate
+            let diff = raw
+                - RawTranscriptEntry::to_field(RawTranscriptEntry { encoded_ascii, index: i as Field - length, length });
+            std::as_witness(diff);
+            // 1 gate
+            assert(diff * push_transcript == 0);
+
+            // 1 gate
+            length = length * (1 - push_transcript) + increase_length;
+            std::as_witness(length);
+
+            // 1 gate
+            transcript_ptr += push_transcript;
+
+            scan_mode = scan_token;
+        }
+
+        // 5.75 gates per iteration, plus init cost for 1,024 lookup table (2048 gates)
+        // for i in 0..MaxNumTokens {
+        //     let transcript_entry = TranscriptEntry::from_raw(raw_transcript[i]);
+        //     assert(transcript[i] == transcript_entry);
+        // }
         JSON {
             json: self.json,
-            transcript,
+            raw_transcript,
+            transcript: self.transcript,
             transcript_length: transcript_ptr as u16,
             key_data: self.key_data,
             key_hashes: self.key_hashes,
@@ -798,15 +361,81 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let TranscriptEntries: u16> JS
             packed_json: self.packed_json
         }
     }
-}
 
-fn extend_array<let InBytes: u32, let OutBytes: u32>(input: [u8; InBytes]) -> [u8; OutBytes] {
-    assert(InBytes <= OutBytes);
-    let mut result: [u8; OutBytes] = [0; OutBytes];
-    for i in 0..InBytes {
-        result[i] = input[i];
+    unconstrained fn __capture_missing_tokens(self) -> [Field; MaxNumTokens] {
+        let mut updated_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
+        let mut transcript_ptr: Field = 0;
+        // hmm probably need a null transcript value?!?!
+
+        for i in 0..MaxNumTokens {
+            let RawTranscriptEntry{ encoded_ascii, index, length} = RawTranscriptEntry::from_field(self.raw_transcript[i]);
+
+            let PostProcessScanData{ token, new_grammar, scan_token } = PostProcessScanData::from_field(PROCESS_RAW_TRANSCRIPT_TABLE[encoded_ascii]);
+
+            let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
+            updated_transcript[transcript_ptr] = entry;
+
+            let index_valid: Field = (i < self.transcript_length) as Field;
+            transcript_ptr += index_valid;
+
+            let index_of_possible_grammar = (index + length);
+            let new_entry = TranscriptEntry { token: scan_token, index: index_of_possible_grammar, length: 0 };
+
+            let update = new_grammar as Field * index_valid;
+            let new_transcript = TranscriptEntry::to_field(new_entry);
+            updated_transcript[transcript_ptr] = new_transcript;
+            transcript_ptr += update;
+        }
+        updated_transcript
     }
-    result
+
+    fn capture_missing_tokens(&mut self) {
+        let mut transcript_ptr: Field = 0;
+        // hmm probably need a null transcript value?!?!
+        let updated_transcript = self.__capture_missing_tokens();
+        // 28.5 gates per iteration
+        for i in 0..MaxNumTokens {
+            // 5.25 gates
+            let RawTranscriptEntry{ encoded_ascii, index, length} = RawTranscriptEntry::from_field(self.raw_transcript[i]);
+            // 6.75 gates
+            let PostProcessScanData{ token, new_grammar, scan_token } = PostProcessScanData::from_field(PROCESS_RAW_TRANSCRIPT_TABLE[encoded_ascii]);
+            // 4.5 gates
+            let index_valid: Field = (i < self.transcript_length) as Field;
+            // 1 gate
+            let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
+            // 2 gates
+            let diff = updated_transcript[transcript_ptr] - entry;
+            std::as_witness(diff);
+            assert(diff * index_valid == 0);
+            // 1 gate
+            transcript_ptr += index_valid;
+            // 0 gate (merged into TranscriptEntry::to_field)
+            let index_of_possible_grammar = (index + length);
+            // 0 gates
+            let new_entry = TranscriptEntry { token: scan_token, index: index_of_possible_grammar, length: 0 };
+            // 2 gates
+            let update = new_grammar as Field * index_valid;
+            std::as_witness(update);
+            // 1 gate
+            let new_transcript = TranscriptEntry::to_field(new_entry);
+            // 4 gates
+            let diff = updated_transcript[transcript_ptr] - new_transcript;
+            std::as_witness(diff);
+            assert(diff * update == 0);
+            // 1 gate
+            transcript_ptr += update;
+        }
+        self.transcript = updated_transcript;
+
+        let first = TranscriptEntry::from_field(self.transcript[0]);
+        if (first.token == BEGIN_OBJECT_TOKEN) {
+            self.layer_context = OBJECT_LAYER;
+        } else if (first.token == BEGIN_ARRAY_TOKEN) {
+            self.layer_context = ARRAY_LAYER;
+        } else if (first.token == STRING_TOKEN) {
+            self.layer_context = SINGLE_VALUE_LAYER;
+        }
+    }
 }
 
 #[test]
@@ -886,6 +515,7 @@ fn test_redux() {
 
     let mut json = JSON {
         json: text.as_bytes(),
+        raw_transcript: [0; 30],
         transcript: [0; 30],
         transcript_length: 0,
         key_data: [0; 30],
@@ -1241,8 +871,9 @@ struct JSONEntry {
 #[test]
 fn test_literal() {
     let text = "{   \"name\": \"Adeel Solangi\", \"testA\": false, \"testB\": true, \"testC\": null }                                                                   ";
-    let mut json: JSON<142, 10, 20> = JSON {
+    let mut json: JSON<142, 10, 20, 20> = JSON {
         json: text.as_bytes(),
+        raw_transcript: [0; 20],
         transcript: [0; 20],
         transcript_length: 0,
         key_data: [0; 20],
@@ -1291,6 +922,7 @@ fn test_arrays() {
     // let text = "{    \"name\": \"Adeel Solangi\",    \"age\": 62,  \"portfolio\": { \"vibe_ratings\": [1,2,3,89], \"elemental_lorem \": [ { \"flim\": \"flam\", \"polar\": \"bear\" }, { \"f\": [1,2] } ] } }";
     let mut json = JSON {
         json: text.as_bytes(),
+        raw_transcript: [0; 60],
         transcript: [0; 60],
         transcript_length: 0,
         key_data: [0; 60],

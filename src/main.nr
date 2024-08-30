@@ -10,12 +10,14 @@ enum JsonTranscript {
     BOOL_CAPTURE
 }
 */
+mod make_tables;
 mod redux;
 mod redux_tables;
 mod lt;
 mod keymap;
 mod json_entry;
 mod transcript_entry;
+mod token_flags;
 mod test_data;
 mod getters;
 mod keyhash;
@@ -25,7 +27,7 @@ use crate::slice_field::{slice_fields, slice_field};
 use crate::keyhash::{Hasher, slice_200_bits_from_field, get_keyhash_chunky, sum_var_bytes_into_field};
 use crate::lt::lt_field_16_bit;
 global LEN = 10000;
-unconstrained fn preamble(_json: JSON<1024, 64, 37>) -> JSON<1024, 64, 37> {
+unconstrained fn preamble(_json: JSON<1024, 64, 37, 37>) -> JSON<1024, 64, 37, 37> {
     let mut json = _json.build_transcript();
     let x = json.transcript[0];
     println(f"{x}");
@@ -388,6 +390,7 @@ fn mainget_keyhash(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: 
     let kk = slice_200_bits_from_field(dd);
     let mut json = JSON {
         json: body_text,
+        raw_transcript: [0; 64],
         transcript: [0; 64],
         transcript_length: 0,
         key_data: [0; 64],
@@ -674,6 +677,7 @@ fn main(text: str<1024>) {
     // assert(sliced[0] == sliced[1]);
     let mut json = JSON {
         json: text.as_bytes(),
+        raw_transcript: [0; 64],
         transcript: [0; 64],
         transcript_length: 0,
         key_data: [0; 64],
@@ -685,13 +689,14 @@ fn main(text: str<1024>) {
         packed_json: [0; 37]
     };
     // json = preamble(json);
-    let mut json = json.build_transcript();
-    let x = json.transcript[0];
-    println(f"{x}");
-    json.capture_missing_tokens();
-    json.keyswap();
-    json.compute_packed_json();
-    json.create_json_entries();
+    let mut json = json.build_transcript(); // 16,824
+    // let x = json.transcript[0];
+    // println(f"{x}");
+    json.capture_missing_tokens(); // 23,604 // 7k?
+    json.keyswap(); // 24,341
+    json.compute_packed_json(); // 24,836
+    json.create_json_entries(); // 29,603
+    json.compute_keyhash_and_sort_json_entries(); // 55,853
     // // assert(json.packed_json[inputs[3]] == 1234);
     // for i in 0..63 {
     //     assert(json.key_data[i] == json.key_data[i + 1]);
@@ -699,9 +704,7 @@ fn main(text: str<1024>) {
     //  let keymap::KeyIndexData{ json_index, json_length, parent_id, array_index } = keymap::KeyIndexData::from_field(json.key_data[0]);
     // assert(json_index == json_length);
     // assert(parent_id == array_index);
-
     // 62578
-    json.compute_keyhash_and_sort_json_entries();
     // 51810 57908
     // 51889 57911
     // delta of 6,098 even after initing range tables
