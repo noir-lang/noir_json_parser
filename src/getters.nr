@@ -22,8 +22,7 @@ struct KeySearchResult {
 }
 
 struct JSONValue<let MaxLength: u32> {
-    length: Field,
-    value: [u8; MaxLength],
+    value: BoundedVec<u8, MaxLength>,
     value_type: Field
 }
 // struct JSONLiteral {
@@ -314,108 +313,27 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         KeySearchResult { found, target_lt_smallest_entry, target_gt_largest_entry, lhs_index, rhs_index }
     }
 
-    // fn get_length(self) -> u32 {
-    //     assert(self.layer_context == ARRAY_LAYER, "can only get length of an array type");
-    //     let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
-    //     parent_entry.num_children as u32
-    // }
-
-    // fn get_array<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<Self> {
-    //     assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-    //     let (exists, key_index) = self.key_exists_impl(key, key_length);
-    //     let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
-
-    //     // TODO: ADD A layer_context VARIABLE INTO JSON WHICH DESCRIBES WHETHER WE ARE AN OBJECT, ARRAY OR SINGLE VALUE
-    //     assert(entry.entry_type == BEGIN_ARRAY_TOKEN, "key does not describe an object");
-
-    //     let mut result: Option<JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues>> = Option::none();
-    //     if (exists) {
-    //         let mut r = self;
-    //         r.layer_id = entry.parent_index;
-    //         r.layer_context = ARRAY_LAYER;
-    //         r.layer_index_in_transcript = key_index;
-    //         result = Option::some(r);
-    //     }
-    //     result
-    // }
-
-    // fn get_array_element_as_number(self, array_index: Field) -> u64 {
-    //     assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
-
-    //     let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
-
-    //     let valid = lt_field_16_bit(array_index, parent_entry.num_children);
-    //     let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
-
-    //     let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
-
-    //     assert(entry.entry_type == NUMERIC_TOKEN, "get_number: entry exists but is not a number!");
-    //     // TODO replace with something more efficient
-    //     assert(
-    //         lt_field_16_bit(entry.json_length, 9), "get_number: number exceeds u64 size. Not currently supported."
-    //     );
-
-    //     let mut parsed_number: Field = 0;
-    //     for i in 0..8 {
-    //         let valid = lt_field_16_bit(i as Field, entry.json_length);
-
-    //         parsed_number *= (10 * valid as Field + (1 - valid as Field));
-
-    //         // n.b. conditionally setting index to 0 can be removed if we ensure json is padded such that this index does not overflow json bytes
-    //         let byte = self.json[(entry.json_pointer + i as Field) * valid as Field];
-    //         let value = ASCII_TO_NUMBER[byte] as Field * valid as Field;
-    //         parsed_number += value;
-    //     }
-
-    //     // todo find cheaper way of converting
-    //     parsed_number as u64
-    // }
-
-    // fn map<U, let MaxElements: u32, let MaxElementBytes: u32>(
-    //     self,
-    //     f: fn(JSONValue<MaxElementBytes>) -> U
-    // ) -> [U; MaxElements] where U: std::default::Default {
-    //     assert(self.layer_context == ARRAY_LAYER, "can only call map on an array");
-
-    //     let entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
-
-    //     let num_children = entry.num_children;
-    //     let mut r: [U; MaxElements] = [U::default(); MaxElements];
-
-    //     for i in 0..MaxElements {
-    //         let valid = lt_field_16_bit(i as Field, num_children);
-    //         let entry_index = (entry.child_pointer + i as Field) * valid as Field;
-    //         let child_entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
-
-    //         let mut parsed_string: [u8; MaxElementBytes] = [0; MaxElementBytes];
-    //         for j in 0..MaxElementBytes {
-    //             let byte_valid = lt_field_16_bit(j as Field, child_entry.json_length);
-    //             // n.b. conditionally setting index to 0 can be removed if we ensure json is padded such that this index does not overflow json bytes
-    //             let byte = self.json[(child_entry.json_pointer + i as Field) * valid as Field];
-    //             // TODO improve efficiency? measure...
-    //             if (byte_valid) {
-    //                 parsed_string[i] = byte;
-    //             }
-    //         }
-
-    //         if (valid) {
-    //             r[i] = f(
-    //                 JSONValue { length: child_entry.json_length, value: parsed_string, value_type: child_entry.entry_type }
-    //             );
-    //         }
-    //     }
-    //     r
-    // }
-
     fn assert_key_exists_with_known_length<let KeyBytes: u16>(self, key: [u8; KeyBytes]) {
         let keyhash = get_keyhash(key, 0, KeyBytes);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
 
-        let keyhash = keyhash + (self.layer_id + 1) * two_pow_216;
+        let keyhash = keyhash + self.root_id * two_pow_216;
 
         let key_index = self.find_key_in_map(keyhash);
 
         assert(self.key_hashes[key_index] == keyhash);
+    }
+
+    fn key_exists_impl_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Field {
+        let keyhash = get_keyhash(key, 0, key_length);
+        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
+
+        let keyhash = keyhash + self.root_id * two_pow_216;
+
+        let key_index = self.find_key_in_map(keyhash);
+
+        assert(self.key_hashes[key_index] == keyhash);
+        key_index
     }
 
     fn key_exists<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> bool {
@@ -441,7 +359,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         let HASH_MAXIMUM = 0x1000000000000000000000000000000000000000000000000000000000000 - 1;
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
 
-        let keyhash = keyhash + (self.layer_id + 1) * two_pow_216;
+        let keyhash = keyhash + self.root_id * two_pow_216;
 
         let search_result = self.search_for_key_in_map(keyhash);
         let found = search_result.found as Field;

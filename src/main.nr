@@ -401,6 +401,7 @@ fn mainget_keyhash(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: 
         key_data: [0; 64],
         key_hashes: [0; 64],
         layer_id: 0,
+        root_id: 1,
         layer_context: 0,
         layer_index_in_transcript: 0,
         packed_json_entries: [0; 64],
@@ -688,6 +689,7 @@ fn main(text: str<1024>) {
         key_data: [0; 64],
         key_hashes: [0; 64],
         layer_id: 0,
+        root_id: 1,
         layer_context: 0,
         layer_index_in_transcript: 0,
         packed_json_entries: [0; 64],
@@ -708,21 +710,15 @@ fn main(text: str<1024>) {
     // 57373 : 1
     // 57697 : 2
     // ????
-    for i in 0..63 {
-        let x = json.key_hashes[i];
-        let y = json.key_hashes[x];
-        assert(x + y == x * y);
-        //       assert(json.key_hashes[i] == json.key_hashes[json.key_hashes[i]]);
-    }
     // 55552
-    let foo = json.find_key_in_map(293462387461827346);
-    assert(foo == json.key_hashes[0]);
-    let foo = json.find_key_in_map(2934623874618297346);
-    assert(foo == json.key_hashes[0]);
-    let foo = json.find_key_in_map(2934623887461827346);
-    assert(foo == json.key_hashes[0]);
-    let foo = json.find_key_in_map(29346235487461827346);
-    assert(foo == json.key_hashes[0]);
+    // let foo = json.find_key_in_map(293462387461827346);
+    // assert(foo == json.key_hashes[0]);
+    // let foo = json.find_key_in_map(2934623874618297346);
+    // assert(foo == json.key_hashes[0]);
+    // let foo = json.find_key_in_map(2934623887461827346);
+    // assert(foo == json.key_hashes[0]);
+    // let foo = json.find_key_in_map(29346235487461827346);
+    // assert(foo == json.key_hashes[0]);
     // let  entry = json.get_entry_unchecked("hello".as_bytes());
     //    assert(exists == true);
     // assert(entry.json_length == 100);

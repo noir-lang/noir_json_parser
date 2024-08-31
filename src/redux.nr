@@ -36,6 +36,8 @@ use crate::redux_tables::{
     KEY_SEPARATOR_TOKEN, VALUE_SEPARATOR_TOKEN, STRING_TOKEN, NUMERIC_TOKEN, LITERAL_TOKEN, KEY_TOKEN
 };
 
+use crate::keymap::KeyIndexData;
+
 struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> {
     json: [u8; NumBytes],
     raw_transcript: [Field; MaxNumTokens],
@@ -44,12 +46,28 @@ struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, 
     key_data: [Field; MaxNumValues], // todo make smaller? somehow? urgh
     key_hashes: [Field; MaxNumValues],
     layer_id: Field,
+    root_id: Field,
     layer_context: Field, // is the current layer an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER
     layer_index_in_transcript: Field,
     packed_json_entries: [Field; MaxNumValues],
     packed_json: [Field; NumPackedFields]
 }
 
+impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> std::cmp::Eq for JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues> {
+
+    fn eq(self, other: Self) -> bool {
+        (self.json == other.json) & (self.raw_transcript == other.raw_transcript)
+        & (self.transcript_length == other.transcript_length)
+        & (self.key_data == other.key_data)
+        & (self.key_hashes == other.key_hashes)
+        & (self.layer_id == other.layer_id)
+        & (self.root_id == other.root_id)
+        & (self.layer_context == other.layer_context)
+        & (self.layer_index_in_transcript == other.layer_index_in_transcript)
+        & (self.packed_json_entries == other.packed_json_entries)
+        & (self.packed_json == other.packed_json)
+    }
+}
 impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues> {
 
     fn compute_packed_json(&mut self) {
@@ -124,6 +142,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
             // 1 gate
             let index = current_layer * NN + previous_token * NUM_TOKENS + current_token;
+
             // 5 gates
             let  ValidationFlags{push_layer, push_layer_id, pop_layer, error:_ } = ValidationFlags::from_field(TOKEN_VALIDATION_TABLE[index]);
 
@@ -137,7 +156,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
             // 6.5 gates
             let parent_layer = parent_layer_stack[depth];
-            let mut updated_layer = (1 - pop_layer + push_layer);
+            let mut updated_layer = (1 - pop_layer - push_layer);
             std::as_witness(updated_layer);
             updated_layer = updated_layer * current_layer + push_layer_id;
             std::as_witness(updated_layer);
@@ -258,6 +277,10 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             let new_entry = diff * is_end_of_object_or_array + value_entry_packed;
             std::as_witness(new_entry);
 
+            // TODO fix!
+            let previous_context_array = (previous_stack_entry.context == ARRAY_CONTEXT) as Field;
+            let real_is_end_of_object_or_array_in_array_context = is_end_of_object_or_array * previous_context_array;
+
             // 6 gates
             let diff = current_identity_value + current_key_index * 0x10000 + current_key_length * 0x100000000;
             std::as_witness(diff);
@@ -274,7 +297,9 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             std::as_witness(new_key_data);
             new_key_data = new_key_data
                 + (previous_stack_entry.num_entries * 0x1000000000000)
-                            * is_end_of_object_or_array_in_array_context;
+                            * real_is_end_of_object_or_array_in_array_context;
+            // N.B. tests pass if we replace above with `is_end_of_object_or_array`???
+            // do we create problems if key/value entries have an array index value?
             std::as_witness(new_key_data);
 
             // subtotal 55.5
@@ -327,9 +352,19 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             // subtotal 78??
             // +10.5 for initializing 3 ram arrays = 88.5?
             // actual value = 93.25
-            context = new_context;
+            // 2 gate
+            context = new_context * (1 - is_end_of_object_or_array) + is_end_of_object_or_array * previous_stack_entry.context;
         }
         self.validate_tokens(tokens);
+
+        for i in 0..MaxNumValues {
+            let A = JSONEntry::from_field(self.packed_json_entries[i]);
+            let B = KeyIndexData::from_field(self.key_data[i]);
+
+            if (A.entry_type == BEGIN_ARRAY_TOKEN) {
+                assert(A.parent_index == B.parent_id);
+            }
+        }
     }
 
     unconstrained fn __build_transcript(self) -> [Field; MaxNumTokens] {
@@ -435,6 +470,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             key_data: self.key_data,
             key_hashes: self.key_hashes,
             layer_id: 0,
+            root_id: 1,
             layer_context: OBJECT_LAYER, // layer_context updated in `capture_missing_tokens`
             layer_index_in_transcript: 0,
             packed_json_entries: self.packed_json_entries,
@@ -525,6 +561,33 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             self.layer_context = SINGLE_VALUE_LAYER;
         }
     }
+
+    fn parse_json(s: str<NumBytes>) -> Self {
+        let mut json = JSON {
+            json: s.as_bytes(),
+            raw_transcript: [0; MaxNumTokens],
+            transcript: [0; MaxNumTokens],
+            transcript_length: 0,
+            key_data: [0; MaxNumValues],
+            key_hashes: [0; MaxNumValues],
+            layer_id: 0,
+            root_id: 1,
+            layer_context: 0,
+            layer_index_in_transcript: 0,
+            packed_json_entries: [0; MaxNumValues],
+            packed_json: [0; NumPackedFields]
+        };
+
+        json = json.build_transcript();
+        json.capture_missing_tokens();
+        json.keyswap();
+        json.compute_packed_json();
+        json.create_json_entries();
+
+        json.compute_keyhash_and_sort_json_entries();
+
+        json
+    }
 }
 
 // TODO: our capture tables are not correctly set up to process a JSON blob that does not begin with an object or array
@@ -539,6 +602,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 //         key_data: [0; 20],
 //         key_hashes: [0; 20],
 //         layer_id: 0,
+//         root_id: 1,
 //         layer_context: 0,
 //         layer_index_in_transcript: 1,
 //         packed_json_entries: [0; 20],
@@ -562,7 +626,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 #[test]
 fn test_numbers() {
     let text = "{ \"a\": 9, \"b\": 99, \"c\": 999, \"d\": 9999, \"e\": 99999, \"f\": 999999, \"g\": 9999999, \"h\": 99999999, \"i\": 999999999, \"j\": 9999999999, \"k\": 99999999999, \"l\": 999999999999, \"m\": 9999999999999, \"n\": 99999999999999, \"o\": 999999999999999, \"p\": 999999999999999,\"q\": 9999999999999999, \"r\": 99999999999999999, \"s\": 999999999999999999, \"t\": 9999999999999999999, \"u\": 18446744073709551615}";
-    let mut json = JSON {
+    let mut json: JSON<372, 16, 100, 23> = JSON {
         json: text.as_bytes(),
         raw_transcript: [0; 100],
         transcript: [0; 100],
@@ -570,6 +634,7 @@ fn test_numbers() {
         key_data: [0; 23],
         key_hashes: [0; 23],
         layer_id: 0,
+        root_id: 1,
         layer_context: 0,
         layer_index_in_transcript: 1,
         packed_json_entries: [0; 23],
@@ -640,6 +705,7 @@ fn test_parent_array() {
         key_data: [0; 20],
         key_hashes: [0; 20],
         layer_id: 0,
+        root_id: 1,
         layer_context: 0,
         layer_index_in_transcript: 1,
         packed_json_entries: [0; 20],
@@ -682,6 +748,7 @@ fn test_escaped_strings() {
         key_data: [0; 20],
         key_hashes: [0; 20],
         layer_id: 0,
+        root_id: 1,
         layer_context: OBJECT_LAYER,
         layer_index_in_transcript: 0,
         packed_json_entries: [0; 20],
@@ -783,6 +850,7 @@ fn test_redux() {
         key_data: [0; 30],
         key_hashes: [0; 30],
         layer_id: 0,
+        root_id: 1,
         layer_context: OBJECT_LAYER,
         layer_index_in_transcript: 0,
         packed_json_entries: [0; 30],
@@ -1084,6 +1152,7 @@ fn test_literal() {
         key_data: [0; 20],
         key_hashes: [0; 20],
         layer_id: 0,
+        root_id: 1,
         layer_context: OBJECT_LAYER,
         layer_index_in_transcript: 0,
         packed_json_entries: [0; 20],
@@ -1134,6 +1203,7 @@ fn test_arrays() {
         key_data: [0; 60],
         key_hashes: [0; 60],
         layer_id: 0,
+        root_id: 1,
         layer_context: OBJECT_LAYER,
         layer_index_in_transcript: 0,
         packed_json_entries: [0; 60],

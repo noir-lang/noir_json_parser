@@ -109,11 +109,11 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             // the list is sorted according to parent_ideneity,
             // so parent_identity increments in steps of 0 or 1
             // 1 gate
-            let new_parent = parent_identity_post - parent_identity_pre;
-
+            // let new_parent = parent_identity_post - parent_identity_pre;
+            // TODO FIX (need > because parent ideneities do not neccessarily increment in steps of 1. empty arrays/objects will increment by more than 1)
+            let new_parent = (parent_identity_post as u16 > parent_identity_pre as u16) as Field;
             // 3.5 gates
             let index_of_parent = identity_to_json_map[parent_identity_post];
-
             // 1 gate + 3.5 gates
             let updated = JSONEntry::add_child_pointer_into_field(sorted_entries[index_of_parent], i as Field);
 

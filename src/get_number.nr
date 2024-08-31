@@ -66,7 +66,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         extract_number_from_array(parsed_string, entry.json_length)
     }
 
-    fn get_array_element_as_number(self, array_index: Field) -> Option<u64> {
+    fn get_number_from_array(self, array_index: Field) -> Option<u64> {
         assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
 
         let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
@@ -97,9 +97,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
         let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
 
-        assert(
-            (entry.entry_type - NUMERIC_TOKEN) * valid as Field == 0, "get_number: entry exists but is not a number!"
-        );
+        assert(entry.entry_type == NUMERIC_TOKEN, "get_number: entry exists but is not a number!");
 
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
         extract_number_from_array(parsed_string, entry.json_length)

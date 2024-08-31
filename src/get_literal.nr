@@ -108,4 +108,43 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
         extract_literal_from_array(parsed_string, entry.json_length)
     }
+
+    fn get_literal_from_array(self, array_index: Field) -> Option<JSONLiteral> {
+        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
+
+        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
+
+        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
+        let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
+
+        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
+
+        assert(
+            (entry.entry_type - LITERAL_TOKEN) * valid as Field == 0, "get_literal_from_array: entry exists but is not a literal!"
+        );
+
+        let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] = self.extract_string_entry(entry);
+        let result = extract_literal_from_array(parsed_string, entry.json_length);
+
+        Option { _is_some: valid, _value: result }
+    }
+
+    fn get_literal_from_array_unchecked(self, array_index: Field) -> JSONLiteral {
+        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
+
+        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
+
+        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
+        assert(valid, "array overflow");
+        let entry_index = (parent_entry.child_pointer + array_index);
+
+        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
+
+        assert(
+            entry.entry_type == LITERAL_TOKEN, "get_literal_from_array_unchecked: entry exists but is not a literal!"
+        );
+
+        let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] = self.extract_string_entry(entry);
+        extract_literal_from_array(parsed_string, entry.json_length)
+    }
 }
