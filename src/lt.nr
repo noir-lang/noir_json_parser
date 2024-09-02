@@ -1,3 +1,6 @@
+/**
+ * @file helper methods that evaluate comparison operations on Field elements that are known to be of a fixed size (e.g. <2^16)
+ **/
 unconstrained pub fn get_lt_predicate_f(x: Field, y: Field) -> bool {
     let a = x as u32;
     let b = y as u32;

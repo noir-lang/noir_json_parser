@@ -1,60 +1,69 @@
+/**
+ * @brief contains data we need to keep track when, in `create_json_entries`, we enter or exist from an object or array
+ **/
 struct JSONContextStackEntry {
     num_entries: Field,
     context: Field,
-    current_key_length: Field,
-    current_key_index: Field,
+    current_key_index_and_length: Field,
     json_index: Field,
-    entry_pointer: Field,
     current_identity: Field
 }
 impl JSONContextStackEntry {
     unconstrained fn __from_field(f: Field) -> Self {
-        // 19 + 6 = 25
-        let bytes = f.to_be_bytes(13);
+        let bytes = f.to_be_bytes(11);
         let context = bytes[0] as Field;
         let num_entries = bytes[1] as Field * 0x100 + bytes[2] as Field;
         let current_key_length = bytes[3] as Field * 0x100 + bytes[4] as Field;
         let current_key_index = bytes[5] as Field * 0x100 + bytes[6] as Field;
         let json_index = bytes[7] as Field * 0x100 + bytes[8] as Field;
-        let entry_pointer = bytes[9] as Field * 0x100 + bytes[10] as Field;
-        let current_identity = bytes[11] as Field * 0x100 + bytes[12] as Field;
-        JSONContextStackEntry { num_entries, context, current_key_length, current_key_index, json_index, entry_pointer, current_identity }
+        let current_identity = bytes[9] as Field * 0x100 + bytes[10] as Field;
+        let current_key_index_and_length = current_key_index + current_key_length * 0x10000;
+        JSONContextStackEntry { num_entries, context, current_key_index_and_length, json_index, current_identity }
     }
 
+    /**
+     * @brief we pack multiple values into a Field element in order to reduce the number of array read/write queries we need
+     *        (each query will be 3.5 gates as we read and write from/to unknown locations)
+     * @note method cost = 9.5 gates
+     **/
     fn from_field(f: Field) -> Self {
         let result = JSONContextStackEntry::__from_field(f);
 
-        result.context.assert_max_bit_size(8);
-        result.num_entries.assert_max_bit_size(16);
-        result.current_key_length.assert_max_bit_size(16);
-        result.current_key_index.assert_max_bit_size(16);
-        result.json_index.assert_max_bit_size(16);
-        result.entry_pointer.assert_max_bit_size(16);
-        result.current_identity.assert_max_bit_size(16);
-        assert(result.to_field() == f); // 3
+        result.context.assert_max_bit_size(8); // 1.25
+        result.num_entries.assert_max_bit_size(16); // 1.5
+        result.current_key_index_and_length.assert_max_bit_size(32); // 1.75
+        result.json_index.assert_max_bit_size(16); // 1.5
+        result.current_identity.assert_max_bit_size(16); // 1.5
+        assert(result.to_field() == f); // 2
         result
     }
 
+    /**
+     * @brief we pack multiple values into a Field element in order to reduce the number of array read/write queries we need
+     *        (each query will be 3.5 gates as we read and write from/to unknown locations)
+     * @note method cost = 2 gates
+     **/
     fn to_field(self) -> Field {
         self.current_identity
-            + self.entry_pointer * 0x10000
-            + self.json_index * 0x100000000
-            + self.current_key_index * 0x1000000000000
-            + self.current_key_length * 0x10000000000000000
-            + self.num_entries * 0x100000000000000000000
-            + self.context * 0x1000000000000000000000000
+            + self.json_index * 0x10000
+            + self.current_key_index_and_length * 0x100000000
+            + self.num_entries * 0x10000000000000000
+            + self.context * 0x100000000000000000000
     }
 }
 
+/**
+ * @brief describes a single array, object or value within our JSON
+ **/
 struct JSONEntry {
-    array_pointer: Field,
-    entry_type: Field,
-    child_pointer: Field,
-    num_children: Field,
-    json_pointer: Field,
-    json_length: Field,
-    parent_index: Field,
-    id: Field
+    entry_type: Field, // is this an OBJECT_TOKEN, ARRAY_TOKEN, STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN?
+    id: Field, // if this is an object or array, describes the unique identifier assigned to this item
+    parent_index: Field, // if parent is an object or array, describes the unique identifier assigned to our parent
+    array_pointer: Field, // if parent is an array, where in the array are we? 
+    child_pointer: Field, // if this is an object or array, points to the location in `packed_json_entries` of this item's first child
+    num_children: Field, // if this is an object or array, how many child elements do we contain?
+    json_pointer: Field, // points to the json that describes the first byte of this entry
+    json_length: Field, // how many bytes in the json describes this item? (only for strings, numbers or literals)
 }
 impl JSONEntry {
     fn new() -> Self {
@@ -178,23 +187,50 @@ impl JSONEntry {
     }
 }
 
-impl std::cmp::Eq for JSONEntry {
-
-    fn eq(self, other: Self) -> bool {
-        let array_ptr = (self.array_pointer == other.array_pointer);
-        assert(array_ptr == true, "array pointer bad");
-        let entry = self.entry_type == other.entry_type;
-        assert(entry == true, "entry type bad");
-        let child = (self.child_pointer == other.child_pointer);
-        assert(child == true, "child pointer bad");
-        let num_children = (self.num_children == other.num_children);
-        assert(num_children == true, "num children bad");
-
-       let json_pointer = (self.json_pointer == other.json_pointer);
-       assert(json_pointer == true, "json pointer bad");
-        
-        let json_length = (self.json_length == other.json_length);
-        assert(json_length == true, "json length bad");
-        true
+impl std::convert::From<JSONEntryPacked> for JSONEntry {
+    fn from(JSONEntryPacked{ value: f }: JSONEntryPacked) -> Self {
+        let result = JSONEntry::__from_field(f);
+        result.entry_type.assert_max_bit_size(8);
+        result.json_length.assert_max_bit_size(16);
+        result.json_pointer.assert_max_bit_size(16);
+        result.num_children.assert_max_bit_size(16);
+        result.child_pointer.assert_max_bit_size(16);
+        result.array_pointer.assert_max_bit_size(16);
+        result.parent_index.assert_max_bit_size(16);
+        result.id.assert_max_bit_size(16);
+        assert(result.to_field() == f);
+        result
     }
 }
+
+impl std::cmp::Eq for JSONEntry {
+    // N.B. used for testing
+    fn eq(self, other: Self) -> bool {
+        let array_ptr = (self.array_pointer == other.array_pointer);
+        let entry = self.entry_type == other.entry_type;
+        let child = (self.child_pointer == other.child_pointer);
+        let num_children = (self.num_children == other.num_children);
+        let json_pointer = (self.json_pointer == other.json_pointer);
+        let json_length = (self.json_length == other.json_length);
+        array_ptr | entry | child | num_children | json_pointer | json_length
+    }
+}
+
+/**
+ * @brief describes a JSONEntry object's data, but packed into a single field element.
+ * @description We do this to minimize the number of array lookups we perform
+ **/
+struct JSONEntryPacked {
+    value: Field
+}
+
+impl std::cmp::Eq for JSONEntryPacked {
+    fn eq(self, other: Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl std::default::Default for JSONEntryPacked {
+    fn default() -> Self { JSONEntryPacked{ value: 0 }}
+}
+

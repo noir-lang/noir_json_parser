@@ -1,4 +1,4 @@
-use crate::redux_tables::ASCII_TO_TOKEN_TABLE;
+use crate::json_tables::ASCII_TO_TOKEN_TABLE;
 
 struct ValidationFlags
 {
@@ -202,6 +202,17 @@ impl TranscriptEntry {
 
         assert(result.token + result.index * 0x100 + result.length * 0x1000000 == felt);
         result
+    }
+
+    fn get_token_and_index_length_combined(f: Field) -> (Field, Field) {
+        let (token, remainder) = TranscriptEntry::__get_token(f);
+
+        remainder.assert_max_bit_size(32);
+        token.assert_max_bit_size(8);
+
+        assert(token + remainder * 0x100 == f);
+
+        (token, remainder)
     }
 
     // cost 5.75 gates

@@ -1,41 +1,19 @@
-use crate::getters;
-use dep::noir_sort;
 use crate::json_entry::JSONEntry;
-use crate::redux::JSON;
-use crate::keymap;
-use crate::lt::{lt_field_8_bit, lt_field_16_bit, assert_lt_240_bit, assert_gt_240_bit};
-use crate::redux_tables::{
-    OBJECT_LAYER, ARRAY_LAYER, NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN, BEGIN_OBJECT_TOKEN,
-    BEGIN_ARRAY_TOKEN, ASCII_TO_NUMBER, ESCAPE_SEQUENCE_END_CHARS, ESCAPE_SEQUENCE_START_CHARS,
-    ESCAPE_SEQUENCE_REPLACEMENT
-};
-use crate::keyhash::Hasher;
+use crate::json::JSON;
+use crate::lt::lt_field_16_bit;
+use crate::json_tables::{OBJECT_LAYER, ARRAY_LAYER, LITERAL_TOKEN};
 use crate::keyhash::get_keyhash;
-use crate::slice_field::slice_fields;
+use crate::getters::JSONValue;
 
 global MAX_LITERAL_LENGTH_AS_STRING = 5;
 global LITERAL_OFFSET_SHIFT: [Field; 6] = [
    0x10000000000, 0x100000000, 0x1000000, 0x10000, 0x100,1
 ];
-fn extract_literal_from_array(arr: [u8; MAX_LITERAL_LENGTH_AS_STRING], json_length: Field) -> JSONLiteral {
-    let false_field = 0x66616c7365;
-    let true_field = 0x74727565;
-    let null_field = 0x6e756c6c;
 
-    let mut parsed_literal: Field = 0;
-    for i in 0..MAX_LITERAL_LENGTH_AS_STRING {
-        parsed_literal *= 0x100;
-
-        let value = arr[i] as Field;
-        parsed_literal += value;
-    }
-    parsed_literal /= LITERAL_OFFSET_SHIFT[json_length];
-    let is_false = parsed_literal == false_field;
-    let is_null = parsed_literal == null_field;
-    let is_true = parsed_literal == true_field;
-    JSONLiteral::new(is_true, is_false, is_null)
-}
-
+/**
+ * @brief a JSON "literal" type has 3 states: "true", "false", "null".
+ *        As such we can't directly convert to a bool and cover all possible cases
+ **/
 struct JSONLiteral {
     value: Field,
 }
@@ -59,8 +37,40 @@ impl JSONLiteral {
     }
 }
 
+/**
+ * @brief given an input array, return a JSONLiteral depending on whether the array says "true", "false" or "null"
+ **/
+fn extract_literal_from_array(
+    arr: [u8; MAX_LITERAL_LENGTH_AS_STRING],
+    json_length: Field
+) -> JSONLiteral {
+    let false_field = 0x66616c7365;
+    let true_field = 0x74727565;
+    let null_field = 0x6e756c6c;
+
+    let mut parsed_literal: Field = 0;
+    for i in 0..MAX_LITERAL_LENGTH_AS_STRING {
+        parsed_literal *= 0x100;
+
+        let value = arr[i] as Field;
+        parsed_literal += value;
+    }
+    parsed_literal /= LITERAL_OFFSET_SHIFT[json_length];
+    let is_false = parsed_literal == false_field;
+    let is_null = parsed_literal == null_field;
+    let is_true = parsed_literal == true_field;
+    JSONLiteral::new(is_true, is_false, is_null)
+}
+
+/**
+ * @brief getter methods for extracting literal values out of a JSON struct
+ **/
 impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues> {
 
+    /**
+     * @brief if the root JSON is an object, extract a literal value given by `key`
+     * @description returns an Option<JSONLiteral> which will be null if the literal does not exist
+     **/
     fn get_literal<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
 
@@ -73,30 +83,10 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         Option { _is_some: exists, _value: extract_literal_from_array(parsed_string, entry.json_length) }
     }
 
-    fn get_literal_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<JSONLiteral> {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let (exists, entry) = self.get_json_entry_var(key, key_length);
-        assert(
-            (entry.entry_type - LITERAL_TOKEN) * exists as Field == 0, "get_literal_var: entry exists but is not a literal!"
-        );
-        let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] = self.extract_string_entry(entry);
-
-        Option { _is_some: exists, _value: extract_literal_from_array(parsed_string, entry.json_length) }
-    }
-
-    fn get_literal_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> JSONLiteral {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let entry= self.get_json_entry_unchecked_var(key, key_length);
-        assert(
-            entry.entry_type == LITERAL_TOKEN, "get_literal_unchecked_var: entry exists but is not a literal!"
-        );
-        let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] = self.extract_string_entry(entry);
-
-        extract_literal_from_array(parsed_string, entry.json_length)
-    }
-
+    /**
+     * @brief if the root JSON is an object, extract a literal value given by `key`
+     * @description will revert if the literal does not exist
+     **/
     fn get_literal_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> JSONLiteral {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
 
@@ -109,15 +99,49 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         extract_literal_from_array(parsed_string, entry.json_length)
     }
 
+    /**
+     * @brief same as `get_literal` for where the key length may be less than KeyBytes
+     **/
+    fn get_literal_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<JSONLiteral> {
+        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+
+        let (exists, entry) = self.get_json_entry_var(key, key_length);
+        assert(
+            (entry.entry_type - LITERAL_TOKEN) * exists as Field == 0, "get_literal_var: entry exists but is not a literal!"
+        );
+        let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] = self.extract_string_entry(entry);
+
+        Option { _is_some: exists, _value: extract_literal_from_array(parsed_string, entry.json_length) }
+    }
+
+    /**
+     * @brief same as `get_literal_unchecked` for where the key length may be less than KeyBytes
+     **/
+    fn get_literal_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> JSONLiteral {
+        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+
+        let entry= self.get_json_entry_unchecked_var(key, key_length);
+        assert(
+            entry.entry_type == LITERAL_TOKEN, "get_literal_unchecked_var: entry exists but is not a literal!"
+        );
+        let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] = self.extract_string_entry(entry);
+
+        extract_literal_from_array(parsed_string, entry.json_length)
+    }
+
+    /**
+     * @brief if the root JSON is an array, extract a literal given by the position of the target in the source array
+     * @description returns an Option<JSONLiteral> which will be null if the literal does not exist
+     **/
     fn get_literal_from_array(self, array_index: Field) -> Option<JSONLiteral> {
         assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
+        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
+        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
 
         assert(
             (entry.entry_type - LITERAL_TOKEN) * valid as Field == 0, "get_literal_from_array: entry exists but is not a literal!"
@@ -129,16 +153,20 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         Option { _is_some: valid, _value: result }
     }
 
+    /**
+     * @brief if the root JSON is an array, extract a literal given by the position of the target in the source array
+     * @description will revert if the literal does not exist
+     **/
     fn get_literal_from_array_unchecked(self, array_index: Field) -> JSONLiteral {
         assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
+        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
 
-        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
+        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
 
         assert(
             entry.entry_type == LITERAL_TOKEN, "get_literal_from_array_unchecked: entry exists but is not a literal!"

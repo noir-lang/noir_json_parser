@@ -1,17 +1,11 @@
-use crate::getters;
-use dep::noir_sort;
 use crate::json_entry::JSONEntry;
-use crate::redux::JSON;
-use crate::keymap;
-use crate::lt::{lt_field_8_bit, lt_field_16_bit, assert_lt_240_bit, assert_gt_240_bit};
-use crate::redux_tables::{
-    OBJECT_LAYER, ARRAY_LAYER, NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN, BEGIN_OBJECT_TOKEN,
-    BEGIN_ARRAY_TOKEN, ASCII_TO_NUMBER, ESCAPE_SEQUENCE_END_CHARS, ESCAPE_SEQUENCE_START_CHARS,
+use crate::json::JSON;
+use crate::lt::lt_field_16_bit;
+use crate::json_tables::{
+    OBJECT_LAYER, ARRAY_LAYER, STRING_TOKEN, ESCAPE_SEQUENCE_START_CHARS, ESCAPE_SEQUENCE_END_CHARS,
     ESCAPE_SEQUENCE_REPLACEMENT
 };
-use crate::keyhash::Hasher;
 use crate::keyhash::get_keyhash;
-use crate::slice_field::slice_fields;
 use crate::getters::JSONValue;
 
 unconstrained fn to_u8(f: Field) -> u8 {
@@ -88,8 +82,18 @@ fn test_process_escape_sequence() {
     }
 }
 
+/**
+ * @brief getter methods for extracting string values out of a JSON struct
+ * @note returned strings will have escape sequences converted into the relevant ASCII characters.
+ *       If you want to avoid this, use `get_value` instead of `get_string`
+ **/
 impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues> {
 
+    /**
+     * @brief if the root JSON is an object, extract a string given by `key`
+     * @description returns an Option<BoundedVec> which will be null if the key does not exist
+     * @note the `StringBytes` parameter defines the maximum allowable length of the returned string
+     **/
     fn get_string<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> Option<BoundedVec<u8, StringBytes>> {
         let (exists, entry) = self.get_json_entry(key);
         assert(
@@ -101,6 +105,21 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         Option { _is_some: exists, _value: parsed_string }
     }
 
+    /**
+     * @brief if the root JSON is an object, extract a string given by `key`
+     * @description will revert if the string does not exist
+     * @note the `StringBytes` parameter defines the maximum allowable length of the returned string
+     **/
+    fn get_string_unchecked<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> BoundedVec<u8, StringBytes> {
+        let entry = self.get_json_entry_unchecked(key);
+        assert(entry.entry_type == STRING_TOKEN, "get_string_unchecked: entry exists but is not a string!");
+        let parsed_string = BoundedVec { storage: self.extract_string_entry(entry), len: entry.json_length as u32 };
+        process_escape_sequences(parsed_string)
+    }
+
+    /**
+     * @brief same as `get_string` for where the key length may be less than KeyBytes
+     **/
     fn get_string_var<let KeyBytes: u16, let StringBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Option<BoundedVec<u8, StringBytes>> {
         let (exists, entry) = self.get_json_entry_var(key.storage, key.len as u16);
         assert(
@@ -111,13 +130,9 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         Option { _is_some: exists, _value: parsed_string }
     }
 
-    fn get_string_unchecked<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> BoundedVec<u8, StringBytes> {
-        let entry = self.get_json_entry_unchecked(key);
-        assert(entry.entry_type == STRING_TOKEN, "get_string_unchecked: entry exists but is not a string!");
-        let parsed_string = BoundedVec { storage: self.extract_string_entry(entry), len: entry.json_length as u32 };
-        process_escape_sequences(parsed_string)
-    }
-
+    /**
+     * @brief same as `get_string_unchecked` for where the key length may be less than KeyBytes
+     **/
     fn get_string_unchecked_var<let KeyBytes: u16, let StringBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> BoundedVec<u8, StringBytes> {
         let entry = self.get_json_entry_unchecked_var(key.storage, key.len as u16);
         assert(entry.entry_type == STRING_TOKEN, "get_string_unchecked: entry exists but is not a string!");
@@ -125,7 +140,59 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         process_escape_sequences(parsed_string)
     }
 
-    fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<BoundedVec<u8, StringBytes>> {
+    /**
+     * @brief if the root JSON is an array, extract a string given by the position of the target in the source array
+     * @description returns an Option<BoundedVec> which will be null if the string does not exist
+     **/
+    fn get_string_from_array<let StringBytes: u16>(self, array_index: Field) -> Option<BoundedVec<u8, StringBytes>> {
+        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
+
+        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
+
+        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
+        let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
+
+        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
+
+        assert(
+            (entry.entry_type - STRING_TOKEN) * valid as Field == 0, "get_array_element_as_string: entry exists but is not a string!"
+        );
+
+        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
+        let parsed_string: BoundedVec<u8, StringBytes> = process_escape_sequences(BoundedVec { storage: parsed_string, len: entry.json_length as u32 });
+        Option { _is_some: valid, _value: parsed_string }
+    }
+
+    /**
+     * @brief if the root JSON is an array, extract a string given by the position of the target in the source array
+     * @description will revert if the string does not exist
+     **/
+    fn get_string_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> BoundedVec<u8, StringBytes> {
+        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
+
+        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
+
+        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
+        assert(valid, "array overflow");
+        let entry_index = (parent_entry.child_pointer + array_index);
+
+        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
+
+        assert(
+            entry.entry_type == STRING_TOKEN, "get_string_from_array_unchecked: entry exists but is not a string!"
+        );
+
+        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
+        process_escape_sequences(BoundedVec { storage: parsed_string, len: entry.json_length as u32 })
+    }
+
+    /**
+     * @brief if the root JSON is an object, get a nested string out of the JSON, which may be several keys deep
+     **/
+    fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+        self,
+        keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+    ) -> Option<BoundedVec<u8, StringBytes>> {
         let mut target = self;
         let mut valid = true;
         for i in 0..PathDepth - 1 {
@@ -140,44 +207,11 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         final
     }
 
-    fn get_string_from_array<let StringBytes: u16>(self, array_index: Field) -> Option<BoundedVec<u8, StringBytes>> {
-        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
-
-        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
-
-        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
-        let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
-
-        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
-
-        assert(
-            (entry.entry_type - STRING_TOKEN) * valid as Field == 0, "get_array_element_as_string: entry exists but is not a string!"
-        );
-
-        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
-        let parsed_string: BoundedVec<u8, StringBytes> = process_escape_sequences(BoundedVec { storage: parsed_string, len: entry.json_length as u32 });
-        Option { _is_some: valid, _value: parsed_string }
-    }
-
-    fn get_string_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> BoundedVec<u8, StringBytes> {
-        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
-
-        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
-
-        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
-        assert(valid, "array overflow");
-        let entry_index = (parent_entry.child_pointer + array_index);
-
-        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
-
-        assert(
-            entry.entry_type == STRING_TOKEN, "get_string_from_array_unchecked: entry exists but is not a string!"
-        );
-
-        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
-        process_escape_sequences(BoundedVec { storage: parsed_string, len: entry.json_length as u32 })
-    }
-
+    /**
+     * @brief if the root JSON is an object, extract a JSONValue given by `key`
+     * @description returns an Option<JSONValue> which will be null if the key does not exist
+     * @note the `StringBytes` parameter defines the maximum allowable length of the returned value
+     **/
     fn get_value<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> Option<JSONValue<StringBytes>> {
         let (exists, entry) = self.get_json_entry(key);
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
@@ -186,14 +220,11 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         Option { _is_some: exists, _value: JSONValue { value: parsed_string, value_type: entry.entry_type } }
     }
 
-    fn get_value_var<let KeyBytes: u16, let StringBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Option<JSONValue<StringBytes>> {
-        let (exists, entry) = self.get_json_entry_var(key.storage, key.len as u16);
-        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
-
-        let parsed_string: BoundedVec<u8, StringBytes> = BoundedVec { storage: parsed_string, len: entry.json_length as u32 };
-        Option { _is_some: exists, _value: JSONValue { value: parsed_string, value_type: entry.entry_type } }
-    }
-
+    /**
+     * @brief if the root JSON is an object, extract a JSONValue given by `key`
+     * @description will revert if the string does not exist
+     * @note the `StringBytes` parameter defines the maximum allowable length of the returned value
+     **/
     fn get_value_unchecked<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> JSONValue<StringBytes> {
         let entry = self.get_json_entry_unchecked(key);
         JSONValue {
@@ -202,6 +233,20 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         }
     }
 
+    /**
+     * @brief same as `get_value` for where the key length may be less than KeyBytes
+     **/
+    fn get_value_var<let KeyBytes: u16, let StringBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Option<JSONValue<StringBytes>> {
+        let (exists, entry) = self.get_json_entry_var(key.storage, key.len as u16);
+        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
+
+        let parsed_string: BoundedVec<u8, StringBytes> = BoundedVec { storage: parsed_string, len: entry.json_length as u32 };
+        Option { _is_some: exists, _value: JSONValue { value: parsed_string, value_type: entry.entry_type } }
+    }
+
+    /**
+     * @brief same as `get_value_unchecked` for where the key length may be less than KeyBytes
+     **/
     fn get_value_unchecked_var<let KeyBytes: u16, let StringBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> JSONValue<StringBytes> {
         let entry = self.get_json_entry_unchecked_var(key.storage, key.len as u16);
         JSONValue {
@@ -210,31 +255,19 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         }
     }
 
-    fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<JSONValue<StringBytes>> {
-        let mut target = self;
-        let mut valid = true;
-        for i in 0..PathDepth - 1 {
-            let child  = self.get_object_var(keys[i].storage, keys[i].len as u16);
-
-            target = child._value;
-            valid = valid & child._is_some;
-        }
-
-        let mut final = target.get_value_var(keys[PathDepth - 1]);
-        final._is_some = final._is_some & valid;
-
-        final
-    }
-
+    /**
+     * @brief if the root JSON is an array, extract a value given by the position of the target in the source array
+     * @description returns an Option<BoundedVec> which will be null if the value does not exist
+     **/
     fn get_value_from_array<let StringBytes: u16>(self, array_index: Field) -> Option<JSONValue<StringBytes>> {
         assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
+        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
+        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
 
         assert(
             (entry.entry_type - STRING_TOKEN) * valid as Field == 0, "get_array_element_as_string: entry exists but is not a string!"
@@ -250,16 +283,20 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         }
     }
 
+    /**
+     * @brief if the root JSON is an array, extract a value given by the position of the target in the source array
+     * @description will revert if the value does not exist
+     **/
     fn get_value_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> JSONValue<StringBytes> {
         assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
+        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
 
-        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
+        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
 
         assert(
             entry.entry_type == STRING_TOKEN, "get_string_from_array_unchecked: entry exists but is not a string!"
@@ -270,5 +307,27 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             value: BoundedVec { len: entry.json_length as u32, storage: parsed_string },
             value_type: entry.entry_type
         }
+    }
+
+    /**
+     * @brief if the root JSON is an object, get a nested value out of the JSON, which may be several keys deep
+     **/
+    fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+        self,
+        keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+    ) -> Option<JSONValue<StringBytes>> {
+        let mut target = self;
+        let mut valid = true;
+        for i in 0..PathDepth - 1 {
+            let child  = self.get_object_var(keys[i].storage, keys[i].len as u16);
+
+            target = child._value;
+            valid = valid & child._is_some;
+        }
+
+        let mut final = target.get_value_var(keys[PathDepth - 1]);
+        final._is_some = final._is_some & valid;
+
+        final
     }
 }

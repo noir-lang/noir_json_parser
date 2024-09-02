@@ -1,144 +1,10 @@
-global BYTE_SHIFT: [Field; 32] = [
-        1,
-        0x1000000000000000000000000000000000000000000000000000000000000,
-        0x10000000000000000000000000000000000000000000000000000000000,
-        0x100000000000000000000000000000000000000000000000000000000,
-        0x1000000000000000000000000000000000000000000000000000000,
-        0x10000000000000000000000000000000000000000000000000000,
-        0x100000000000000000000000000000000000000000000000000,
-        0x1000000000000000000000000000000000000000000000000,
-        0x10000000000000000000000000000000000000000000000,
-        0x100000000000000000000000000000000000000000000,
-        0x1000000000000000000000000000000000000000000,
-        0x10000000000000000000000000000000000000000,
-        0x100000000000000000000000000000000000000,
-        0x1000000000000000000000000000000000000,
-        0x10000000000000000000000000000000000,
-        0x100000000000000000000000000000000,
-        0x1000000000000000000000000000000,
-        0x10000000000000000000000000000,
-        0x100000000000000000000000000,
-        0x1000000000000000000000000,
-        0x10000000000000000000000,
-        0x100000000000000000000,
-        0x1000000000000000000,
-        0x10000000000000000,
-        0x100000000000000,
-        0x1000000000000,
-        0x10000000000,
-        0x100000000,
-        0x1000000,
-        0x10000,
-        0x100,
-        1
-    ];
+/**
+ * @file methods to extract data efficiently from Field elements that represent 31 bytes of packed data
+ **/
 
-global PATH_LOOKUP: [[bool; 5]; 32] = [
-        [false, false, false, false, false],
-        [true, false, false, false, false],
-        [false, true, false, false, false],
-        [true, true, false, false, false],
-        [false, false, true, false, false],
-        [true, false, true, false, false],
-        [false, true, true, false, false],
-        [true, true, true, false, false],
-        [false, false, false, true, false],
-        [true, false, false, true, false],
-        [false, true, false, true, false],
-        [true, true, false, true, false],
-        [false, false, true, true, false],
-        [true, false, true, true, false],
-        [false, true, true, true, false],
-        [true, true, true, true, false],
-        [false, false, false, false, true],
-        [true, false, false, false, true],
-        [false, true, false, false, true],
-        [true, true, false, false, true],
-        [false, false, true, false, true],
-        [true, false, true, false, true],
-        [false, true, true, false, true],
-        [true, true, true, false, true],
-        [false, false, false, true, true],
-        [true, false, false, true, true],
-        [false, true, false, true, true],
-        [true, true, false, true, true],
-        [false, false, true, true, true],
-        [true, false, true, true, true],
-        [false, true, true, true, true],
-        [true, true, true, true, true]
-    ];
-
-unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
-    let head_path = PATH_LOOKUP[num_bytes];
-    let bytes = f.to_be_bytes(32);
-    let bytes = bytes.map(|b| b as Field);
-
-    let mut chunks: [Field; 5] = [0; 5];
-    let mut head_ptr = 1;
-    let mut tail_ptr = num_bytes + 1;
-    if head_path[0] {
-        chunks[0] = bytes[head_ptr] as Field;
-        head_ptr += 1;
-    } else {
-        chunks[0] = bytes[tail_ptr] as Field;
-        tail_ptr += 1;
-    }
-    if head_path[1] {
-        chunks[1] = bytes[head_ptr] * 0x100 + bytes[head_ptr + 1];
-        head_ptr += 2;
-    } else {
-        chunks[1] = bytes[tail_ptr] * 0x100 + bytes[tail_ptr + 1];
-        tail_ptr += 2;
-    }
-    if head_path[2] {
-        chunks[2] = bytes[head_ptr] * 0x1000000 + bytes[head_ptr + 1] * 0x10000
-        + bytes[head_ptr + 2] * 0x100 + bytes[head_ptr + 3];
-        head_ptr += 4;
-    } else {
-        chunks[2] = bytes[tail_ptr] * 0x1000000 + bytes[tail_ptr + 1] * 0x10000
-        + bytes[tail_ptr + 2] * 0x100 + bytes[tail_ptr + 3];
-        tail_ptr += 4;
-    }
-    if head_path[3] {
-        chunks[3] = 
-        bytes[head_ptr] * 0x100000000000000 + bytes[head_ptr + 1] * 0x1000000000000
-        + bytes[head_ptr + 2] * 0x10000000000 + bytes[head_ptr + 3] * 0x100000000
-        + bytes[head_ptr + 4] * 0x1000000 + bytes[head_ptr + 5] * 0x10000
-        + bytes[head_ptr + 6] * 0x100 + bytes[head_ptr + 7];
-        head_ptr += 8;
-    } else {
-        chunks[3] = 
-        bytes[tail_ptr] * 0x100000000000000 + bytes[tail_ptr + 1] * 0x1000000000000
-        + bytes[tail_ptr + 2] * 0x10000000000 + bytes[tail_ptr + 3] * 0x100000000
-        + bytes[tail_ptr + 4] * 0x1000000 + bytes[tail_ptr + 5] * 0x10000
-        + bytes[tail_ptr + 6] * 0x100 + bytes[tail_ptr + 7];
-        tail_ptr += 8;
-    }
-    if head_path[4] {
-        chunks[4] = 
-        bytes[head_ptr] *       0x1000000000000000000000000000000 + bytes[head_ptr + 1] * 0x10000000000000000000000000000
-        + bytes[head_ptr + 2] * 0x100000000000000000000000000 + bytes[head_ptr + 3] *      0x1000000000000000000000000
-        + bytes[head_ptr + 4] * 0x10000000000000000000000 + bytes[head_ptr + 5] * 0x100000000000000000000
-        + bytes[head_ptr + 6] * 0x1000000000000000000 + bytes[head_ptr + 7] * 0x10000000000000000
-        + bytes[head_ptr + 8] * 0x100000000000000 + bytes[head_ptr + 9] * 0x1000000000000
-        + bytes[head_ptr + 10] * 0x10000000000 + bytes[head_ptr + 11] * 0x100000000
-        + bytes[head_ptr + 12] * 0x1000000 + bytes[head_ptr + 13] * 0x10000
-        + bytes[head_ptr + 14] * 0x100 + bytes[head_ptr + 15];
-    } else {
-        chunks[4] = 
-        bytes[tail_ptr] * 0x1000000000000000000000000000000 + bytes[tail_ptr + 1] * 0x10000000000000000000000000000
-        + bytes[tail_ptr + 2] * 0x100000000000000000000000000 + bytes[tail_ptr + 3] * 0x1000000000000000000000000
-        + bytes[tail_ptr + 4] * 0x10000000000000000000000 + bytes[tail_ptr + 5] * 0x100000000000000000000
-        + bytes[tail_ptr + 6] * 0x1000000000000000000 + bytes[tail_ptr + 7] * 0x10000000000000000
-        + bytes[tail_ptr + 8] * 0x100000000000000 + bytes[tail_ptr + 9] * 0x1000000000000
-        + bytes[tail_ptr + 10] * 0x10000000000 + bytes[tail_ptr + 11] * 0x100000000
-        + bytes[tail_ptr + 12] * 0x1000000 + bytes[tail_ptr + 13] * 0x10000
-        + bytes[tail_ptr + 14] * 0x100 + bytes[tail_ptr + 15];
-    }
-
-    chunks
-}
-
+// #############################################################
+// ### GLOBAL VARIABLES AND LOOKUP TABLES
+// #############################################################
 global two_pow_128 = 0x100000000000000000000000000000000;
 global two_pow_64 = 0x10000000000000000;
 global two_pow_32 = 0x100000000;
@@ -322,50 +188,12 @@ global path_multipliers_chunk0: [Field; 32] = [
     /* 30 (11110) */ 0,
     /* 31 (11111) */ two_pow_128 * two_pow_64 * two_pow_32 * two_pow_16
 ];
+
+// these are `head_path_multipliers` but in reverse order
 global tail_path_multipliers_chunk3: [Field; 32] = [0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 global tail_path_multipliers_chunk2: [Field; 32] = [0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x010000000000000000, 0x010000000000000000, 0x010000000000000000, 0x010000000000000000, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00];
 global tail_path_multipliers_chunk1: [Field; 32] = [0x0100000000000000000000000000000000000000000000000000000000, 0x0100000000000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x010000000000000000000000000000000000000000, 0x010000000000000000000000000000000000000000, 0x00, 0x00, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x00, 0x00, 0x01000000000000000000000000, 0x01000000000000000000000000, 0x00, 0x00, 0x010000000000000000, 0x010000000000000000, 0x00, 0x00, 0x0100000000, 0x0100000000, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00];
 global tail_path_multipliers_chunk0: [Field; 32] = [0x01000000000000000000000000000000000000000000000000000000000000, 0x00, 0x0100000000000000000000000000000000000000000000000000000000, 0x00, 0x010000000000000000000000000000000000000000000000000000, 0x00, 0x01000000000000000000000000000000000000000000000000, 0x00, 0x0100000000000000000000000000000000000000000000, 0x00, 0x010000000000000000000000000000000000000000, 0x00, 0x01000000000000000000000000000000000000, 0x00, 0x0100000000000000000000000000000000, 0x00, 0x010000000000000000000000000000, 0x00, 0x01000000000000000000000000, 0x00, 0x0100000000000000000000, 0x00, 0x010000000000000000, 0x00, 0x01000000000000, 0x00, 0x0100000000, 0x00, 0x010000, 0x00, 0x01, 0x00];
-
-unconstrained fn __divmod(numerator: Field, denominator: Field) -> (Field, Field) {
-    let quotient = numerator as u16 / denominator as u16;
-    let remainder = numerator as u16 % denominator as u16;
-    (quotient as Field, remainder as Field)
-}
-
-unconstrained fn __divmod_u16(numerator: Field, denominator: Field) -> (u16, u16) {
-    let quotient = numerator as u16 / denominator as u16;
-    let remainder = numerator as u16 % denominator as u16;
-    (quotient, remainder)
-}
-
-fn divmod(numerator: Field, denominator: Field) -> (Field, Field) {
-    let (quotient, remainder) = __divmod(numerator, denominator);
-
-    let qf = quotient as Field;
-    let rf = remainder as Field;
-
-    // note: these range checks are because we know the denominator is 31
-    // TODO: need more checks, atm remainder could equal 31
-    qf.assert_max_bit_size(14);
-    rf.assert_max_bit_size(5);
-
-    // n / d = q
-    // d * q + r = n
-    assert(qf * denominator as Field + rf == numerator as Field);
-    (quotient, remainder)
-}
-
-unconstrained fn decompose(val: Field) -> [Field; 16] {
-    let mut r: [Field; 16] = [0; 16];
-
-    let mut it = val as u16;
-    for i in 0..16 {
-        r[i] = (it & 1) as Field;
-        it >>= 1;
-    }
-    r
-}
 
 global LIMB_VALID_PATH: [Field; 35] = [
 0x000000000, // 0 0 0 0 0 0 0 0 0
@@ -456,11 +284,202 @@ global INTEGER_UP_TO_62_IS_GREATER_THAN_31: [Field; 63] = [
 global NUM_BYTES_MOD_31_IS_ZERO: [Field; 31] = [
     1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 ];
+global BYTE_SHIFT: [Field; 32] = [
+        1,
+        0x1000000000000000000000000000000000000000000000000000000000000,
+        0x10000000000000000000000000000000000000000000000000000000000,
+        0x100000000000000000000000000000000000000000000000000000000,
+        0x1000000000000000000000000000000000000000000000000000000,
+        0x10000000000000000000000000000000000000000000000000000,
+        0x100000000000000000000000000000000000000000000000000,
+        0x1000000000000000000000000000000000000000000000000,
+        0x10000000000000000000000000000000000000000000000,
+        0x100000000000000000000000000000000000000000000,
+        0x1000000000000000000000000000000000000000000,
+        0x10000000000000000000000000000000000000000,
+        0x100000000000000000000000000000000000000,
+        0x1000000000000000000000000000000000000,
+        0x10000000000000000000000000000000000,
+        0x100000000000000000000000000000000,
+        0x1000000000000000000000000000000,
+        0x10000000000000000000000000000,
+        0x100000000000000000000000000,
+        0x1000000000000000000000000,
+        0x10000000000000000000000,
+        0x100000000000000000000,
+        0x1000000000000000000,
+        0x10000000000000000,
+        0x100000000000000,
+        0x1000000000000,
+        0x10000000000,
+        0x100000000,
+        0x1000000,
+        0x10000,
+        0x100,
+        1
+    ];
 
-// 13 basic lookups
-// 1 64 lookup
-// 15 * 321
-// 480 table entries
+global PATH_LOOKUP: [[bool; 5]; 32] = [
+        [false, false, false, false, false],
+        [true, false, false, false, false],
+        [false, true, false, false, false],
+        [true, true, false, false, false],
+        [false, false, true, false, false],
+        [true, false, true, false, false],
+        [false, true, true, false, false],
+        [true, true, true, false, false],
+        [false, false, false, true, false],
+        [true, false, false, true, false],
+        [false, true, false, true, false],
+        [true, true, false, true, false],
+        [false, false, true, true, false],
+        [true, false, true, true, false],
+        [false, true, true, true, false],
+        [true, true, true, true, false],
+        [false, false, false, false, true],
+        [true, false, false, false, true],
+        [false, true, false, false, true],
+        [true, true, false, false, true],
+        [false, false, true, false, true],
+        [true, false, true, false, true],
+        [false, true, true, false, true],
+        [true, true, true, false, true],
+        [false, false, false, true, true],
+        [true, false, false, true, true],
+        [false, true, false, true, true],
+        [true, true, false, true, true],
+        [false, false, true, true, true],
+        [true, false, true, true, true],
+        [false, true, true, true, true],
+        [true, true, true, true, true]
+    ];
+
+// #############################################################
+// ### METHODS
+// #############################################################
+
+/**
+ * slice a field that represents bytes [0, ..., 31] into 5 chunks where:
+ * chunk[0] = 1 byte
+ * chunk[1] = 2 bytes
+ * chunk[2] = 4 bytes
+ * chunk[3] = 8 bytes
+ * chunk[4] = 16 bytes
+ *
+ * some of the chunks will describe the bytes [0, ..., num_bytes - 1]
+ * some of the chunks will describe the bytes [num_bytes, ..., 31]
+ **/
+unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
+    let head_path = PATH_LOOKUP[num_bytes];
+    let bytes = f.to_be_bytes(32);
+    let bytes = bytes.map(|b| b as Field);
+
+    let mut chunks: [Field; 5] = [0; 5];
+    let mut head_ptr = 1;
+    let mut tail_ptr = num_bytes + 1;
+    if head_path[0] {
+        chunks[0] = bytes[head_ptr] as Field;
+        head_ptr += 1;
+    } else {
+        chunks[0] = bytes[tail_ptr] as Field;
+        tail_ptr += 1;
+    }
+    if head_path[1] {
+        chunks[1] = bytes[head_ptr] * 0x100 + bytes[head_ptr + 1];
+        head_ptr += 2;
+    } else {
+        chunks[1] = bytes[tail_ptr] * 0x100 + bytes[tail_ptr + 1];
+        tail_ptr += 2;
+    }
+    if head_path[2] {
+        chunks[2] = bytes[head_ptr] * 0x1000000 + bytes[head_ptr + 1] * 0x10000
+        + bytes[head_ptr + 2] * 0x100 + bytes[head_ptr + 3];
+        head_ptr += 4;
+    } else {
+        chunks[2] = bytes[tail_ptr] * 0x1000000 + bytes[tail_ptr + 1] * 0x10000
+        + bytes[tail_ptr + 2] * 0x100 + bytes[tail_ptr + 3];
+        tail_ptr += 4;
+    }
+    if head_path[3] {
+        chunks[3] = 
+        bytes[head_ptr] * 0x100000000000000 + bytes[head_ptr + 1] * 0x1000000000000
+        + bytes[head_ptr + 2] * 0x10000000000 + bytes[head_ptr + 3] * 0x100000000
+        + bytes[head_ptr + 4] * 0x1000000 + bytes[head_ptr + 5] * 0x10000
+        + bytes[head_ptr + 6] * 0x100 + bytes[head_ptr + 7];
+        head_ptr += 8;
+    } else {
+        chunks[3] = 
+        bytes[tail_ptr] * 0x100000000000000 + bytes[tail_ptr + 1] * 0x1000000000000
+        + bytes[tail_ptr + 2] * 0x10000000000 + bytes[tail_ptr + 3] * 0x100000000
+        + bytes[tail_ptr + 4] * 0x1000000 + bytes[tail_ptr + 5] * 0x10000
+        + bytes[tail_ptr + 6] * 0x100 + bytes[tail_ptr + 7];
+        tail_ptr += 8;
+    }
+    if head_path[4] {
+        chunks[4] = 
+        bytes[head_ptr] *       0x1000000000000000000000000000000 + bytes[head_ptr + 1] * 0x10000000000000000000000000000
+        + bytes[head_ptr + 2] * 0x100000000000000000000000000 + bytes[head_ptr + 3] *      0x1000000000000000000000000
+        + bytes[head_ptr + 4] * 0x10000000000000000000000 + bytes[head_ptr + 5] * 0x100000000000000000000
+        + bytes[head_ptr + 6] * 0x1000000000000000000 + bytes[head_ptr + 7] * 0x10000000000000000
+        + bytes[head_ptr + 8] * 0x100000000000000 + bytes[head_ptr + 9] * 0x1000000000000
+        + bytes[head_ptr + 10] * 0x10000000000 + bytes[head_ptr + 11] * 0x100000000
+        + bytes[head_ptr + 12] * 0x1000000 + bytes[head_ptr + 13] * 0x10000
+        + bytes[head_ptr + 14] * 0x100 + bytes[head_ptr + 15];
+    } else {
+        chunks[4] = 
+        bytes[tail_ptr] * 0x1000000000000000000000000000000 + bytes[tail_ptr + 1] * 0x10000000000000000000000000000
+        + bytes[tail_ptr + 2] * 0x100000000000000000000000000 + bytes[tail_ptr + 3] * 0x1000000000000000000000000
+        + bytes[tail_ptr + 4] * 0x10000000000000000000000 + bytes[tail_ptr + 5] * 0x100000000000000000000
+        + bytes[tail_ptr + 6] * 0x1000000000000000000 + bytes[tail_ptr + 7] * 0x10000000000000000
+        + bytes[tail_ptr + 8] * 0x100000000000000 + bytes[tail_ptr + 9] * 0x1000000000000
+        + bytes[tail_ptr + 10] * 0x10000000000 + bytes[tail_ptr + 11] * 0x100000000
+        + bytes[tail_ptr + 12] * 0x1000000 + bytes[tail_ptr + 13] * 0x10000
+        + bytes[tail_ptr + 14] * 0x100 + bytes[tail_ptr + 15];
+    }
+
+    chunks
+}
+
+unconstrained fn __divmod(numerator: Field, denominator: Field) -> (Field, Field) {
+    let quotient = numerator as u16 / denominator as u16;
+    let remainder = numerator as u16 % denominator as u16;
+    (quotient as Field, remainder as Field)
+}
+
+/**
+ * @brief cheeky divmod method for dividing a u16 by 31
+ *        we know the quotient will fit into a 14 bit range check which will save us some fractional gates
+ **/
+fn divmod_31(numerator: Field) -> (Field, Field) {
+    let (quotient, remainder) = __divmod(numerator, 31);
+
+    let qf = quotient as Field;
+    let rf = remainder as Field;
+
+    // note: these range checks are because we know the denominator is 31
+    // TODO: need more checks, atm remainder could equal 31
+    qf.assert_max_bit_size(14);
+    rf.assert_max_bit_size(5);
+
+    // n / d = q
+    // d * q + r = n
+    assert(qf * 31 as Field + rf == numerator as Field);
+    (quotient, remainder)
+}
+
+/**
+ * @brief converts a 16 bit value into 16 fake bools (Field elements that are 0 or 1)
+ **/
+unconstrained fn decompose(val: Field) -> [Field; 16] {
+    let mut r: [Field; 16] = [0; 16];
+
+    let mut it = val as u16;
+    for i in 0..16 {
+        r[i] = (it & 1) as Field;
+        it >>= 1;
+    }
+    r
+}
 
 // 5 gates?
 pub fn get_last_limb_path<let OutputFields: u16>(last_limb_index: Field) -> [Field; OutputFields] {
@@ -480,6 +499,54 @@ pub fn get_last_limb_path<let OutputFields: u16>(last_limb_index: Field) -> [Fie
 }
 
 /**
+ * @brief slice a Field `f`, that represents 31-bytes, into two outputs `head, tail`
+ *        where `head = f.slice(0, num_bytes)`, `tail = f.slice(num_bytes, 31)`
+ * @details cost 46 gates
+ **/
+fn slice_field(f: Field, num_bytes: Field) -> (Field, Field) {
+    let chunks = __slice_field(f, num_bytes);
+    chunks[0].assert_max_bit_size(8); // 1.25 gates
+    chunks[1].assert_max_bit_size(16); // 1.5 gates
+    chunks[2].assert_max_bit_size(32); // 1.75 gates
+    chunks[3].assert_max_bit_size(64); // 3.25 gates
+    chunks[4].assert_max_bit_size(128); // 7.5 gates
+
+    let mut head: Field = 0;
+    let mut tail: Field = 0;
+
+    // 15 gates
+    let temp = path_multipliers_chunk4[num_bytes];
+    head = chunks[4] * temp;
+    std::as_witness(head);
+    head += chunks[3] * path_multipliers_chunk3[num_bytes];
+    std::as_witness(head);
+    head += chunks[2] * path_multipliers_chunk2[num_bytes];
+    std::as_witness(head);
+    head += chunks[1] * path_multipliers_chunk1[num_bytes];
+    std::as_witness(head);
+    head += chunks[0] * path_multipliers_chunk0[num_bytes];
+
+    // 13 gates
+    tail = chunks[4] * (1 - temp);
+    std::as_witness(tail);
+    tail += chunks[3] * tail_path_multipliers_chunk3[num_bytes];
+    std::as_witness(tail);
+    tail += chunks[2] * tail_path_multipliers_chunk2[num_bytes];
+    std::as_witness(tail);
+    tail += chunks[1] * tail_path_multipliers_chunk1[num_bytes];
+    std::as_witness(tail);
+    tail += chunks[0] * tail_path_multipliers_chunk0[num_bytes];
+    std::as_witness(tail);
+
+    // 3 gates
+    let total = tail + head * BYTE_SHIFT[num_bytes];
+    assert(total == f);
+
+    // total 46.25 gates
+    (head, tail)
+}
+
+/**
  * @brief Given an array of fields that pack 31 bytes, return an array that slices the packed byte array at a given index for a given number of bytes
  * @description Some serious dark black magic nonsense going on here. TODO: document 
  **/
@@ -489,10 +556,10 @@ pub fn slice_fields<let InputFields: u16, let OutputFields: u16>(
     num_bytes: Field
 ) -> [Field; OutputFields] {
     // 3.5
-    let (start_index, start_mod_31) = divmod(start_byte, 31);
+    let (start_index, start_mod_31) = divmod_31(start_byte);
     let num_underflow_bytes = start_mod_31;
     // 3.5, 7
-    let (num_bytes_div_31, num_bytes_mod_31) = divmod(num_bytes, 31);
+    let (num_bytes_div_31, num_bytes_mod_31) = divmod_31(num_bytes);
 
     // 2, 9
     let num_bytes_mod_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_mod_31];
@@ -512,7 +579,7 @@ pub fn slice_fields<let InputFields: u16, let OutputFields: u16>(
     let num_remaining_bytes = num_bytes - num_unused_bytes_in_start_limb;
 
     // 4.5, 21.5
-    let mut (num_whole_limbs, num_overflow_bytes) = divmod(num_remaining_bytes, 31);
+    let mut (num_whole_limbs, num_overflow_bytes) = divmod_31(num_remaining_bytes);
     // 44, 65.5
     let (_, tail) = slice_field(data[start_index], num_underflow_bytes);
 
@@ -613,7 +680,11 @@ new fields = [0x74657374430000000000000000000000000000000000000000000000000000, 
 OLD VERSION key_fields[0] = 0x74657374410000000000000000000000000000000000000000000000000000
 OLD VERSION key_fields[1] = 0x00
 */
-unconstrained fn build_slices_for_test<let N: u32>(bytes: [u8; N], start: u32, num_bytes: u32) -> [Field; 3] {
+unconstrained fn build_slices_for_test<let N: u32>(
+    bytes: [u8; N],
+    start: u32,
+    num_bytes: u32
+) -> [Field; 3] {
     let mut slices: [Field; 3] = [0; 3];
     for i in 0..3 {
         for k in 0..31 {
@@ -716,44 +787,6 @@ fn test_slice_fields() {
             assert(result_slices == expected_slices);
         }
     }
-}
-
-fn slice_field(f: Field, num_bytes: Field) -> (Field, Field) {
-    let chunks = __slice_field(f, num_bytes);
-    chunks[0].assert_max_bit_size(8);
-    chunks[1].assert_max_bit_size(16);
-    chunks[2].assert_max_bit_size(32);
-    chunks[3].assert_max_bit_size(64);
-    chunks[4].assert_max_bit_size(128);
-
-    let mut head: Field = 0;
-    let mut tail: Field = 0;
-
-    let temp = path_multipliers_chunk4[num_bytes];
-    head = chunks[4] * temp;
-    std::as_witness(head);
-    head += chunks[3] * path_multipliers_chunk3[num_bytes];
-    std::as_witness(head);
-    head += chunks[2] * path_multipliers_chunk2[num_bytes];
-    std::as_witness(head);
-    head += chunks[1] * path_multipliers_chunk1[num_bytes];
-    std::as_witness(head);
-    head += chunks[0] * path_multipliers_chunk0[num_bytes];
-
-    tail = chunks[4] * (1 - temp);
-    std::as_witness(tail);
-    tail += chunks[3] * tail_path_multipliers_chunk3[num_bytes];
-    std::as_witness(tail);
-    tail += chunks[2] * tail_path_multipliers_chunk2[num_bytes];
-    std::as_witness(tail);
-    tail += chunks[1] * tail_path_multipliers_chunk1[num_bytes];
-    std::as_witness(tail);
-    tail += chunks[0] * tail_path_multipliers_chunk0[num_bytes];
-    std::as_witness(tail);
-
-    let total = tail + head * BYTE_SHIFT[num_bytes];
-    assert(total == f);
-    (head, tail)
 }
 
 #[test]

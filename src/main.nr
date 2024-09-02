@@ -10,9 +10,10 @@ enum JsonTranscript {
     BOOL_CAPTURE
 }
 */
+mod bounds_checker;
 mod make_tables;
-mod redux;
-mod redux_tables;
+mod json;
+mod json_tables;
 mod lt;
 mod keymap;
 mod json_entry;
@@ -22,7 +23,8 @@ mod test_data;
 mod getters;
 mod keyhash;
 mod slice_field;
-use crate::redux::JSON;
+use crate::json::JSON;
+use crate::json_entry::JSONEntryPacked;
 mod get_string;
 mod get_number;
 mod get_literal;
@@ -404,7 +406,7 @@ fn mainget_keyhash(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: 
         root_id: 1,
         layer_context: 0,
         layer_index_in_transcript: 0,
-        packed_json_entries: [0; 64],
+        packed_json_entries: [JSONEntryPacked::default(); 64],
         packed_json: [0; 37]
     };
     json.compute_packed_json();
@@ -692,7 +694,7 @@ fn main(text: str<1024>) {
         root_id: 1,
         layer_context: 0,
         layer_index_in_transcript: 0,
-        packed_json_entries: [0; 64],
+        packed_json_entries: [JSONEntryPacked::default(); 64],
         packed_json: [0; 37]
     };
     // json = preamble(json);

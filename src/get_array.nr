@@ -1,32 +1,32 @@
-use crate::getters;
-use dep::noir_sort;
 use crate::json_entry::JSONEntry;
-use crate::redux::JSON;
-use crate::keymap;
-use crate::lt::{lt_field_8_bit, lt_field_16_bit, assert_lt_240_bit, assert_gt_240_bit};
-use crate::redux_tables::{
-    OBJECT_LAYER, ARRAY_LAYER, NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN, BEGIN_OBJECT_TOKEN,
-    BEGIN_ARRAY_TOKEN, ASCII_TO_NUMBER, ESCAPE_SEQUENCE_END_CHARS, ESCAPE_SEQUENCE_START_CHARS,
-    ESCAPE_SEQUENCE_REPLACEMENT
-};
-use crate::keyhash::Hasher;
+use crate::json::JSON;
+use crate::lt::lt_field_16_bit;
+use crate::json_tables::{OBJECT_LAYER, ARRAY_LAYER, BEGIN_ARRAY_TOKEN};
 use crate::keyhash::get_keyhash;
-use crate::slice_field::slice_fields;
 use crate::getters::JSONValue;
 
+/**
+ * @brief getter methods for extracting array types out of a JSON struct
+ **/
 impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues> {
 
+    /**
+     * @brief if the root JSON is an array, return its length
+     **/
     fn get_length(self) -> u32 {
         assert(self.layer_context == ARRAY_LAYER, "can only get length of an array type");
-        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
+        let parent_entry: JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
         parent_entry.num_children as u32
     }
 
+    /**
+     * @brief if the root JSON is an object, extract an array given by `key`
+     * @description returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value  
+     **/
     fn get_array<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> Option<Self> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key, KeyBytes);
-        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
-
+        let entry: JSONEntry = self.packed_json_entries[key_index].into();
         assert(
             (entry.entry_type - BEGIN_ARRAY_TOKEN) * exists as Field == 0, "key does not describe an object"
         );
@@ -40,12 +40,14 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         Option { _is_some: exists, _value: r }
     }
 
+    /**
+     * @brief if the root JSON is an object, extract an array given by `key`
+     * @description will revert if the array does not exist
+     **/
     fn get_array_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> Self {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let key_index = self.key_exists_impl_unchecked(key, KeyBytes);
-        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
-
+        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key, KeyBytes);
         assert(entry.entry_type == BEGIN_ARRAY_TOKEN, "key does not describe an object");
 
         let mut r = self;
@@ -57,27 +59,13 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         r
     }
 
-    fn get_array_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Self {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let key_index = self.key_exists_impl_unchecked(key, key_length);
-        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
-
-        assert(entry.entry_type == BEGIN_ARRAY_TOKEN, "key does not describe an object");
-
-        let mut r = self;
-        r.layer_id = entry.parent_index;
-        r.root_id = entry.id;
-        r.layer_context = ARRAY_LAYER;
-        r.layer_index_in_transcript = key_index;
-
-        r
-    }
+    /**
+     * @brief same as `get_array` for where the key length may be less than KeyBytes
+     **/
     fn get_array_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<Self> {
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key, key_length);
-        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
-
+        let entry: JSONEntry = self.packed_json_entries[key_index].into();
         // TODO: ADD A layer_context VARIABLE INTO JSON WHICH DESCRIBES WHETHER WE ARE AN OBJECT, ARRAY OR SINGLE VALUE
         assert(
             (entry.entry_type - BEGIN_ARRAY_TOKEN) * exists as Field == 0, "key does not describe an object"
@@ -92,16 +80,36 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         Option { _is_some: exists, _value: r }
     }
 
+    /**
+     * @brief same as `get_array_unchecked` for where the key length may be less than KeyBytes
+     **/
+    fn get_array_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Self {
+        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+
+        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key, key_length);
+        assert(entry.entry_type == BEGIN_ARRAY_TOKEN, "key does not describe an object");
+
+        let mut r = self;
+        r.layer_id = entry.parent_index;
+        r.root_id = entry.id;
+        r.layer_context = ARRAY_LAYER;
+        r.layer_index_in_transcript = key_index;
+
+        r
+    }
+
+    /**
+     * @brief if the root JSON is an array, extract an array given by the position of the target in the source array
+     * @description returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value  
+     **/
     fn get_array_from_array(self, array_index: Field) -> Option<Self> {
         assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
-
+        let parent_entry: JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
-
+        let entry: JSONEntry = self.packed_json_entries[entry_index].into();
         assert(
             (entry.entry_type - BEGIN_ARRAY_TOKEN) * valid as Field == 0, "get_object_from_array: entry exists but is not an object!"
         );
@@ -115,17 +123,19 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         Option { _is_some: valid, _value: r }
     }
 
+    /**
+     * @brief if the root JSON is an array, extract an array given by the position of the target in the source array
+     * @description will revert if the array does not exist
+     **/
     fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
         assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
-
+        let parent_entry: JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
 
-        let entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
-
+        let entry: JSONEntry = self.packed_json_entries[entry_index].into();
         assert(
             entry.entry_type == BEGIN_ARRAY_TOKEN, "get_array_from_array_unchecked: entry exists but is not an array!"
         );
@@ -138,22 +148,20 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         r
     }
 
-    fn map<U, let MaxElements: u32, let MaxElementBytes: u32>(
-        self,
-        f: fn(JSONValue<MaxElementBytes>) -> U
-    ) -> [U; MaxElements] where U: std::default::Default {
+    /**
+     * @brief if the root is an array, map over the array values, applying `fn f` to each value
+     **/
+    fn map<U, let MaxElements: u32, let MaxElementBytes: u32>(self, f: fn(JSONValue<MaxElementBytes>) -> U) -> [U; MaxElements] where U: std::default::Default {
         assert(self.layer_context == ARRAY_LAYER, "can only call map on an array");
 
-        let entry = JSONEntry::from_field(self.packed_json_entries[self.layer_index_in_transcript]);
-
+        let entry: JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
         let num_children = entry.num_children;
         let mut r: [U; MaxElements] = [U::default(); MaxElements];
 
         for i in 0..MaxElements {
             let valid = lt_field_16_bit(i as Field, num_children);
             let entry_index = (entry.child_pointer + i as Field) * valid as Field;
-            let child_entry = JSONEntry::from_field(self.packed_json_entries[entry_index]);
-
+            let child_entry: JSONEntry = self.packed_json_entries[entry_index].into();
             let mut parsed_string: [u8; MaxElementBytes] = [0; MaxElementBytes];
             for j in 0..MaxElementBytes {
                 let byte_valid = lt_field_16_bit(j as Field, child_entry.json_length);
@@ -209,9 +217,9 @@ fn test_array() {
 
     let E = first.get_object_from_array_unchecked(4);
 
-    let entry_maybe = JSONEntry::from_field(E.packed_json_entries[E.layer_index_in_transcript]);
+    let entry_maybe: JSONEntry = E.packed_json_entries[E.layer_index_in_transcript].into();
     println(f"entry = {entry_maybe}");
-    let child = JSONEntry::from_field(E.packed_json_entries[entry_maybe.child_pointer]);
+    let child: JSONEntry = E.packed_json_entries[entry_maybe.child_pointer].into();
     println(f"target? = {child}");
     println(f"{E}");
     let E_A = E.get_array_unchecked("bar".as_bytes());

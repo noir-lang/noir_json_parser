@@ -1,4 +1,7 @@
-use crate::redux_tables::{
+/**
+ * @file Contains methods used to generate tables in `json_tables.nr`. These table generation methods shouldn't be used inside of actual circuits.
+ **/
+use crate::json_tables::{
     OBJECT_LAYER, ARRAY_LAYER, SINGLE_VALUE_LAYER, STRING_CAPTURE, BEGIN_ARRAY_TOKEN, NO_TOKEN,
     END_OBJECT_TOKEN, END_ARRAY_TOKEN, KEY_SEPARATOR_TOKEN, VALUE_SEPARATOR_TOKEN, KEY_TOKEN,
     BEGIN_OBJECT_TOKEN, NUMERIC_TOKEN, STRING_TOKEN, LITERAL_TOKEN, OBJECT_CONTEXT, ARRAY_CONTEXT,
@@ -435,10 +438,10 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         new_context: OBJECT_CONTEXT,
         is_key_token: 0,
         is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 0,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 1,
+        // is_value_token_in_array_context: 0,
+        // create_key_entry: 0,
+        // // is_array_context: 0,
+        // preserve_identity_value: 1,
         preserve_num_entries: 1
     };
     let mut key_token_flags: TokenFlags = TokenFlags {
@@ -449,10 +452,10 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         new_context: OBJECT_CONTEXT,
         is_key_token: 1,
         is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 0,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 1,
+        // is_value_token_in_array_context: 0,
+        // create_key_entry: 0,
+        // // is_array_context: 0,
+        // preserve_identity_value: 1,
         preserve_num_entries: 1
     };
     let begin_object_flags = TokenFlags {
@@ -463,10 +466,10 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         new_context: OBJECT_CONTEXT,
         is_key_token: 0,
         is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 0,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 0,
+        // is_value_token_in_array_context: 0,
+        // create_key_entry: 0,
+        // // is_array_context: 0,
+        // preserve_identity_value: 0,
         preserve_num_entries: 0
     };
 
@@ -478,10 +481,10 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         new_context: ARRAY_CONTEXT,
         is_key_token: 0,
         is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 0,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 0,
+        // is_value_token_in_array_context: 0,
+        // create_key_entry: 0,
+        // is_array_context: 0,
+        // preserve_identity_value: 0,
         preserve_num_entries: 0
     };
 
@@ -493,10 +496,10 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         new_context: 0,
         is_key_token: 0,
         is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 1,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 0,
+        // is_value_token_in_array_context: 0,
+        // create_key_entry: 1,
+        // is_array_context: 0,
+        // preserve_identity_value: 0,
         preserve_num_entries: 0
     };
 
@@ -508,10 +511,10 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         new_context: 0,
         is_key_token: 0,
         is_value_token: 0,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 1,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 0,
+        // is_value_token_in_array_context: 0,
+        // create_key_entry: 1,
+        // is_array_context: 0,
+        // preserve_identity_value: 0,
         preserve_num_entries: 0
     };
 
@@ -523,10 +526,10 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         new_context: OBJECT_CONTEXT,
         is_key_token: 0,
         is_value_token: 1,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 1,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 1,
+        // is_value_token_in_array_context: 0,
+        // create_key_entry: 1,
+        // // is_array_context: 0,
+        // preserve_identity_value: 1,
         preserve_num_entries: 1
     };
 
@@ -538,10 +541,10 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         new_context: OBJECT_CONTEXT,
         is_key_token: 0,
         is_value_token: 1,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 1,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 1,
+        // is_value_token_in_array_context: 0,
+        // create_key_entry: 1,
+        // // is_array_context: 0,
+        // preserve_identity_value: 1,
         preserve_num_entries: 1
     };
 
@@ -553,10 +556,10 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         new_context: OBJECT_CONTEXT,
         is_key_token: 0,
         is_value_token: 1,
-        is_value_token_in_array_context: 0,
-        create_key_entry: 1,
-        is_end_of_object_or_array_in_array_context: 0,
-        preserve_identity_value: 1,
+        // is_value_token_in_array_context: 0,
+        // create_key_entry: 1,
+        // // is_array_context: 0,
+        // preserve_identity_value: 1,
         preserve_num_entries: 1
     };
 
@@ -578,11 +581,11 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     numeric_flags.new_context = ARRAY_CONTEXT;
     literal_flags.new_context = ARRAY_CONTEXT;
 
-    end_object_flags.is_end_of_object_or_array_in_array_context = 1;
-    end_array_flags.is_end_of_object_or_array_in_array_context = 1;
-    string_flags.is_value_token_in_array_context = 1;
-    numeric_flags.is_value_token_in_array_context = 1;
-    literal_flags.is_value_token_in_array_context = 1;
+    // end_object_flags.is_array_context = 1;
+    // end_array_flags.is_array_context = 1;
+    // string_flags.is_value_token_in_array_context = 1;
+    // numeric_flags.is_value_token_in_array_context = 1;
+    // literal_flags.is_value_token_in_array_context = 1;
     flags[NUM_TOKENS + NO_TOKEN] = no_token_flags;
     flags[NUM_TOKENS + BEGIN_OBJECT_TOKEN] = begin_object_flags;
     flags[NUM_TOKENS + END_OBJECT_TOKEN] = end_object_flags;
@@ -599,8 +602,11 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     for i in 0..(NUM_TOKENS as u32 * 2) {
         result[i] = flags[i].to_field();
     }
-    println(f"TOKEN FLAGS TABLE = {result}");
-    assert(result[4] == -1);
     result
 }
 
+#[test]
+fn test_generate_token_flags_table() {
+    let r = generate_token_flags_table();
+    println(f"global TOKEN_FLAGS_TABLE: [Field; NUM_TOKENS_MUL_2] = {r};");
+}

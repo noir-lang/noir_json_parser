@@ -144,7 +144,6 @@ unconstrained fn __slice_200_bits_from_field(f: Field) -> (Field, Field, bool) {
     PLO.hihi -= borrow as u64;
     borrow = PLO.hihi < res200.hihi;
     let mut PHI = PHI_54 - borrow as u64;
-    assert(PHI > res54, "slice failed? this shouldn't happen!");
     (lo, hi, borrow)
 }
 

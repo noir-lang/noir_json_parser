@@ -1,15 +1,9 @@
 use crate::test_data::JSON_WITH_ARRAYS;
-use dep::noir_sort;
 use crate::transcript_entry::TranscriptEntry;
 use crate::json_entry::JSONEntry;
-use crate::redux::JSON;
-use crate::keymap;
-use crate::lt::{lt_field_8_bit, lt_field_16_bit, assert_lt_240_bit, assert_gt_240_bit};
-use crate::redux_tables::{
-    OBJECT_LAYER, ARRAY_LAYER, NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN, BEGIN_OBJECT_TOKEN,
-    BEGIN_ARRAY_TOKEN, ASCII_TO_NUMBER
-};
-use crate::keyhash::Hasher;
+use crate::json::JSON;
+use crate::lt::{lt_field_16_bit, assert_lt_240_bit, assert_gt_240_bit};
+use crate::json_tables::{OBJECT_LAYER, ARRAY_LAYER, NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN};
 use crate::keyhash::get_keyhash;
 use crate::slice_field::slice_fields;
 
@@ -87,76 +81,100 @@ impl<let NeedlePackedFields: u16> StringChopper<NeedlePackedFields> {
     }
 }
 
+/**
+ * @brief helper methods for extracting data out of a processed JSON object
+ **/
 impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues> {
 
-    fn get_json_entry_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> JSONEntry {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let keyhash = get_keyhash(key, 0, KeyBytes);
-        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
-
-        let keyhash = keyhash + (self.layer_id + 1) * two_pow_216;
-
-        let key_index = self.find_key_in_map(keyhash);
-
-        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
-
-        entry
-    }
-
-    fn get_json_entry_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> JSONEntry {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let keyhash = get_keyhash(key, 0, keylen);
-        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
-
-        let keyhash = keyhash + (self.layer_id + 1) * two_pow_216;
-
-        let key_index = self.find_key_in_map(keyhash);
-
-        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
-
-        entry
-    }
-
-    fn get_json_entry_unchecked_with_key_index_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> (JSONEntry, Field) {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let keyhash = get_keyhash(key, 0, keylen);
-        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
-
-        let keyhash = keyhash + (self.layer_id + 1) * two_pow_216;
-
-        let key_index = self.find_key_in_map(keyhash);
-
-        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
-
-        (entry, key_index)
-    }
-
+    /**
+     * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
+     * @description returns an Option<JSONEntry> which will be null if the entry does not exist  
+     **/
     fn get_json_entry<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> (bool, JSONEntry) {
         // let key_index = self.find_key_in_map(keyhash);
         // assert(self.key_hashes[key_index] == keyhash);
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl(key, KeyBytes);
-        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
+        let entry: JSONEntry = self.packed_json_entries[key_index].into();
         (exists, entry)
     }
 
+    /**
+     * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
+     * @note will revert if the key does not exist
+     **/
+    fn get_json_entry_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> JSONEntry {
+        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+
+        let keyhash = get_keyhash(key, 0, KeyBytes);
+        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
+
+        let keyhash = keyhash + self.root_id * two_pow_216;
+
+        let key_index = self.find_key_in_map(keyhash);
+
+        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
+        let entry: JSONEntry = self.packed_json_entries[key_index].into();
+
+        entry
+    }
+
+    /**
+     * @brief same as `get_json_entry` but the key length may be less than KeyBytes
+     **/
     fn get_json_entry_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> (bool, JSONEntry) {
         // let key_index = self.find_key_in_map(keyhash);
         // assert(self.key_hashes[key_index] == keyhash);
         assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl(key, keylen);
-        let entry: JSONEntry = JSONEntry::from_field(self.packed_json_entries[key_index]);
+        let entry: JSONEntry = self.packed_json_entries[key_index].into();
         (exists, entry)
     }
 
+    /**
+     * @brief same as `get_json_entry_unchecked` but the key length may be less than KeyBytes
+     **/
+    fn get_json_entry_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> JSONEntry {
+        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+
+        let keyhash = get_keyhash(key, 0, keylen);
+        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
+
+        let keyhash = keyhash + self.root_id * two_pow_216;
+
+        let key_index = self.find_key_in_map(keyhash);
+
+        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
+        let entry: JSONEntry = self.packed_json_entries[key_index].into();
+
+        entry
+    }
+
+    /**
+     * @brief same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.packed_json_entries`
+     **/
+    fn get_json_entry_unchecked_with_key_index_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> (JSONEntry, Field) {
+        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+
+        let keyhash = get_keyhash(key, 0, keylen);
+        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
+
+        let keyhash = keyhash + self.root_id * two_pow_216;
+
+        let key_index = self.find_key_in_map(keyhash);
+
+        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
+        let entry: JSONEntry = self.packed_json_entries[key_index].into();
+
+        (entry, key_index)
+    }
+
+    /**
+     * @brief helper method that will extract an array of bytes that describes the value associated with a JSONEntry object
+     * @description e.g. if the JSONEntry describes "foo" : "bar" in the JSON, `extract_string_entry` will return "foo"
+     **/
     fn extract_string_entry<let StringBytes: u16>(self, entry: JSONEntry) -> [u8; StringBytes] {
         // todo can we make this faster? witness gen for this method is slow
         // TODO: document that StringBytes parameter includes non-escaped characters
@@ -313,32 +331,19 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         KeySearchResult { found, target_lt_smallest_entry, target_gt_largest_entry, lhs_index, rhs_index }
     }
 
-    fn assert_key_exists_with_known_length<let KeyBytes: u16>(self, key: [u8; KeyBytes]) {
-        let keyhash = get_keyhash(key, 0, KeyBytes);
-        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
-
-        let keyhash = keyhash + self.root_id * two_pow_216;
-
-        let key_index = self.find_key_in_map(keyhash);
-
-        assert(self.key_hashes[key_index] == keyhash);
-    }
-
-    fn key_exists_impl_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Field {
-        let keyhash = get_keyhash(key, 0, key_length);
-        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
-
-        let keyhash = keyhash + self.root_id * two_pow_216;
-
-        let key_index = self.find_key_in_map(keyhash);
-
-        assert(self.key_hashes[key_index] == keyhash);
-        key_index
-    }
-
+    /**
+     * @brief returns a bool that describes whether a given key exists at the root of the JSON
+     **/
     fn key_exists<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> bool {
         self.key_exists_impl(key, key_length).0
     }
+
+    /**
+     * @brief implementation of `key_exists`. returns both a boolean and also the position in `self.packed_json_entries` of the key
+     * @description algorithm is O(1) because of the preprocessing we have done
+     *              Method computes a key hash and checks whether key hash exists in the list of sorted preprocessed key hashes
+     *              If it does *not* exist, we can find two adjacent entries in `key_hashes` where `key_hashes[i]` < target_key_hash < `key_hashes[i+1]`
+     **/
     fn key_exists_impl<let KeyBytes: u16>(
         self,
         key: [u8; KeyBytes],
@@ -366,31 +371,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
         let target_lt_smallest_entry = search_result.target_lt_smallest_entry as Field;
         let target_gt_largest_entry = search_result.target_gt_largest_entry as Field;
-        // if does NOT exist. I want result in the following relation:
 
-        // X < keyhash < Y
-
-        // if case 1. X = 0, Y = first entry
-        // if case 2. X = last_entry, Y = -1
-        // if case 3: X = A, Y = B (from hash map)
-
-        // TODO: all of this logic to compute lhs_index, rhs_index can be shoved into unconstrained fn
-        // let mut lhs_index = result_not_first_or_last * search_result.lhs_maximum_index;
-        // let mut rhs_index = result_not_first_or_last * search_result.rhs_minimum_index;
-
-        // // if target_lt_smallest_entry, rhs_index = 0
-        // // if target_gt_largest_entry, lhs_index = TranscriptEntries - 1
-        // rhs_index = rhs_index * (1 - search_result.target_lt_smallest_entry);
-
-        // // we rely here on the fact that target_gt_largest_entry and result_not_first_or_last are mutually exclusive
-        // lhs_index = lhs_index  + search_result.target_gt_largest_entry * (TranscriptEntries as Field - 1);
-
-        // // If target is FOUND, we want the following:
-        // // keyhash[target_index] - 1 < hash < keyhash[target_index] + 1
-        // lhs_index = lhs_index  + search_result.found as Field * search_result.found_index;
-        // rhs_index = rhs_index  + search_result.found as Field * search_result.found_index;
-        // If search_result.found, assert lhs == rhs
-        // assert target_lt_smallest_entry , target_gt_largest_entry, search_result.found are exclusive
         assert(((search_result.lhs_index - search_result.rhs_index) * found) == 0);
 
         // only one of "found", "target_lt_smallest_entry", "target_gt_largest_entry" can be true
@@ -412,38 +393,8 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         lhs = lhs - found;
         rhs = rhs + found;
 
-        /*
-            if target_gt_largest_entry
-            we want lhs < hash < 2^240 - 1?
-
-        */
-        // 1 gate to update lhs
-        // 1 gate to update rhs
-        // 2 gates to read lhs (3.5?)
-        // 2 gates to read rhs (3.5?)
-        // 2 gates to assert lhs_index == rhs_index if found == true
-        // 2 gates for exclusion test
-        // 3 gates for bools returned by unconstrained fn
-        // 1 gate to update keyhash
-        // 23 gates: 240 bit range checks * 2 (18 14-bit slices = 6 gates + 4.5 range checks + 1 for diff = 11.5 * 2 = 23)
-        // ?? gates for keyhash
-
-        // 14 gates for logic + 23 gates for range checks + keyhash gates (0 if constant?)
-        // 37 gates? not the worst in the world
-        // If target is FOUND, then keyhash == entry
-        // to massage into X < keyhash < Y
-        // we make relation equivalent to 0 < 1 < 2
-        // lhs = lhs * (1 - found as Field);
-        // rhs = rhs * (1 - found as Field) + 2 * (found as Field);
-        // let search_target = keyhash * (1 - found as Field) + found as Field;
         assert_gt_240_bit(keyhash, lhs);
         assert_lt_240_bit(keyhash, rhs);
-
-        // If keyhash == target
-        // let target_index = search_result.found as Field * search_result.found_index;
-        // let target_hash = self.key_hashes[target_index];
-
-        // assert((target_hash - keyhash) * search_result.found as Field == 0);
 
         (search_result.found, search_result.lhs_index)
     }
