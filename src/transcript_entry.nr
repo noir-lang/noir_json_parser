@@ -3,23 +3,19 @@ use crate::json_tables::ASCII_TO_TOKEN_TABLE;
 struct ValidationFlags
 {
     push_layer: Field,
-    push_layer_id: Field,
-    pop_layer: Field,
-    error: Field,
+    push_layer_type_of_root: Field,
+    pop_layer: Field
 }
 
 impl ValidationFlags {
     fn to_field(self) -> Field {
-        self.push_layer
-            + self.push_layer_id * 0x100
-            + self.pop_layer * 0x10000
-            + self.error * 0x1000000
+        self.push_layer + self.push_layer_type_of_root * 0x100 + self.pop_layer * 0x10000
     }
 
     unconstrained fn __from_field(f: Field) -> Self {
         let bytes = f.to_be_bytes(4);
         let mut push_layer= bytes[3] as Field;
-        let push_layer_id = bytes[2] as Field;
+        let push_layer_type_of_root = bytes[2] as Field;
         let pop_layer = bytes[1] as Field;
         let error = bytes[0] as Field;
 
@@ -33,15 +29,15 @@ impl ValidationFlags {
         // n.b. reason for doing this is that by only having 3 flags stored in our lookup table,
         // we can extract them all with 1 add gate. combined with 2 bool checks = 3 gates instead of 5/6 gates if we had 4 flags
         push_layer = push_layer + error * 0x1000000;
-        ValidationFlags { push_layer, push_layer_id, pop_layer, error: 0 }
+        ValidationFlags { push_layer, push_layer_type_of_root, pop_layer }
     }
 
     // 3 gates
     fn from_field(f: Field) -> Self {
         let r = ValidationFlags::__from_field(f);
         assert(r.pop_layer * r.pop_layer == r.pop_layer);
-        assert(r.push_layer_id * r.push_layer_id == r.push_layer_id);
-        assert(r.pop_layer * 0x10000 + r.push_layer_id * 0x100 + r.push_layer == f);
+        assert(r.push_layer_type_of_root * r.push_layer_type_of_root == r.push_layer_type_of_root);
+        assert(r.pop_layer * 0x10000 + r.push_layer_type_of_root * 0x100 + r.push_layer == f);
         r
     }
 }

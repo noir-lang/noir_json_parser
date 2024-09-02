@@ -3,8 +3,7 @@ use crate::json_entry::{JSONEntryPacked, JSONEntry};
 use crate::lt::lt_field_16_bit;
 use crate::lt::lte_field_240_bit;
 use crate::lt::assert_lte_240_bit;
-use crate::json_tables::{TOKEN_BEGINS_OBJECT_OR_ARRAY, BEGIN_OBJECT_TOKEN, BEGIN_ARRAY_TOKEN};
-use crate::keyhash::get_keyhash_chunky;
+use crate::json_tables::TOKEN_ENDS_OBJECT_OR_ARRAY;
 use crate::keyhash::get_keyhash;
 use crate::keyhash::slice_200_bits_from_field;
 use crate::slice_field::slice_fields;
@@ -58,21 +57,22 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
         for i in 0..MaxNumValues {
             let KeyIndexData{ json_index, json_length, parent_id, array_index } = KeyIndexData::from_field(self.key_data[i]);
-            let hash = hasher.get_keyhash(self.packed_json, json_index, json_length);
+            let hash = hasher.get_keyhash(self.json_packed, json_index, json_length);
             hashlist[i] = hash + array_index * two_pow_200 + parent_id * two_pow_216;
         }
 
         hashlist[MaxNumValues - 1] = 0; // we always ensure the last (unused hopefully!) entry goes first.
 
-        self.packed_json_entries[MaxNumValues - 1] = JSONEntryPacked::default();
+        self.json_entries_packed[MaxNumValues - 1] = JSONEntryPacked::default();
         // when updating identity_to_json_map we are relying on the fact that we can update sorted entry 0? maybe? oof document better
         let sort_result = noir_sort::sort_advanced(hashlist, lte_field_240_bit, assert_lte_240_bit);
 
         let mut sorted_entries: [JSONEntryPacked; MaxNumValues] = [JSONEntryPacked::default(); MaxNumValues];
 
         for i in 0..MaxNumValues {
-            sorted_entries[sort_result.sort_indices[i]] = self.packed_json_entries[i];
+            sorted_entries[sort_result.sort_indices[i]] = self.json_entries_packed[i];
         }
+
         let mut ids: [Field; MaxNumValues] = [0; MaxNumValues];
         let mut parent_indices: [Field; MaxNumValues] = [0; MaxNumValues];
         let mut entry_types: [Field; MaxNumValues] = [0; MaxNumValues];
@@ -91,7 +91,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             let id = ids[i];
             let entry_type = entry_types[i];
             // 2 gates
-            let update = TOKEN_BEGINS_OBJECT_OR_ARRAY[entry_type];
+            let update = TOKEN_ENDS_OBJECT_OR_ARRAY[entry_type];
             // NOTE THIS RELIES ON MaxNumValues ACTUALLY DESCRIBING NUMMaxNumValues + 1
             // 1 gate
             let index = (id - (MaxNumValues as Field - 1)) * update + (MaxNumValues as Field - 1);
@@ -125,7 +125,12 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             parent_identity_pre = parent_identity_post;
         }
         sorted_entries[0] = JSONEntryPacked::default(); // TODO document why we want to always make 0 a dead entry
-        self.packed_json_entries = sorted_entries;
+
+        // for i in 0..MaxNumValues {
+        //     let sorted: JSONEntry = sorted_entries[i].into();
+        //     println(f"sorted {sorted}");
+        // }
+        self.json_entries_packed = sorted_entries;
         self.key_hashes = sort_result.sorted;
         self.set_root_entry();
     }
@@ -133,8 +138,8 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     unconstrained fn __find_root_entry(self) -> Field {
         let mut found_index = 0;
         for i in 0..MaxNumValues {
-            let entry : JSONEntry = self.packed_json_entries[i].into();
-            if (entry.parent_index == 0) & (self.packed_json_entries[i].value != 0) {
+            let entry : JSONEntry = self.json_entries_packed[i].into();
+            if (entry.parent_index == 0) & (self.json_entries_packed[i].value != 0) {
                 found_index = i as Field;
                 break;
             }
@@ -145,12 +150,12 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     fn set_root_entry(&mut self) {
         let root_index = self.__find_root_entry();
 
-        let packed_entry = self.packed_json_entries[root_index];
+        let packed_entry = self.json_entries_packed[root_index];
         let entry: JSONEntry = packed_entry.into();
 
         assert(packed_entry.value != 0);
         assert(entry.parent_index == 0);
-        self.layer_index_in_transcript = root_index;
+        self.root_index_in_transcript = root_index;
     }
 }
 

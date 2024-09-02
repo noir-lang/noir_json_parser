@@ -60,7 +60,7 @@ struct JSONEntry {
     id: Field, // if this is an object or array, describes the unique identifier assigned to this item
     parent_index: Field, // if parent is an object or array, describes the unique identifier assigned to our parent
     array_pointer: Field, // if parent is an array, where in the array are we? 
-    child_pointer: Field, // if this is an object or array, points to the location in `packed_json_entries` of this item's first child
+    child_pointer: Field, // if this is an object or array, points to the location in `json_entries_packed` of this item's first child
     num_children: Field, // if this is an object or array, how many child elements do we contain?
     json_pointer: Field, // points to the json that describes the first byte of this entry
     json_length: Field, // how many bytes in the json describes this item? (only for strings, numbers or literals)
@@ -157,7 +157,6 @@ impl JSONEntry {
         let parent_index = bytes[16] as Field * 0x100 + bytes[17] as Field; // 6 gates
         let id = bytes[18] as Field * 0x100 + bytes[19] as Field; // 6 gates
 
-        // this might cost 17 gates? oof
         JSONEntry { array_pointer, child_pointer, num_children, json_pointer, json_length, entry_type, parent_index, id }
     }
 

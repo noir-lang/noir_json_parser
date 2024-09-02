@@ -1,77 +1,66 @@
-global GRAMMAR_SCAN = 0;
-global STRING_SCAN = 1;
-global NUMERIC_SCAN = 2;
-global LITERAL_SCAN = 3;
-
-global OBJECT_OPEN = 0;
-global OBJECT_CLOSE = 1;
-global ARRAY_OPEN = 2;
-global ARRAY_CLOSE = 3;
-global KEY_DELIMITER = 4;
-global VALUE_DELIMITER = 5;
-global KEY = 6;
-global STRING  = 7;
-global NUMERIC = 8;
-global LITERAL = 9;
-
-global OBJECT_TYPE = 0;
-global ARRAY_TYPE = 1;
-global STRING_TYPE = 2;
-global NUMBER_TYPE = 3;
-global LITERAL_TYPE = 4;
-
 use crate::bounds_checker::get_validity_flags;
-use crate::token_flags::TokenFlags;
-use crate::getters;
-use crate::get_literal::JSONLiteral;
-use crate::test_data::JSON_WITH_ARRAYS;
-use dep::noir_sort;
-use crate::transcript_entry::{ValidationFlags, TranscriptEntry, RawTranscriptEntry, ScanData, PostProcessScanData};
-use crate::json_entry::{JSONContextStackEntry, JSONEntry, JSONEntryPacked};
-use crate::keymap;
-use crate::json_tables::{
-    TOKEN_VALIDATION_TABLE, OBJECT_CONTEXT, ARRAY_CONTEXT, PROCESS_RAW_TRANSCRIPT_TABLE,
-    REDUCED_CAPTURE_TABLE, TOKEN_FLAGS_TABLE, CAPTURE_TABLE_ENCODED_FLAT, NUM_TOKENS,
-    TOKEN_IS_ARRAY_OBJECT_OR_VALUE, TOKEN_IS_NUMERIC_OR_LITERAL, OBJECT_LAYER, ARRAY_LAYER,
-    SINGLE_VALUE_LAYER, BEGIN_OBJECT_TOKEN, END_OBJECT_TOKEN, BEGIN_ARRAY_TOKEN, END_ARRAY_TOKEN,
-    KEY_SEPARATOR_TOKEN, VALUE_SEPARATOR_TOKEN, STRING_TOKEN, NUMERIC_TOKEN, LITERAL_TOKEN, KEY_TOKEN
+use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER, SINGLE_VALUE_LAYER};
+use crate::enums::Token::{
+    BEGIN_OBJECT_TOKEN, END_OBJECT_TOKEN, BEGIN_ARRAY_TOKEN, END_ARRAY_TOKEN, KEY_SEPARATOR_TOKEN,
+    VALUE_SEPARATOR_TOKEN, STRING_TOKEN, NUMERIC_TOKEN, LITERAL_TOKEN, KEY_TOKEN, NUM_TOKENS
 };
+use crate::enums::ScanMode::{GRAMMAR_SCAN, STRING_SCAN, NUMERIC_SCAN, LITERAL_SCAN};
+use crate::get_literal::JSONLiteral;
+use crate::json_entry::{JSONContextStackEntry, JSONEntry, JSONEntryPacked};
+use crate::json_tables::{
+    TOKEN_VALIDATION_TABLE, PROCESS_RAW_TRANSCRIPT_TABLE, JSON_CAPTURE_TABLE, TOKEN_FLAGS_TABLE,
+    TOKEN_IS_ARRAY_OBJECT_OR_VALUE
+};
+use crate::token_flags::TokenFlags;
+use crate::transcript_entry::{ValidationFlags, TranscriptEntry, RawTranscriptEntry, ScanData, PostProcessScanData};
 
-use crate::keymap::KeyIndexData;
-
+/**
+ * @brief It's a JSON struct! Contains the raw and processed information required to extract data from a json blob
+ * @description The "root" of the JSON refers to the parent object or array (or a value if the json is just a single value e.g. text = "\"foo\": \"bar\"")
+ * @note text that describes just a single JSON value is not yet fully supported. Only use this library for processing objects or arrays for now
+ **/
 struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> {
-    json: [u8; NumBytes],
-    raw_transcript: [Field; MaxNumTokens],
-    transcript: [Field; MaxNumTokens],
-    transcript_length: u16,
-    key_data: [Field; MaxNumValues],
-    key_hashes: [Field; MaxNumValues],
-    layer_id: Field,
-    root_id: Field,
-    layer_context: Field, // is the current layer an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER
-    layer_index_in_transcript: Field,
-    packed_json_entries: [JSONEntryPacked; MaxNumValues],
-    packed_json: [Field; NumPackedFields]
+    json: [u8; NumBytes], // the raw json bytes
+    json_packed: [Field; NumPackedFields], // raw bytes, but packed into 31-byte Field elements
+    raw_transcript: [Field; MaxNumTokens], // transcript of json tokens after basic processing
+    transcript: [Field; MaxNumTokens], // complete transcript of json tokens
+    transcript_length: u16, // how big is the transcript?
+    key_data: [Field; MaxNumValues], // description of each key, packed into a Field element
+    key_hashes: [Field; MaxNumValues], // a sorted list of key hashes
+    json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
+    layer_type_of_root: Field, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
+    root_id: Field, // the unique identifier of the root (if an object or array)
+    root_index_in_transcript: Field // location in json_entries_packed of the root
 }
 
+/**
+ * @brief are two JSON objects equal?
+ * @note VERY EXPENSIVE! Currently only used in tests
+ **/
 impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> std::cmp::Eq for JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues> {
-
     fn eq(self, other: Self) -> bool {
         (self.json == other.json) & (self.raw_transcript == other.raw_transcript)
+        & (self.transcript == other.transcript)
         & (self.transcript_length == other.transcript_length)
         & (self.key_data == other.key_data)
         & (self.key_hashes == other.key_hashes)
-        & (self.layer_id == other.layer_id)
+        & (self.layer_type_of_root == other.layer_type_of_root)
         & (self.root_id == other.root_id)
-        & (self.layer_context == other.layer_context)
-        & (self.layer_index_in_transcript == other.layer_index_in_transcript)
-        & (self.packed_json_entries == other.packed_json_entries)
-        & (self.packed_json == other.packed_json)
+        & (self.root_index_in_transcript == other.root_index_in_transcript)
+        & (self.json_entries_packed == other.json_entries_packed)
+        & (self.json_packed == other.json_packed)
     }
 }
 impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues> {
 
-    fn compute_packed_json(&mut self) {
+    /**
+     * @brief pack the json bytes into Field elements, where each Field element represents 31 bytes
+     * @description we do this because we need to extract substrings from the json bytes, where the position and length of the substring are witness values.
+     *              Doing this on packed Field elements using `slice_string` is cheaper than the direct method of iterating byte-by-byte.
+     *              Also, by extracting data at unknown locations exclusively from the packed json, we do not need to represent the raw bytes `self.json` as a ROM table
+     *              (which would have an expensive initialization cost of 2*NumBytes gates)
+     **/
+    fn compute_json_packed(&mut self) {
         let NumWholeLimbs = NumBytes / 31;
         for i in 0..NumWholeLimbs {
             let mut limb: Field = 0;
@@ -80,7 +69,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
                 limb += self.json[i * 31 + j] as Field;
             }
             std::as_witness(limb);
-            self.packed_json[i] = limb;
+            self.json_packed[i] = limb;
         }
         let NumRemainingBytes = NumBytes - NumWholeLimbs * 31;
         let mut limb: Field = 0;
@@ -92,7 +81,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             limb *= 0x100;
         }
         std::as_witness(limb);
-        self.packed_json[NumWholeLimbs + (NumRemainingBytes == 0) as u16] = limb;
+        self.json_packed[NumWholeLimbs + (NumRemainingBytes == 0) as u16] = limb;
     }
 
     // TODO: when impl is more mature, merge this into create_json_entries
@@ -118,8 +107,26 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         }
     }
 
+    /**
+     * @brief Once we have processed the json into a transcript of tokens, validate these tokens represent valid JSON!
+     * @description To avoid a lot of painful if/else statements, we construct a state transition function out of the lookup table TOKEN_VALIDATION_TABLE
+     *              The inputs to TOKEN_VALIDATION_TABLE are:
+     *                  1. The current token (at some position `i` i.e. `self.transcript[i])
+     *                  2. The previous token (`self.transcript[i-1]`)
+     *                  3. The context of the previous token (i.e. is it within an object or an array?)
+     *              The lookup table maps these inputs into the following outputs:
+     *                  1. Are we moving into a new context? i.e. is current token a `{` or `[` character?
+     *                  2. If so, what context are we moving into? (`OBJECT_LAYER` or `ARRAY_LAYER`)
+     *                  3. Are we exiting from the current context? i.e. is the current token a `}` or `]` character?
+     *                  4. Have we entered an error state? e.g. a `[` token followed by a `,` token would be invalid JSON
+     * 
+     * @note To shave some gates, we represent the error state in a nonstandard way.
+     *       If we have entered an error state, the value of `push_layer` will be 0x1000000
+     *       This will then update `depth` to a value that exceeds the size of `parent_layer_stack` (32),
+     *       which will trigger an out-of-bounds array access, which creates unsatisfiable constraints
+     **/
     fn validate_tokens(self, tokens: [Field; MaxNumTokens]) {
-        let mut current_layer = self.layer_context;
+        let mut current_layer = self.layer_type_of_root;
         let mut parent_layer_stack: [Field; 32] = [0; 32];
         let mut depth = 0;
         let mut previous_token = tokens[0];
@@ -145,7 +152,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             let index = current_layer * NN + previous_token * NUM_TOKENS + current_token;
 
             // 5 gates
-            let  ValidationFlags{push_layer, push_layer_id, pop_layer, error:_ } = ValidationFlags::from_field(TOKEN_VALIDATION_TABLE[index]);
+            let  ValidationFlags{push_layer, push_layer_type_of_root, pop_layer} = ValidationFlags::from_field(TOKEN_VALIDATION_TABLE[index]);
 
             // 3.5 gates
             parent_layer_stack[depth] = current_layer;
@@ -159,7 +166,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             let parent_layer = parent_layer_stack[depth];
             let mut updated_layer = (1 - pop_layer - push_layer);
             std::as_witness(updated_layer);
-            updated_layer = updated_layer * current_layer + push_layer_id;
+            updated_layer = updated_layer * current_layer + push_layer_type_of_root;
             std::as_witness(updated_layer);
             updated_layer = updated_layer + parent_layer * pop_layer;
             std::as_witness(updated_layer);
@@ -170,14 +177,31 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         assert(depth == 0, "invalid object or array description");
     }
 
-    // unconstrained fn __create_json_
+    /**
+     * @brief given a processed transcript of json tokens, compute a list of json entries that describes the values within the JSON blob
+     * @details a 'value' here is either an Object, Array, String, Numeric or Literal.
+     *          e.g. "[ 1, 2, 3 ]" contains 4 values (3 Numeric types and the Array that contains them)
+     *
+     *          To avoid branches and if statements, we construct a state transition function out of the lookup table TOKEN_FLAGS_TABLE
+     *          This table takes as an input the following:
+     *              1. The token value of an element in the transcript
+     *              2. The layer type the previous token is located in (i.e. are we in an array or an object?)
+     *          The table outputs the following data:
+     *              1. Should we create a new json entry? (i.e. is the token a STRING_TOKEN, LITERAL_TOKEN, NUMERIC_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN)
+     *              2. Is the token `}` or `]`?
+     *              3. Is the token `{` or `[`?
+     *              4. Given the current layer type and the token being queried, what should the new layer type be?
+     *              5. Is the token `KEY_TOKEN`?
+     *              6. Is the token a `STRING_TOKEN`, `NUMERIC_TOKEN` OR `VALUE_TOKEN`?
+     *              7. Is the token one that we should skip over? `,` or `:`
+     **/
     fn create_json_entries(&mut self) {
         let mut entry_ptr = 0;
         let mut depth: Field = 1;
         let mut num_entries_at_current_depth: Field = 0;
         let mut next_identity_value: Field = 1;
         let mut current_identity_value: Field = 0;
-        let mut context = OBJECT_CONTEXT;
+        let mut context = OBJECT_LAYER;
 
         let mut current_key_index_and_length: Field = 0;
 
@@ -189,10 +213,9 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             let TranscriptEntry{token, index, length} = TranscriptEntry::from_field(self.transcript[i]);
 
             tokens[i] = token;
-            // 17 gates
+            // 13 gates
             let TokenFlags{
                 create_json_entry,
-                json_entry_type,
                 is_end_of_object_or_array,
                 is_start_of_object_or_array,
                 new_context,
@@ -217,7 +240,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
                 current_identity: current_identity_value
             }
             );
-            // subtotal 26.25
+            // subtotal 22.25
 
             // 1 gate
             let depth_index: Field = (depth - 1);
@@ -229,7 +252,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
             let object_or_array_entry: JSONEntry = JSONEntry {
                 array_pointer: previous_stack_entry.num_entries,
-                entry_type: json_entry_type,
+                entry_type: token,
                 child_pointer: 0,
                 num_children: num_entries_at_current_depth,
                 json_pointer: previous_stack_entry.json_index,
@@ -240,7 +263,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             // 0
             let value_entry: JSONEntry = JSONEntry {
                 array_pointer: num_entries_at_current_depth,
-                entry_type: json_entry_type,
+                entry_type: token,
                 child_pointer: 0,
                 num_children: 0,
                 json_pointer: index,
@@ -261,7 +284,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             std::as_witness(new_entry);
 
             // 3 gates
-            // subtotal 24 + 26.25 = 50.25
+            // subtotal 24 + 22.25 = 46.25
             let old = current_identity_value;
             current_identity_value = (next_identity_value * is_start_of_object_or_array);
             std::as_witness(current_identity_value);
@@ -277,12 +300,10 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             (previous_stack_entry.num_entries + 1) * is_end_of_object_or_array;
             std::as_witness(num_entries_at_current_depth);
 
-            // 2 gates
-            let diff = (previous_stack_entry.context - new_context);
-            std::as_witness(diff);
-            context = diff * is_end_of_object_or_array + new_context;
+            // 1 gate
+            // if `is_end_of_object_or_array == 1`, `new_context = 0` so we can do something cheaper than a conditional select:
+            context = previous_stack_entry.context * is_end_of_object_or_array + new_context;
             std::as_witness(context);
-
             // 3 gates
             let common_term = current_identity_value + context * (num_entries_at_current_depth - 1) * 0x1000000000000;
             std::as_witness(common_term);
@@ -298,7 +319,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             parent_context_stack[depth] = new_context_stack_entry;
 
             // 4.5 gates
-            self.packed_json_entries[entry_ptr] = JSONEntryPacked{ value: new_entry * create_json_entry };
+            self.json_entries_packed[entry_ptr] = JSONEntryPacked{ value: new_entry * create_json_entry };
 
             // 1 gate
             next_identity_value = next_identity_value + is_start_of_object_or_array;
@@ -308,31 +329,33 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             depth = depth + is_start_of_object_or_array - is_end_of_object_or_array;
 
             // 1 gate
-            // 21.5 + 50.25
-            // subtotal 71.75?
+            // 2105 + 46.25
+            // subtotal 66.75?
             entry_ptr += create_json_entry;
             std::as_witness(entry_ptr);
         }
         self.validate_tokens(tokens);
     }
 
+    /**
+     * @brief Perform the 1st transcript processing step as an unconstrained function
+     *        We will validate this transcript is correct via a constrained function
+     *        This is a bit cheaper than doing everything in a constrained function,
+     *        because we can use ROM arrays instead of RAM arrays
+     *        (i.e. we're only reading from our arrays, we don't write to them in constrained functions)
+     **/
     unconstrained fn __build_transcript(self) -> [Field; MaxNumTokens] {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: Field = 0;
         let mut scan_mode = GRAMMAR_SCAN as Field;
         let mut length: Field = 0;
-        // let mut previous_scan_mode = scan_mode;
-        // let mut previous_char = 0;
-
-        // let backslash: u8 = "\\".as_bytes()[0];
-        // let quotes: u8 = "\"".as_bytes()[0];
         let mut previous_was_potential_escape_sequence = 0;
         for i in 0..NumBytes {
             let ascii = self.json[i];
 
             let encoded_ascii = previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
 
-            let ScanData{ scan_token, push_transcript, increase_length, is_potential_escape_sequence } = ScanData::from_field(REDUCED_CAPTURE_TABLE[encoded_ascii]);
+            let ScanData{ scan_token, push_transcript, increase_length, is_potential_escape_sequence } = ScanData::from_field(JSON_CAPTURE_TABLE[encoded_ascii]);
 
             let mut push_transcript = push_transcript;
             let mut scan_token = scan_token;
@@ -352,6 +375,29 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         raw_transcript
     }
 
+    /**
+     * @brief Construct a token transcript by iterating through self.json and using a lookup table `JSON_CAPTURE_TABLE` to define a state transition function
+     * @details JSON_CAPTURE_TABLE takes the following as input:
+     *          1. the ascii byte at the current location in the json
+     *          2. the current scan mode (are we searching for grammar, strings, numbers or literals?)
+     *          3. could this byte potentially be an escape sequence? (i.e. the previous byte was a backslash character "\" and scan_mode == STRING_SCAN)
+     *          The table outputs the following flags:
+     *          1. what token have we scanned? (listed in enums::Token)
+     *          2. should we push this token to the transcript (no push if token == NO_TOKEN)
+     *          3. should we increase the length of the current entry we're evaluating?
+     *              (i.e. if token == STRING_TOKEN and scan_mode == STRING_SCAN, then increase the length because we're in the process of scanning a string)
+     *          4. is this scanned ascii character a potential escape sequence? i.e. scan_mode == STRING_SCAN and ascii = "\"
+     *          5. have we entered an error state? (i.e. invalid grammar e.g. ":" is followed by "}")
+     *
+     * NOTE: we represent error states in a nonstandard way to reduce gate count. Instead of handling an error flag,
+     *       an error state will increase the value of `scan_token` by 0x100000000. This will cause the next access into `JSON_CAPTURE_TABLE` to trigger an out of bounds error
+     *
+     * NOTE: the scanned transcript will be missing some edge cases that are caught via `swap_keys` and `capture_missing_tokens`:
+     *          1. If the scan mode is NUMERIC_SCAN or LITERAL_SCAN and the next character is a "," or "}" or "]",
+     *             we will push a NUMERIC_TOKEN or LITERAL_TOKEN into the transcript but we will MISS the VALUE_SEPARATOR_TOKEN, END_OBJECT_TOKEN or END_ARRAY_TOKEN
+     *             (accomodating this edge case requires conditionally pushing two transcript entries per iteration, so we do this in a separate step where we iterate over the transcript and not the json bytes)
+     *          2. We can't yet tell if an entry is a KEY_TOKEN or a STRING_TOKEN. All keys are represented as STRING_TOKEN. This gets fixed after `swap_keys` is evaluated
+     **/
     fn build_transcript(self) -> Self {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: Field = 0;
@@ -360,7 +406,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
         let raw_transcript = self.__build_transcript();
 
-        // 14 gates per iteration
+        // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
         let mut previous_was_potential_escape_sequence = 0;
         for i in 0..NumBytes {
             let ascii = self.json[i];
@@ -370,7 +416,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             std::as_witness(encoded_ascii);
 
             // 2 gates
-            let capture_flags = REDUCED_CAPTURE_TABLE[encoded_ascii];
+            let capture_flags = JSON_CAPTURE_TABLE[encoded_ascii];
             // 5 gates
             let ScanData{ scan_token, push_transcript, increase_length, is_potential_escape_sequence } = ScanData::from_field(capture_flags);
 
@@ -396,15 +442,10 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         }
 
         // we encode error flag into the scan_token value, which must be less than 4
-        // the lookup into REDUCED_CAPTURE_TABLE applies an implicit 2-bit range check on `scan_token`
+        // the lookup into JSON_CAPTURE_TABLE applies an implicit 2-bit range check on `scan_token`
         // however this does not get triggered if the final byte scanned produces an error state
         length.assert_max_bit_size(2);
 
-        // 5.75 gates per iteration, plus init cost for 1,024 lookup table (2048 gates)
-        // for i in 0..MaxNumTokens {
-        //     let transcript_entry = TranscriptEntry::from_raw(raw_transcript[i]);
-        //     assert(transcript[i] == transcript_entry);
-        // }
         JSON {
             json: self.json,
             raw_transcript,
@@ -412,15 +453,18 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             transcript_length: transcript_ptr as u16,
             key_data: self.key_data,
             key_hashes: self.key_hashes,
-            layer_id: 0,
+            layer_type_of_root: self.layer_type_of_root,
             root_id: 1,
-            layer_context: self.layer_context, // layer_context updated in `capture_missing_tokens`
-            layer_index_in_transcript: 0,
-            packed_json_entries: self.packed_json_entries,
-            packed_json: self.packed_json
+            root_index_in_transcript: 0,
+            json_entries_packed: self.json_entries_packed,
+            json_packed: self.json_packed
         }
     }
 
+    /**
+     * @brief We compute the output of `capture_missing_tokens` via an unconstrained function, then validate the result is correct.
+     *        Saves some gates for same reason as in __build_transcript
+     **/
     unconstrained fn __capture_missing_tokens(self) -> [Field; MaxNumTokens] {
         let mut updated_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: Field = 0;
@@ -448,6 +492,12 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         updated_transcript
     }
 
+    /**
+     * @brief Check for missing tokens that we could have missed in `build_transcript`
+     * @details If we had a json string where a NUMERIC_TOKEN or LITERAL_TOKEN is directly succeeded by a VALUE_SEPARATOR_TOKEN, END_OBJECT_TOKEN, END_ARRAY_TOKEN,
+     *          we will have missed the latter token.
+     *          We pick these up via the lookup table PROCESS_RAW_TRANSCRIPT_TABLE
+     **/
     fn capture_missing_tokens(&mut self) {
         let mut transcript_ptr: Field = 0;
         // hmm probably need a null transcript value?!?!
@@ -490,39 +540,50 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         // TODO we could make this more efficient...probably not a big deal though
         let first = TranscriptEntry::from_field(self.transcript[0]);
         if (first.token == BEGIN_OBJECT_TOKEN) {
-            self.layer_context = OBJECT_LAYER;
+            self.layer_type_of_root = OBJECT_LAYER;
         } else if (first.token == BEGIN_ARRAY_TOKEN) {
-            self.layer_context = ARRAY_LAYER;
+            self.layer_type_of_root = ARRAY_LAYER;
         } else if (first.token == STRING_TOKEN) {
-            self.layer_context = SINGLE_VALUE_LAYER;
+            self.layer_type_of_root = SINGLE_VALUE_LAYER;
         }
     }
 
-    fn parse_json(s: str<NumBytes>) -> Self {
+    fn parse_json<let StringBytes: u16>(stringbytes: [u8; StringBytes]) -> Self {
+        assert(StringBytes <= NumBytes, "json length exceeds NumBytes!");
+        let mut text: [u8; NumBytes] = [0; NumBytes];
+        for i in 0..StringBytes {
+            text[i] = stringbytes[i];
+        }
+        for i in StringBytes..NumBytes {
+            text[i] = 32; // whitespace character
+        }
         let mut json = JSON {
-            json: s.as_bytes(),
+            json: text,
             raw_transcript: [0; MaxNumTokens],
             transcript: [0; MaxNumTokens],
             transcript_length: 0,
             key_data: [0; MaxNumValues],
             key_hashes: [0; MaxNumValues],
-            layer_id: 0,
+            layer_type_of_root: 0,
             root_id: 1,
-            layer_context: 0,
-            layer_index_in_transcript: 0,
-            packed_json_entries: [JSONEntryPacked::default(); MaxNumValues],
-            packed_json: [0; NumPackedFields]
+            root_index_in_transcript: 0,
+            json_entries_packed: [JSONEntryPacked::default(); MaxNumValues],
+            json_packed: [0; NumPackedFields]
         };
 
         json = json.build_transcript();
         json.capture_missing_tokens();
         json.keyswap();
-        json.compute_packed_json();
+        json.compute_json_packed();
         json.create_json_entries();
 
         json.compute_keyhash_and_sort_json_entries();
 
         json
+    }
+
+    fn parse_json_from_string<let StringBytes: u16>(s: str<StringBytes>) -> Self {
+        JSON::parse_json(s.as_bytes())
     }
 }
 
@@ -537,18 +598,18 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 //         transcript_length: 0,
 //         key_data: [0; 20],
 //         key_hashes: [0; 20],
-//         layer_id: 0,
+//         layer_type_of_root: 0,
 //         root_id: 1,
 //         layer_context: 0,
-//         layer_index_in_transcript: 1,
-//         packed_json_entries: [0; 20],
-//         packed_json: [0; 10]
+//         root_index_in_transcript: 1,
+//         json_entries_packed: [0; 20],
+//         json_packed: [0; 10]
 //     };
 
 //     json = json.build_transcript();
 //     json.capture_missing_tokens();
 //     json.keyswap();
-//     json.compute_packed_json();
+//     json.compute_json_packed();
 //     json.create_json_entries();
 
 //     json.compute_keyhash_and_sort_json_entries();
@@ -559,6 +620,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 // \"i\": 999999999, \"j\": 9999999999, \"k\": 99999999999, \"l\": 999999999999, \"m\": 9999999999999, \"n\": 99999999999999, \"o\": 999999999999999, \"p\": 999999999999999
 // \"q\": 999999999, \"r\": 9999999999, \"s\": 99999999999, \"l\": 999999999999, \"m\": 9999999999999, \"n\": 99999999999999, \"o\": 999999999999999, \"p\": 999999999999999
 // \"q\": 9999999999999999, \"r\": 99999999999999999, \"s\": 999999999999999999, \"t\": 9999999999999999999, \"u\": 18446744073709551615
+
 #[test]
 fn test_numbers() {
     let text = "{ \"a\": 9, \"b\": 99, \"c\": 999, \"d\": 9999, \"e\": 99999, \"f\": 999999, \"g\": 9999999, \"h\": 99999999, \"i\": 999999999, \"j\": 9999999999, \"k\": 99999999999, \"l\": 999999999999, \"m\": 9999999999999, \"n\": 99999999999999, \"o\": 999999999999999, \"p\": 999999999999999,\"q\": 9999999999999999, \"r\": 99999999999999999, \"s\": 999999999999999999, \"t\": 9999999999999999999, \"u\": 18446744073709551615}";
@@ -569,18 +631,17 @@ fn test_numbers() {
         transcript_length: 0,
         key_data: [0; 23],
         key_hashes: [0; 23],
-        layer_id: 0,
+        layer_type_of_root: 0,
         root_id: 1,
-        layer_context: 0,
-        layer_index_in_transcript: 1,
-        packed_json_entries: [JSONEntryPacked::default(); 23],
-        packed_json: [0; 16]
+        root_index_in_transcript: 1,
+        json_entries_packed: [JSONEntryPacked::default(); 23],
+        json_packed: [0; 16]
     };
 
     json = json.build_transcript();
     json.capture_missing_tokens();
     json.keyswap();
-    json.compute_packed_json();
+    json.compute_json_packed();
     json.create_json_entries();
 
     json.compute_keyhash_and_sort_json_entries();
@@ -640,18 +701,17 @@ fn test_parent_array() {
         transcript_length: 0,
         key_data: [0; 20],
         key_hashes: [0; 20],
-        layer_id: 0,
+        layer_type_of_root: 0,
         root_id: 1,
-        layer_context: 0,
-        layer_index_in_transcript: 1,
-        packed_json_entries: [JSONEntryPacked::default(); 20],
-        packed_json: [0; 10]
+        root_index_in_transcript: 1,
+        json_entries_packed: [JSONEntryPacked::default(); 20],
+        json_packed: [0; 10]
     };
 
     json = json.build_transcript();
     json.capture_missing_tokens();
     json.keyswap();
-    json.compute_packed_json();
+    json.compute_json_packed();
     json.create_json_entries();
 
     json.compute_keyhash_and_sort_json_entries();
@@ -683,18 +743,17 @@ fn test_escaped_strings() {
         transcript_length: 0,
         key_data: [0; 20],
         key_hashes: [0; 20],
-        layer_id: 0,
+        layer_type_of_root: OBJECT_LAYER,
         root_id: 1,
-        layer_context: OBJECT_LAYER,
-        layer_index_in_transcript: 0,
-        packed_json_entries: [JSONEntryPacked::default(); 20],
-        packed_json: [0; 10]
+        root_index_in_transcript: 0,
+        json_entries_packed: [JSONEntryPacked::default(); 20],
+        json_packed: [0; 10]
     };
 
     json = json.build_transcript();
     json.capture_missing_tokens();
     json.keyswap();
-    json.compute_packed_json();
+    json.compute_json_packed();
     json.create_json_entries();
     json.compute_keyhash_and_sort_json_entries();
 
@@ -785,12 +844,11 @@ fn test_redux() {
         transcript_length: 0,
         key_data: [0; 30],
         key_hashes: [0; 30],
-        layer_id: 0,
+        layer_type_of_root: OBJECT_LAYER,
         root_id: 1,
-        layer_context: OBJECT_LAYER,
-        layer_index_in_transcript: 0,
-        packed_json_entries: [JSONEntryPacked::default(); 30],
-        packed_json: [0; 7]
+        root_index_in_transcript: 0,
+        json_entries_packed: [JSONEntryPacked::default(); 30],
+        json_packed: [0; 7]
     };
 
     json = json.build_transcript();
@@ -894,12 +952,12 @@ fn test_redux() {
     assert(get(20).token == END_OBJECT_TOKEN);
 
     // create json entries
-    json.compute_packed_json();
+    json.compute_json_packed();
     json.create_json_entries();
 
     let mut json_entries: [JSONEntry; 30] = [JSONEntry::new(); 30];
     for i in 0..30 {
-        json_entries[i] = json.packed_json_entries[i].into();
+        json_entries[i] = json.json_entries_packed[i].into();
     }
     /*
 
@@ -1023,7 +1081,7 @@ struct JSONEntry {
     json.compute_keyhash_and_sort_json_entries();
 
     for i in 0..30 {
-        json_entries[i] = json.packed_json_entries[i].into();
+        json_entries[i] = json.json_entries_packed[i].into();
     }
     // #####################
     // let text = "{ \"foo\": 1234, \"bar\": { \"foo\": 9876, \"bar\": true }, \"baz\": \"hello\" }";
@@ -1072,7 +1130,7 @@ struct JSONEntry {
 }
 
 // next big TODOs:
-// 1. fix off-by-one layer_id values
+// 1. fix off-by-one layer_type_of_root values
 // 2. add layer_context into JSON. differentiate between single values, arrays and objects
 
 // despite objects not being sorted in element order, the JSON entries *do* have array_id values
@@ -1087,19 +1145,18 @@ fn test_literal() {
         transcript_length: 0,
         key_data: [0; 20],
         key_hashes: [0; 20],
-        layer_id: 0,
+        layer_type_of_root: OBJECT_LAYER,
         root_id: 1,
-        layer_context: OBJECT_LAYER,
-        layer_index_in_transcript: 0,
-        packed_json_entries: [JSONEntryPacked::default(); 20],
-        packed_json: [0; 10]
+        root_index_in_transcript: 0,
+        json_entries_packed: [JSONEntryPacked::default(); 20],
+        json_packed: [0; 10]
     };
 
     json = json.build_transcript();
     json.capture_missing_tokens();
     json.keyswap();
 
-    json.compute_packed_json();
+    json.compute_json_packed();
     json.create_json_entries();
     json.compute_keyhash_and_sort_json_entries();
 
@@ -1138,18 +1195,17 @@ fn test_arrays() {
         transcript_length: 0,
         key_data: [0; 60],
         key_hashes: [0; 60],
-        layer_id: 0,
+        layer_type_of_root: OBJECT_LAYER,
         root_id: 1,
-        layer_context: OBJECT_LAYER,
-        layer_index_in_transcript: 0,
-        packed_json_entries: [JSONEntryPacked::default(); 60],
-        packed_json: [0; 10]
+        root_index_in_transcript: 0,
+        json_entries_packed: [JSONEntryPacked::default(); 60],
+        json_packed: [0; 10]
     };
 
     json = json.build_transcript();
     json.capture_missing_tokens();
     json.keyswap();
-    json.compute_packed_json();
+    json.compute_json_packed();
     json.create_json_entries();
     json.compute_keyhash_and_sort_json_entries();
 
@@ -1176,12 +1232,12 @@ fn test_arrays() {
 */
     let mut json_entries: [JSONEntry; 60] = [JSONEntry::new(); 60];
     for i in 0..60 {
-        json_entries[i] = json.packed_json_entries[i].into();
+        json_entries[i] = json.json_entries_packed[i].into();
     }
     assert(json_entries[56].entry_type == LITERAL_TOKEN);
     assert(json_entries[56].parent_index == 2);
 
-    assert(json_entries[57].entry_type == BEGIN_ARRAY_TOKEN);
+    assert(json_entries[57].entry_type == END_ARRAY_TOKEN);
     assert(json_entries[57].parent_index == 2);
 
     assert(json_entries[58].entry_type == NUMERIC_TOKEN);

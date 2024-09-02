@@ -3,7 +3,8 @@ use crate::transcript_entry::TranscriptEntry;
 use crate::json_entry::JSONEntry;
 use crate::json::JSON;
 use crate::lt::{lt_field_16_bit, assert_lt_240_bit, assert_gt_240_bit};
-use crate::json_tables::{OBJECT_LAYER, ARRAY_LAYER, NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN};
+use crate::enums::Token::{NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN};
+use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
 use crate::keyhash::get_keyhash;
 use crate::slice_field::slice_fields;
 
@@ -93,10 +94,10 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     fn get_json_entry<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> (bool, JSONEntry) {
         // let key_index = self.find_key_in_map(keyhash);
         // assert(self.key_hashes[key_index] == keyhash);
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl(key, KeyBytes);
-        let entry: JSONEntry = self.packed_json_entries[key_index].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
         (exists, entry)
     }
 
@@ -105,7 +106,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @note will revert if the key does not exist
      **/
     fn get_json_entry_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> JSONEntry {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let keyhash = get_keyhash(key, 0, KeyBytes);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
@@ -115,7 +116,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         let key_index = self.find_key_in_map(keyhash);
 
         assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = self.packed_json_entries[key_index].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
 
         entry
     }
@@ -126,10 +127,10 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     fn get_json_entry_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> (bool, JSONEntry) {
         // let key_index = self.find_key_in_map(keyhash);
         // assert(self.key_hashes[key_index] == keyhash);
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl(key, keylen);
-        let entry: JSONEntry = self.packed_json_entries[key_index].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
         (exists, entry)
     }
 
@@ -137,7 +138,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @brief same as `get_json_entry_unchecked` but the key length may be less than KeyBytes
      **/
     fn get_json_entry_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> JSONEntry {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let keyhash = get_keyhash(key, 0, keylen);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
@@ -147,16 +148,16 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         let key_index = self.find_key_in_map(keyhash);
 
         assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = self.packed_json_entries[key_index].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
 
         entry
     }
 
     /**
-     * @brief same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.packed_json_entries`
+     * @brief same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.json_entries_packed`
      **/
     fn get_json_entry_unchecked_with_key_index_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> (JSONEntry, Field) {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let keyhash = get_keyhash(key, 0, keylen);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
@@ -166,7 +167,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         let key_index = self.find_key_in_map(keyhash);
 
         assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = self.packed_json_entries[key_index].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
 
         (entry, key_index)
     }
@@ -186,83 +187,83 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         if (StringBytes <= 31)
         {
             let s: StringChopper<1> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 62)
         {
             let s: StringChopper<2> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 93)
         {
             let s: StringChopper<3> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 124)
         {
             let s: StringChopper<4> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 155)
         {
             let s: StringChopper<5> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 186)
         {
             let s: StringChopper<6> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 217)
         {
             let s: StringChopper<7> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 248) // 8
         {
             let s: StringChopper<8> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 496) // 16
         {
             let s: StringChopper<16> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 992) // 32
         {
             let s: StringChopper<32> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 1984)
         {
             let s: StringChopper<64> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 3968)
         {
             let s: StringChopper<128> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 7936)
         {
             let s: StringChopper<256> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 15872)
         {
             let s: StringChopper<512> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else if (StringBytes <= 31774)
         {
             let s: StringChopper<1024> = StringChopper{};
-        result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+        result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
         }
         else
         {
             // max 16 bits = 65535 = 2115 31-byte slices
             let s: StringChopper<2115> = StringChopper{};
-            result = s.slice_string(self.packed_json, entry.json_pointer, entry.json_length);
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
 
         }
         result
@@ -339,7 +340,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     }
 
     /**
-     * @brief implementation of `key_exists`. returns both a boolean and also the position in `self.packed_json_entries` of the key
+     * @brief implementation of `key_exists`. returns both a boolean and also the position in `self.json_entries_packed` of the key
      * @description algorithm is O(1) because of the preprocessing we have done
      *              Method computes a key hash and checks whether key hash exists in the list of sorted preprocessed key hashes
      *              If it does *not* exist, we can find two adjacent entries in `key_hashes` where `key_hashes[i]` < target_key_hash < `key_hashes[i+1]`

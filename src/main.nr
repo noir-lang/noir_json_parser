@@ -10,8 +10,9 @@ enum JsonTranscript {
     BOOL_CAPTURE
 }
 */
+mod table_generation;
+mod enums;
 mod bounds_checker;
-mod make_tables;
 mod json;
 mod json_tables;
 mod lt;
@@ -201,24 +202,24 @@ fn maiff(p: Field) {
 //         transcript_length: 0,
 //         key_data: [0; 64],
 //         key_hashes: [0; 64],
-//         layer_id: 0,
+//         layer_type_of_root: 0,
 //         layer_context: 0,
-//         layer_index_in_transcript: 0,
-//         packed_json_entries: [0; 64],
-//         packed_json: [0; 37]
+//         root_index_in_transcript: 0,
+//         json_entries_packed: [0; 64],
+//         json_packed: [0; 37]
 //     };
-//     json.compute_packed_json();
+//     json.compute_json_packed();
 //     // 1333
 //     // 1828
 //     // cost = 495
 //     // makes sense
 //     for i in 0..37 {
-//         let kk = json.packed_json_entries[i];
+//         let kk = json.json_entries_packed[i];
 //         println(f"{kk}");
 //     }
-//     // json.compute_packed_json();
+//     // json.compute_json_packed();
 //     // for i in 0..37 {
-//     //     let kk = json.packed_json_entries[i];
+//     //     let kk = json.json_entries_packed[i];
 //     //     println(f"{kk}");
 //     // }
 // }
@@ -402,14 +403,13 @@ fn mainget_keyhash(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: 
         transcript_length: 0,
         key_data: [0; 64],
         key_hashes: [0; 64],
-        layer_id: 0,
+        layer_type_of_root: 0,
         root_id: 1,
-        layer_context: 0,
-        layer_index_in_transcript: 0,
-        packed_json_entries: [JSONEntryPacked::default(); 64],
-        packed_json: [0; 37]
+        root_index_in_transcript: 0,
+        json_entries_packed: [JSONEntryPacked::default(); 64],
+        json_packed: [0; 37]
     };
-    json.compute_packed_json();
+    json.compute_json_packed();
 
     let hasher: Hasher<2> = Hasher {};
     // iteration from 64 = 26,902
@@ -476,9 +476,9 @@ fn mainget_keyhash(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: 
         //   println(f"{a}, {b}");
     }
     for i in 0..64 {
-        //   let key_fields = [json.packed_json[i], json.packed_json[i + 1], json.packed_json[i + 2]];
+        //   let key_fields = [json.json_packed[i], json.json_packed[i + 1], json.json_packed[i + 2]];
         //   let x = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, 3);
-        //let x = hasher.get_keyhash(json.packed_json, body_indices[i], key_lengths[i]);
+        //let x = hasher.get_keyhash(json.json_packed, body_indices[i], key_lengths[i]);
 
         let x = get_keyhash_chunky(body_text, body_indices[i], key_lengths[i]);
         println(f"{x}");
@@ -614,7 +614,7 @@ fn mainkjghg(body_text: [u8; 1024], body_indices: [u16; 64], key_lengths: [u16; 
 
 // 287 * 64 = 18,368 = what cost of keyhash should be
 // where is extra 7,557 coming from?
-// we need to turn packed_json into ROM array (120-160 tops)
+// we need to turn json_packed into ROM array (120-160 tops)
 // about 300 lookup table entries in slice fields (1200 tops)
 // ???
 
@@ -690,12 +690,11 @@ fn main(text: str<1024>) {
         transcript_length: 0,
         key_data: [0; 64],
         key_hashes: [0; 64],
-        layer_id: 0,
+        layer_type_of_root: 0,
         root_id: 1,
-        layer_context: 0,
-        layer_index_in_transcript: 0,
-        packed_json_entries: [JSONEntryPacked::default(); 64],
-        packed_json: [0; 37]
+        root_index_in_transcript: 0,
+        json_entries_packed: [JSONEntryPacked::default(); 64],
+        json_packed: [0; 37]
     };
     // json = preamble(json);
     let mut json = json.build_transcript(); // 16,824
@@ -703,7 +702,7 @@ fn main(text: str<1024>) {
     // println(f"{x}");
     json.capture_missing_tokens(); // 23,604 // 7k?
     json.keyswap(); // 24,341
-    json.compute_packed_json(); // 24,836
+    json.compute_json_packed(); // 24,836
     json.create_json_entries(); // 29,603
     //  json.validate_tokens();
     json.compute_keyhash_and_sort_json_entries(); // 55,853
@@ -730,7 +729,7 @@ fn main(text: str<1024>) {
     // assert(x[9] == 10);
     //  let r: [u8; 10] = json.slice_string_61(10, 100);
     //assert(r[0] == 1);
-    // // assert(json.packed_json[inputs[3]] == 1234);
+    // // assert(json.json_packed[inputs[3]] == 1234);
     // for i in 0..63 {
     //     assert(json.key_data[i] == json.key_data[i + 1]);
     // }

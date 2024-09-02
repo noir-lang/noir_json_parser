@@ -1,8 +1,8 @@
 use crate::json_entry::JSONEntry;
 use crate::json::JSON;
 use crate::lt::lt_field_16_bit;
-use crate::json_tables::{OBJECT_LAYER, ARRAY_LAYER, LITERAL_TOKEN};
-use crate::keyhash::get_keyhash;
+use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
+use crate::enums::Token::LITERAL_TOKEN;
 use crate::getters::JSONValue;
 
 global MAX_LITERAL_LENGTH_AS_STRING = 5;
@@ -72,7 +72,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @description returns an Option<JSONLiteral> which will be null if the literal does not exist
      **/
     fn get_literal<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, entry) = self.get_json_entry(key);
         assert(
@@ -88,7 +88,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @description will revert if the literal does not exist
      **/
     fn get_literal_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> JSONLiteral {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let entry= self.get_json_entry_unchecked(key);
         assert(
@@ -103,7 +103,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @brief same as `get_literal` for where the key length may be less than KeyBytes
      **/
     fn get_literal_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<JSONLiteral> {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, entry) = self.get_json_entry_var(key, key_length);
         assert(
@@ -118,7 +118,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @brief same as `get_literal_unchecked` for where the key length may be less than KeyBytes
      **/
     fn get_literal_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> JSONLiteral {
-        assert(self.layer_context != ARRAY_LAYER, "cannot extract array elements via a key");
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let entry= self.get_json_entry_unchecked_var(key, key_length);
         assert(
@@ -134,14 +134,14 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @description returns an Option<JSONLiteral> which will be null if the literal does not exist
      **/
     fn get_literal_from_array(self, array_index: Field) -> Option<JSONLiteral> {
-        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
+        assert(self.layer_type_of_root == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
+        let parent_entry : JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
+        let entry : JSONEntry = self.json_entries_packed[entry_index].into();
 
         assert(
             (entry.entry_type - LITERAL_TOKEN) * valid as Field == 0, "get_literal_from_array: entry exists but is not a literal!"
@@ -158,15 +158,15 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @description will revert if the literal does not exist
      **/
     fn get_literal_from_array_unchecked(self, array_index: Field) -> JSONLiteral {
-        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
+        assert(self.layer_type_of_root == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
+        let parent_entry : JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
 
-        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
+        let entry : JSONEntry = self.json_entries_packed[entry_index].into();
 
         assert(
             entry.entry_type == LITERAL_TOKEN, "get_literal_from_array_unchecked: entry exists but is not a literal!"

@@ -1,12 +1,10 @@
 use crate::json_entry::JSONEntry;
 use crate::json::JSON;
-use crate::lt::lt_field_16_bit;
-use crate::json_tables::{
-    OBJECT_LAYER, ARRAY_LAYER, STRING_TOKEN, ESCAPE_SEQUENCE_START_CHARS, ESCAPE_SEQUENCE_END_CHARS,
-    ESCAPE_SEQUENCE_REPLACEMENT
-};
-use crate::keyhash::get_keyhash;
 use crate::getters::JSONValue;
+use crate::lt::lt_field_16_bit;
+use crate::json_tables::{ESCAPE_SEQUENCE_START_CHARS, ESCAPE_SEQUENCE_END_CHARS, ESCAPE_SEQUENCE_REPLACEMENT};
+use crate::enums::Token::STRING_TOKEN;
+use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
 
 unconstrained fn to_u8(f: Field) -> u8 {
     f as u8
@@ -145,14 +143,14 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @description returns an Option<BoundedVec> which will be null if the string does not exist
      **/
     fn get_string_from_array<let StringBytes: u16>(self, array_index: Field) -> Option<BoundedVec<u8, StringBytes>> {
-        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
+        assert(self.layer_type_of_root == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
+        let parent_entry : JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
+        let entry : JSONEntry = self.json_entries_packed[entry_index].into();
 
         assert(
             (entry.entry_type - STRING_TOKEN) * valid as Field == 0, "get_array_element_as_string: entry exists but is not a string!"
@@ -168,15 +166,15 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @description will revert if the string does not exist
      **/
     fn get_string_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> BoundedVec<u8, StringBytes> {
-        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
+        assert(self.layer_type_of_root == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
+        let parent_entry : JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
 
-        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
+        let entry : JSONEntry = self.json_entries_packed[entry_index].into();
 
         assert(
             entry.entry_type == STRING_TOKEN, "get_string_from_array_unchecked: entry exists but is not a string!"
@@ -260,14 +258,14 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @description returns an Option<BoundedVec> which will be null if the value does not exist
      **/
     fn get_value_from_array<let StringBytes: u16>(self, array_index: Field) -> Option<JSONValue<StringBytes>> {
-        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
+        assert(self.layer_type_of_root == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
+        let parent_entry : JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
+        let entry : JSONEntry = self.json_entries_packed[entry_index].into();
 
         assert(
             (entry.entry_type - STRING_TOKEN) * valid as Field == 0, "get_array_element_as_string: entry exists but is not a string!"
@@ -288,15 +286,15 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @description will revert if the value does not exist
      **/
     fn get_value_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> JSONValue<StringBytes> {
-        assert(self.layer_context == ARRAY_LAYER, "can only acceess array elements from array");
+        assert(self.layer_type_of_root == ARRAY_LAYER, "can only acceess array elements from array");
 
-        let parent_entry : JSONEntry = self.packed_json_entries[self.layer_index_in_transcript].into();
+        let parent_entry : JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
 
-        let entry : JSONEntry = self.packed_json_entries[entry_index].into();
+        let entry : JSONEntry = self.json_entries_packed[entry_index].into();
 
         assert(
             entry.entry_type == STRING_TOKEN, "get_string_from_array_unchecked: entry exists but is not a string!"
