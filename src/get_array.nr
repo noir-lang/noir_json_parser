@@ -1,6 +1,6 @@
 use crate::json_entry::JSONEntry;
 use crate::json::JSON;
-use crate::lt::lt_field_16_bit;
+use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Token::END_ARRAY_TOKEN;
 use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
 use crate::getters::JSONValue;
@@ -8,7 +8,7 @@ use crate::getters::JSONValue;
 /**
  * @brief getter methods for extracting array types out of a JSON struct
  **/
-impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues> {
+impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief if the root JSON is an array, return its length
@@ -25,7 +25,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      **/
     fn get_array<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> Option<Self> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-        let (exists, key_index) = self.key_exists_impl(key, KeyBytes);
+        let (exists, key_index) = self.key_exists_impl(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         assert(
             (entry.entry_type - END_ARRAY_TOKEN) * exists as Field == 0, "key does not describe an object"
@@ -47,7 +47,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     fn get_array_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key, KeyBytes);
+        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index(key);
         assert(entry.entry_type == END_ARRAY_TOKEN, "key does not describe an object");
 
         let mut r = self;
@@ -62,9 +62,9 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_array` for where the key length may be less than KeyBytes
      **/
-    fn get_array_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<Self> {
+    fn get_array_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Option<Self> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-        let (exists, key_index) = self.key_exists_impl(key, key_length);
+        let (exists, key_index) = self.key_exists_impl_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         // TODO: ADD A layer_context VARIABLE INTO JSON WHICH DESCRIBES WHETHER WE ARE AN OBJECT, ARRAY OR SINGLE VALUE
         assert(
@@ -83,10 +83,10 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_array_unchecked` for where the key length may be less than KeyBytes
      **/
-    fn get_array_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Self {
+    fn get_array_unchecked_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key, key_length);
+        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
         assert(entry.entry_type == END_ARRAY_TOKEN, "key does not describe an object");
 
         let mut r = self;
@@ -186,12 +186,12 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 fn test_array() {
     let text = "{ \"foo\": [ [1,2,3], [[3,4]], [[]], [], { \"bar\": [\"b\", \"a\", \"z\" ]} ]}";
 
-    let mut json: JSON<_, 7, 60, 60> = JSON::parse_json_from_string(text);
+    let mut json: JSON<_, 7, 60, 60, 2> = JSON::parse_json_from_string(text);
 
     let first = json.get_array_unchecked("foo".as_bytes());
     assert(first.get_length() == 5);
 
-    let A: JSON<68, 7, 60, 60> = first.get_array_from_array_unchecked(0);
+    let A: JSON<68, 7, 60, 60, 2> = first.get_array_from_array_unchecked(0);
     assert(A.get_length() == 3);
 
     let B = first.get_array_from_array_unchecked(1);

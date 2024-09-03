@@ -1,6 +1,6 @@
 use crate::json_entry::JSONEntry;
 use crate::json::JSON;
-use crate::lt::lt_field_16_bit;
+use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
 use crate::enums::Token::LITERAL_TOKEN;
 use crate::getters::JSONValue;
@@ -65,7 +65,7 @@ fn extract_literal_from_array(
 /**
  * @brief getter methods for extracting literal values out of a JSON struct
  **/
-impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues> {
+impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief if the root JSON is an object, extract a literal value given by `key`
@@ -102,10 +102,10 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_literal` for where the key length may be less than KeyBytes
      **/
-    fn get_literal_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<JSONLiteral> {
+    fn get_literal_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Option<JSONLiteral> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let (exists, entry) = self.get_json_entry_var(key, key_length);
+        let (exists, entry) = self.get_json_entry_var(key);
         assert(
             (entry.entry_type - LITERAL_TOKEN) * exists as Field == 0, "get_literal_var: entry exists but is not a literal!"
         );
@@ -117,10 +117,10 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_literal_unchecked` for where the key length may be less than KeyBytes
      **/
-    fn get_literal_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> JSONLiteral {
+    fn get_literal_unchecked_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> JSONLiteral {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let entry= self.get_json_entry_unchecked_var(key, key_length);
+        let entry= self.get_json_entry_unchecked_var(key);
         assert(
             entry.entry_type == LITERAL_TOKEN, "get_literal_unchecked_var: entry exists but is not a literal!"
         );

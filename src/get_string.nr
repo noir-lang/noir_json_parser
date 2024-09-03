@@ -1,7 +1,7 @@
 use crate::json_entry::JSONEntry;
 use crate::json::JSON;
 use crate::getters::JSONValue;
-use crate::lt::lt_field_16_bit;
+use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::json_tables::{ESCAPE_SEQUENCE_START_CHARS, ESCAPE_SEQUENCE_END_CHARS, ESCAPE_SEQUENCE_REPLACEMENT};
 use crate::enums::Token::STRING_TOKEN;
 use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
@@ -85,7 +85,7 @@ fn test_process_escape_sequence() {
  * @note returned strings will have escape sequences converted into the relevant ASCII characters.
  *       If you want to avoid this, use `get_value` instead of `get_string`
  **/
-impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues> {
+impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief if the root JSON is an object, extract a string given by `key`
@@ -119,7 +119,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @brief same as `get_string` for where the key length may be less than KeyBytes
      **/
     fn get_string_var<let KeyBytes: u16, let StringBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Option<BoundedVec<u8, StringBytes>> {
-        let (exists, entry) = self.get_json_entry_var(key.storage, key.len as u16);
+        let (exists, entry) = self.get_json_entry_var(key);
         assert(
             (entry.entry_type - STRING_TOKEN) * exists as Field == 0, "get_string: entry exists but is not a string!"
         );
@@ -132,7 +132,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @brief same as `get_string_unchecked` for where the key length may be less than KeyBytes
      **/
     fn get_string_unchecked_var<let KeyBytes: u16, let StringBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> BoundedVec<u8, StringBytes> {
-        let entry = self.get_json_entry_unchecked_var(key.storage, key.len as u16);
+        let entry = self.get_json_entry_unchecked_var(key);
         assert(entry.entry_type == STRING_TOKEN, "get_string_unchecked: entry exists but is not a string!");
         let parsed_string = BoundedVec { storage: self.extract_string_entry(entry), len: entry.json_length as u32 };
         process_escape_sequences(parsed_string)
@@ -194,7 +194,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         let mut target = self;
         let mut valid = true;
         for i in 0..PathDepth - 1 {
-            let child  = self.get_object_var(keys[i].storage, keys[i].len as u16);
+            let child  = self.get_object_var(keys[i]);
 
             target = child._value;
             valid = valid & child._is_some;
@@ -235,7 +235,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @brief same as `get_value` for where the key length may be less than KeyBytes
      **/
     fn get_value_var<let KeyBytes: u16, let StringBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Option<JSONValue<StringBytes>> {
-        let (exists, entry) = self.get_json_entry_var(key.storage, key.len as u16);
+        let (exists, entry) = self.get_json_entry_var(key);
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
 
         let parsed_string: BoundedVec<u8, StringBytes> = BoundedVec { storage: parsed_string, len: entry.json_length as u32 };
@@ -246,7 +246,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @brief same as `get_value_unchecked` for where the key length may be less than KeyBytes
      **/
     fn get_value_unchecked_var<let KeyBytes: u16, let StringBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> JSONValue<StringBytes> {
-        let entry = self.get_json_entry_unchecked_var(key.storage, key.len as u16);
+        let entry = self.get_json_entry_unchecked_var(key);
         JSONValue {
             value: BoundedVec { len: entry.json_length as u32, storage: self.extract_string_entry(entry) },
             value_type: entry.entry_type
@@ -317,7 +317,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         let mut target = self;
         let mut valid = true;
         for i in 0..PathDepth - 1 {
-            let child  = self.get_object_var(keys[i].storage, keys[i].len as u16);
+            let child  = self.get_object_var(keys[i]);
 
             target = child._value;
             valid = valid & child._is_some;

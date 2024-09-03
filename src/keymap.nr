@@ -1,13 +1,11 @@
 use crate::json::JSON;
 use crate::json_entry::{JSONEntryPacked, JSONEntry};
-use crate::lt::lt_field_16_bit;
-use crate::lt::lte_field_240_bit;
-use crate::lt::assert_lte_240_bit;
+use crate::_comparison_tools::lt::lt_field_16_bit;
+use crate::_comparison_tools::lt::lte_field_240_bit;
+use crate::_comparison_tools::lt::assert_lte_240_bit;
 use crate::json_tables::TOKEN_ENDS_OBJECT_OR_ARRAY;
-use crate::keyhash::get_keyhash;
-use crate::keyhash::slice_200_bits_from_field;
-use crate::slice_field::slice_fields;
-use crate::keyhash::Hasher;
+use crate::_string_tools::slice_packed_field::slice_fields;
+use crate::keyhash::FieldHasher;
 
 use dep::noir_sort;
 
@@ -47,9 +45,9 @@ impl KeyIndexData {
     }
 }
 
-impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues> {
+impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
     fn compute_keyhash_and_sort_json_entries(&mut self) {
-        let hasher: Hasher<2> = Hasher {};
+        let hasher: FieldHasher<MaxKeyFields> = FieldHasher {};
 
         let mut hashlist: [Field; MaxNumValues] = [0; MaxNumValues];
 
@@ -68,7 +66,6 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         let sort_result = noir_sort::sort_advanced(hashlist, lte_field_240_bit, assert_lte_240_bit);
 
         let mut sorted_entries: [JSONEntryPacked; MaxNumValues] = [JSONEntryPacked::default(); MaxNumValues];
-
         for i in 0..MaxNumValues {
             sorted_entries[sort_result.sort_indices[i]] = self.json_entries_packed[i];
         }
@@ -126,10 +123,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         }
         sorted_entries[0] = JSONEntryPacked::default(); // TODO document why we want to always make 0 a dead entry
 
-        // for i in 0..MaxNumValues {
-        //     let sorted: JSONEntry = sorted_entries[i].into();
-        //     println(f"sorted {sorted}");
-        // }
+        self.unsorted_json_entries_packed = self.json_entries_packed;
         self.json_entries_packed = sorted_entries;
         self.key_hashes = sort_result.sorted;
         self.set_root_entry();

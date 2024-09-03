@@ -1,91 +1,29 @@
-use crate::test_data::JSON_WITH_ARRAYS;
 use crate::transcript_entry::TranscriptEntry;
 use crate::json_entry::JSONEntry;
 use crate::json::JSON;
-use crate::lt::{lt_field_16_bit, assert_lt_240_bit, assert_gt_240_bit};
+use crate::_comparison_tools::lt::{lt_field_16_bit, assert_lt_240_bit, assert_gt_240_bit};
 use crate::enums::Token::{NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN};
 use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
-use crate::keyhash::get_keyhash;
-use crate::slice_field::slice_fields;
-
+use crate::keyhash::ByteHasher;
+use crate::keymap::KeyIndexData;
+use crate::_string_tools::string_chopper::StringChopper;
+use crate::_string_tools::slice_packed_field::slice_fields;
+use crate::json::JSONValue;
+/**
+ * @brief records data used to reason about whether a key exists in a json blob
+ **/
 struct KeySearchResult {
-    found: bool,
-    target_lt_smallest_entry: bool,
-    target_gt_largest_entry: bool,
-    lhs_index: Field,
-    rhs_index: Field,
-}
-
-struct JSONValue<let MaxLength: u32> {
-    value: BoundedVec<u8, MaxLength>,
-    value_type: Field
-}
-// struct JSONLiteral {
-//     value: Field,
-// }
-
-impl<let MaxLength: u32> JSONValue<MaxLength> {
-    fn is_string(self) -> bool {
-        self.value_type == STRING_TOKEN
-    }
-    fn is_number(self) -> bool {
-        self.value_type == NUMERIC_TOKEN
-    }
-    fn is_literal(self) -> bool {
-        self.value_type == LITERAL_TOKEN
-    }
-}
-
-// impl JSONLiteral {
-//     fn is_true(self) -> bool {
-//         self.value == 2
-//     }
-//     fn is_null(self) -> bool {
-//         self.value == 1
-//     }
-//     fn is_false(self) -> bool {
-//         self.value == 0
-//     }
-//     fn to_bool(self) -> bool {
-//         self.value == 2
-//     }
-// }
-
-struct StringChopper<let NeedlePackedFields: u16> {
-
-}
-
-impl<let NeedlePackedFields: u16> StringChopper<NeedlePackedFields> {
-    fn slice_string<let StringBytes: u16, let HaystackPackedFields: u16>(
-        _: Self,
-        haystack: [Field; HaystackPackedFields],
-        start_bytes: Field,
-        num_bytes: Field
-    ) -> [u8; StringBytes] {
-        let mut parsed_string: [u8; StringBytes] = [0; StringBytes];
-
-        let sliced: [Field; NeedlePackedFields] = slice_fields(haystack, start_bytes, num_bytes);
-
-        let sliced_bytes = sliced.map(|x: Field| { let r: [u8; 31] = x.to_be_bytes(31).as_array(); r });
-
-        let num_slices = StringBytes / 31;
-        let overflow = StringBytes % 31;
-        for i in 0..num_slices {
-            for j in 0..31 {
-                parsed_string[i * 31 + j] = sliced_bytes[i][j];
-            }
-        }
-        for j in 0..overflow {
-            parsed_string[num_slices * 31 + j] = sliced_bytes[num_slices][j];
-        }
-        parsed_string
-    }
+    found: bool, // does the key exist?
+    target_lt_smallest_entry: bool, // is the target keyhash smaller than the smallest keyhash in self.key_hashes?
+    target_gt_largest_entry: bool, // is the target keyhash larger than the largest keyhash in self.key_hashes?
+    lhs_index: Field, // either the index of the key being searched for, or the index of the keyhash in self.key_hashes that is closest to keyhash (hash > lhs_index_hash)
+    rhs_index: Field, // either the index of the key being searched for, or the index of the keyhash in self.key_hashes that is closest to keyhash (hash < rhs_index_hash)
 }
 
 /**
  * @brief helper methods for extracting data out of a processed JSON object
  **/
-impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues> {
+impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
@@ -96,7 +34,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         // assert(self.key_hashes[key_index] == keyhash);
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let (exists, key_index) = self.key_exists_impl(key, KeyBytes);
+        let (exists, key_index) = self.key_exists_impl(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         (exists, entry)
     }
@@ -108,7 +46,8 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     fn get_json_entry_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> JSONEntry {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let keyhash = get_keyhash(key, 0, KeyBytes);
+        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
+        let keyhash = hasher.get_keyhash_var(key, 0, KeyBytes);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
 
         let keyhash = keyhash + self.root_id * two_pow_216;
@@ -124,12 +63,15 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_json_entry` but the key length may be less than KeyBytes
      **/
-    fn get_json_entry_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> (bool, JSONEntry) {
+    fn get_json_entry_var<let KeyBytes: u16>(
+        self,
+        key: BoundedVec<u8, KeyBytes>
+    ) -> (bool, JSONEntry) {
         // let key_index = self.find_key_in_map(keyhash);
         // assert(self.key_hashes[key_index] == keyhash);
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let (exists, key_index) = self.key_exists_impl(key, keylen);
+        let (exists, key_index) = self.key_exists_impl_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         (exists, entry)
     }
@@ -137,10 +79,11 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_json_entry_unchecked` but the key length may be less than KeyBytes
      **/
-    fn get_json_entry_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> JSONEntry {
+    fn get_json_entry_unchecked_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> JSONEntry {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let keyhash = get_keyhash(key, 0, keylen);
+        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
+        let keyhash = hasher.get_keyhash_var(key.storage, 0, key.len as u16);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
 
         let keyhash = keyhash + self.root_id * two_pow_216;
@@ -156,10 +99,30 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.json_entries_packed`
      **/
-    fn get_json_entry_unchecked_with_key_index_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], keylen: u16) -> (JSONEntry, Field) {
+    fn get_json_entry_unchecked_with_key_index<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> (JSONEntry, Field) {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let keyhash = get_keyhash(key, 0, keylen);
+        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
+        let keyhash = hasher.get_keyhash_var(key, 0, KeyBytes);
+        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
+
+        let keyhash = keyhash + self.root_id * two_pow_216;
+
+        let key_index = self.find_key_in_map(keyhash);
+
+        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
+
+        (entry, key_index)
+    }
+    /**
+     * @brief same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.json_entries_packed`
+     **/
+    fn get_json_entry_unchecked_with_key_index_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> (JSONEntry, Field) {
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
+
+        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
+        let keyhash = hasher.get_keyhash_var(key.storage, 0, key.len as u16);
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
 
         let keyhash = keyhash + self.root_id * two_pow_216;
@@ -284,6 +247,12 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         found_index
     }
 
+    /**
+     * @brief figures out if `target` exists as a key in `self.key_hashes`
+     * @details if `target` does not exist, we return the two indicies of adjacent
+     *          entries in `self.key_hashes`, lhs_index, rhs_index, where
+     *          lhs_index < key_hash < rhs_index 
+     **/
     unconstrained fn search_for_key_in_map(self, target: Field) -> KeySearchResult {
         let mut found_index: Field = 0;
         let mut found: bool = false;
@@ -335,8 +304,8 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief returns a bool that describes whether a given key exists at the root of the JSON
      **/
-    fn key_exists<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> bool {
-        self.key_exists_impl(key, key_length).0
+    fn key_exists<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> bool {
+        self.key_exists_impl_var(key).0
     }
 
     /**
@@ -345,11 +314,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      *              Method computes a key hash and checks whether key hash exists in the list of sorted preprocessed key hashes
      *              If it does *not* exist, we can find two adjacent entries in `key_hashes` where `key_hashes[i]` < target_key_hash < `key_hashes[i+1]`
      **/
-    fn key_exists_impl<let KeyBytes: u16>(
-        self,
-        key: [u8; KeyBytes],
-        key_length: u16
-    ) -> (bool, Field) {
+    fn key_exists_impl<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> (bool, Field) {
         /*
             Option A: key exists
             Option B: key does NOT exist
@@ -360,7 +325,8 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             case 3: entry A > keyhash > entryB 
 
         */
-        let keyhash = get_keyhash(key, 0, key_length);
+        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
+        let keyhash = hasher.get_keyhash_var(key, 0, KeyBytes);
 
         let HASH_MAXIMUM = 0x1000000000000000000000000000000000000000000000000000000000000 - 1;
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
@@ -399,4 +365,114 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
         (search_result.found, search_result.lhs_index)
     }
+
+    /**
+     * @brief implementation of `key_exists`. returns both a boolean and also the position in `self.json_entries_packed` of the key
+     * @description algorithm is O(1) because of the preprocessing we have done
+     *              Method computes a key hash and checks whether key hash exists in the list of sorted preprocessed key hashes
+     *              If it does *not* exist, we can find two adjacent entries in `key_hashes` where `key_hashes[i]` < target_key_hash < `key_hashes[i+1]`
+     **/
+    fn key_exists_impl_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> (bool, Field) {
+        /*
+            Option A: key exists
+            Option B: key does NOT exist
+
+            If key does NOT exist. 3 cases
+            case 1: keyhash < first entry
+            case 2: keyhash > last entry
+            case 3: entry A > keyhash > entryB 
+
+        */
+        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
+        let keyhash = hasher.get_keyhash_var(key.storage, 0, key.len as u16);
+
+        let HASH_MAXIMUM = 0x1000000000000000000000000000000000000000000000000000000000000 - 1;
+        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
+
+        let keyhash = keyhash + self.root_id * two_pow_216;
+
+        let search_result = self.search_for_key_in_map(keyhash);
+        let found = search_result.found as Field;
+
+        let target_lt_smallest_entry = search_result.target_lt_smallest_entry as Field;
+        let target_gt_largest_entry = search_result.target_gt_largest_entry as Field;
+
+        assert(((search_result.lhs_index - search_result.rhs_index) * found) == 0);
+
+        // only one of "found", "target_lt_smallest_entry", "target_gt_largest_entry" can be true
+        let exclusion_test = found + target_gt_largest_entry + target_lt_smallest_entry;
+        assert(exclusion_test * exclusion_test == exclusion_test);
+
+        let mut lhs = self.key_hashes[search_result.lhs_index];
+        let mut rhs = self.key_hashes[search_result.rhs_index];
+
+        // case where hash < self.key_hashes[0]
+        // 0 < hash < hashes[0]
+        lhs = lhs * (1 - target_lt_smallest_entry);
+
+        // case where hash > self.key_hashes[last]
+        // largest < x < -1
+        rhs = rhs * (1 - target_gt_largest_entry) + target_gt_largest_entry * HASH_MAXIMUM;
+
+        // case where hash == self.key_hashes[found_index]
+        lhs = lhs - found;
+        rhs = rhs + found;
+
+        assert_gt_240_bit(keyhash, lhs);
+        assert_lt_240_bit(keyhash, rhs);
+
+        (search_result.found, search_result.lhs_index)
+    }
+
+    unconstrained fn __get_keys_at_root<let MaxNumKeys: u16, let MaxKeyBytes: u16>(self) -> BoundedVec<Field, MaxNumKeys> {
+        let mut result: BoundedVec<Field, MaxNumKeys> = BoundedVec { len: 0, storage: [0; MaxNumKeys] };
+
+        let root_object: JSONEntry = JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
+
+        let mut result_ptr = 0;
+        for i in 0..MaxNumValues {
+            let target_entry: JSONEntry = JSONEntry::from(self.unsorted_json_entries_packed[i]);
+            if (target_entry.parent_index == self.root_id) {
+                result.storage[result_ptr] = i as Field;
+                result_ptr += 1;
+            }
+        }
+        assert(result_ptr == root_object.num_children);
+        result.len = result_ptr as u32;
+        result
+    }
+    fn get_keys_at_root<let MaxNumKeys: u16, let MaxKeyBytes: u16>(self) -> BoundedVec<BoundedVec<u8, MaxKeyBytes>, MaxNumKeys> {
+        let root_object: JSONEntry = JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
+        let key_indices: BoundedVec<Field, MaxNumKeys> = self.__get_keys_at_root();
+
+        assert(key_indices.len as Field == root_object.num_children);
+
+        let mut result: BoundedVec<BoundedVec<u8, MaxKeyBytes>, MaxNumKeys> = BoundedVec { len: 0, storage: [BoundedVec { len: 0, storage: [0; MaxKeyBytes] }; MaxNumKeys] };
+        for i in 0..MaxNumKeys {
+            let key = KeyIndexData::from_field(self.key_data[key_indices.storage[i]]);
+            // just a workaround to the interface for `extract_string_entry`
+            let mut fake_entry = JSONEntry::new();
+            fake_entry.json_pointer = key.json_index;
+            fake_entry.json_length = key.json_length;
+            result.storage[i].storage = self.extract_string_entry(fake_entry);
+            result.storage[i].len = key.json_length as u32;
+        }
+        result.len = key_indices.len;
+        result
+    }
+}
+
+#[test]
+fn test_get_keys_at_root() {
+    let s = "{ \"A\": 1, \"foo\": false, \"bar\": { \"one\" : \"A\", \"two\" : \"B\"}, \"baz\": \"12345\"  }";
+
+    let json: JSON<77, 6, 30, 30, 2> = JSON::parse_json_from_string(s);
+
+    let keys: BoundedVec<BoundedVec<u8, 5>, 5> = json.get_keys_at_root();
+
+    assert(keys.len == 4);
+    assert(keys.storage[0] == BoundedVec::from_array("A".as_bytes()));
+    assert(keys.storage[1] == BoundedVec::from_array("foo".as_bytes()));
+    assert(keys.storage[2] == BoundedVec::from_array("bar".as_bytes()));
+    assert(keys.storage[3] == BoundedVec::from_array("baz".as_bytes()));
 }

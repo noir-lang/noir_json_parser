@@ -1,6 +1,6 @@
 use crate::json_entry::JSONEntry;
 use crate::json::JSON;
-use crate::lt::lt_field_16_bit;
+use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::json_tables::ASCII_TO_NUMBER;
 use crate::enums::Token::NUMERIC_TOKEN;
 use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
@@ -28,7 +28,7 @@ fn extract_number_from_array(arr: [u8; U64_LENGTH_AS_BASE10_STRING], json_length
  * @note numeric values must fit into a `u64` type.
  *       decimal values and scientific notation are not yet supported
  **/
-impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues> {
+impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief if the root JSON is an object, extract a numeric value given by `key`
@@ -59,8 +59,8 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_number` for where the key length may be less than KeyBytes
      **/
-    fn get_number_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> Option<u64> {
-        let (exists, entry) = self.get_json_entry_var(key, key_length);
+    fn get_number_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Option<u64> {
+        let (exists, entry) = self.get_json_entry_var(key);
         assert(
             (entry.entry_type - NUMERIC_TOKEN) * exists as Field == 0, "get_number: entry exists but is not a number!"
         );
@@ -72,8 +72,8 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_number_unchecked` for where the key length may be less than KeyBytes
      **/
-    fn get_number_unchecked_var<let KeyBytes: u16>(self, key: [u8; KeyBytes], key_length: u16) -> u64 {
-        let  entry = self.get_json_entry_unchecked_var(key, key_length);
+    fn get_number_unchecked_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> u64 {
+        let  entry = self.get_json_entry_unchecked_var(key);
         assert(entry.entry_type == NUMERIC_TOKEN, "get_number_unchecked: entry exists but is not a number!");
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
 

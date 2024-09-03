@@ -1,4 +1,5 @@
-use crate::bounds_checker::get_validity_flags;
+use crate::_comparison_tools::bounds_checker;
+use crate::_comparison_tools::bounds_checker::get_validity_flags;
 use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER, SINGLE_VALUE_LAYER};
 use crate::enums::Token::{
     BEGIN_OBJECT_TOKEN, END_OBJECT_TOKEN, BEGIN_ARRAY_TOKEN, END_ARRAY_TOKEN, KEY_SEPARATOR_TOKEN,
@@ -15,11 +16,31 @@ use crate::token_flags::TokenFlags;
 use crate::transcript_entry::{ValidationFlags, TranscriptEntry, RawTranscriptEntry, ScanData, PostProcessScanData};
 
 /**
+ * @brief records a value in a json blob
+ **/
+struct JSONValue<let MaxLength: u32> {
+    value: BoundedVec<u8, MaxLength>, // raw bytes that constitute the json value entry
+    value_type: Field // either STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN
+}
+
+impl<let MaxLength: u32> JSONValue<MaxLength> {
+    fn is_string(self) -> bool {
+        self.value_type == STRING_TOKEN
+    }
+    fn is_number(self) -> bool {
+        self.value_type == NUMERIC_TOKEN
+    }
+    fn is_literal(self) -> bool {
+        self.value_type == LITERAL_TOKEN
+    }
+}
+
+/**
  * @brief It's a JSON struct! Contains the raw and processed information required to extract data from a json blob
  * @description The "root" of the JSON refers to the parent object or array (or a value if the json is just a single value e.g. text = "\"foo\": \"bar\"")
  * @note text that describes just a single JSON value is not yet fully supported. Only use this library for processing objects or arrays for now
  **/
-struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> {
+struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> {
     json: [u8; NumBytes], // the raw json bytes
     json_packed: [Field; NumPackedFields], // raw bytes, but packed into 31-byte Field elements
     raw_transcript: [Field; MaxNumTokens], // transcript of json tokens after basic processing
@@ -27,7 +48,8 @@ struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, 
     transcript_length: u16, // how big is the transcript?
     key_data: [Field; MaxNumValues], // description of each key, packed into a Field element
     key_hashes: [Field; MaxNumValues], // a sorted list of key hashes
-    json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
+    unsorted_json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
+    json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
     layer_type_of_root: Field, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
     root_id: Field, // the unique identifier of the root (if an object or array)
     root_index_in_transcript: Field // location in json_entries_packed of the root
@@ -37,7 +59,7 @@ struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, 
  * @brief are two JSON objects equal?
  * @note VERY EXPENSIVE! Currently only used in tests
  **/
-impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> std::cmp::Eq for JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues> {
+impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> std::cmp::Eq for JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
     fn eq(self, other: Self) -> bool {
         (self.json == other.json) & (self.raw_transcript == other.raw_transcript)
         & (self.transcript == other.transcript)
@@ -51,7 +73,14 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         & (self.json_packed == other.json_packed)
     }
 }
-impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues> {
+
+// TODO: casting entry_ptr to u16 is kind of expensive when generating witnesses, can we fix?
+unconstrained fn __check_entry_ptr_bounds(entry_ptr: Field, max: u16) {
+    // n.b. even though this assert is in an unconstrained function, an out of bounds error will be triggered when writing into self.key_data[entry_ptr]
+    assert(entry_ptr as u16 < max - 1, "create_json_entries: MaxNumValues limit exceeded!");
+}
+
+impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief pack the json bytes into Field elements, where each Field element represents 31 bytes
@@ -96,7 +125,9 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             let next_is_key = (next.token == KEY_SEPARATOR_TOKEN) as Field;
 
             let valid_token = TOKEN_IS_ARRAY_OBJECT_OR_VALUE[current.token];
-            assert((valid_token * next_is_key) + (1 - next_is_key) == 1, "expected value");
+            assert(
+                (valid_token * next_is_key) + (1 - next_is_key) == 1, "Cannot find key/value straddling KEY_DELIMITER_TOKEN"
+            );
 
             let old_transcript = self.transcript[i];
             let new_transcript = TranscriptEntry::to_field(TranscriptEntry { token: KEY_TOKEN, index: current.index, length: current.length });
@@ -174,7 +205,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
             previous_token = current_token;
         }
-        assert(depth == 0, "invalid object or array description");
+        assert(depth == 0, "validate_tokens: unclosed objects or arrays");
     }
 
     /**
@@ -209,6 +240,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         let mut tokens: [Field; MaxNumTokens] = [0; MaxNumTokens];
         //  maybe 71.75 gates per iteration
         for i in 0..MaxNumTokens {
+            __check_entry_ptr_bounds(entry_ptr, MaxNumValues);
             // 5.25 gates
             let TranscriptEntry{token, index, length} = TranscriptEntry::from_field(self.transcript[i]);
 
@@ -346,17 +378,17 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      **/
     unconstrained fn __build_transcript(self) -> [Field; MaxNumTokens] {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
-        let mut transcript_ptr: Field = 0;
+        let mut transcript_ptr: u16 = 0;
         let mut scan_mode = GRAMMAR_SCAN as Field;
         let mut length: Field = 0;
         let mut previous_was_potential_escape_sequence = 0;
         for i in 0..NumBytes {
+            // while this assert is in an unconstrained function, the out of bounds accesss `raw_transcript[transcript_ptr]` in build_transcript also generates failing constraints
+            assert(transcript_ptr < MaxNumTokens, "build_transcript: MaxNumTokens limit exceeded!");
             let ascii = self.json[i];
 
             let encoded_ascii = previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
-
             let ScanData{ scan_token, push_transcript, increase_length, is_potential_escape_sequence } = ScanData::from_field(JSON_CAPTURE_TABLE[encoded_ascii]);
-
             let mut push_transcript = push_transcript;
             let mut scan_token = scan_token;
             let mut increase_length = increase_length;
@@ -365,13 +397,15 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
             raw_transcript[transcript_ptr] = new_entry;
             length = length * (1 - push_transcript) + increase_length;
-            transcript_ptr += push_transcript;
+            transcript_ptr += (push_transcript as bool) as u16;
 
             previous_was_potential_escape_sequence = is_potential_escape_sequence;
 
             scan_mode = scan_token;
         }
 
+        // ensure an error isn't hiding in the last scanned token
+        scan_mode.assert_max_bit_size(2);
         raw_transcript
     }
 
@@ -457,6 +491,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             root_id: 1,
             root_index_in_transcript: 0,
             json_entries_packed: self.json_entries_packed,
+            unsorted_json_entries_packed: self.unsorted_json_entries_packed,
             json_packed: self.json_packed
         }
     }
@@ -467,7 +502,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      **/
     unconstrained fn __capture_missing_tokens(self) -> [Field; MaxNumTokens] {
         let mut updated_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
-        let mut transcript_ptr: Field = 0;
+        let mut transcript_ptr: u16 = 0;
         // TODO: do we need a null transcript value?!?!
 
         for i in 0..MaxNumTokens {
@@ -478,16 +513,17 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
             updated_transcript[transcript_ptr] = entry;
 
-            let index_valid: Field = (i < self.transcript_length) as Field;
+            let index_valid: u16 = (i < self.transcript_length) as u16;
             transcript_ptr += index_valid;
 
             let index_of_possible_grammar = (index + length);
             let new_entry = TranscriptEntry { token: scan_token, index: index_of_possible_grammar, length: 0 };
 
-            let update = new_grammar as Field * index_valid;
+            let update = new_grammar * index_valid as Field;
             let new_transcript = TranscriptEntry::to_field(new_entry);
+            assert(transcript_ptr < MaxNumTokens, "capture_missing_tokens: MaxNumTokens limit exceeded!");
             updated_transcript[transcript_ptr] = new_transcript;
-            transcript_ptr += update;
+            transcript_ptr += update as bool as u16;
         }
         updated_transcript
     }
@@ -568,6 +604,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             root_id: 1,
             root_index_in_transcript: 0,
             json_entries_packed: [JSONEntryPacked::default(); MaxNumValues],
+            unsorted_json_entries_packed: [JSONEntryPacked::default(); MaxNumValues],
             json_packed: [0; NumPackedFields]
         };
 
@@ -591,69 +628,25 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 // #[test]
 // fn test_single_value() {
 //     let text = "100";
-//     let mut json = JSON {
-//         json: text.as_bytes(),
-//         raw_transcript: [0; 20],
-//         transcript: [0; 20],
-//         transcript_length: 0,
-//         key_data: [0; 20],
-//         key_hashes: [0; 20],
-//         layer_type_of_root: 0,
-//         root_id: 1,
-//         layer_context: 0,
-//         root_index_in_transcript: 1,
-//         json_entries_packed: [0; 20],
-//         json_packed: [0; 10]
-//     };
-
-//     json = json.build_transcript();
-//     json.capture_missing_tokens();
-//     json.keyswap();
-//     json.compute_json_packed();
-//     json.create_json_entries();
-
-//     json.compute_keyhash_and_sort_json_entries();
-
+//     let mut json: JSON<3, 10, 20, 20> = JSON::parse_json_from_string(text);
+//
 //     assert(json.get_length() == 0);
 //     assert(json.get_array_element_as_number(0) == 100);
 // }
-// \"i\": 999999999, \"j\": 9999999999, \"k\": 99999999999, \"l\": 999999999999, \"m\": 9999999999999, \"n\": 99999999999999, \"o\": 999999999999999, \"p\": 999999999999999
-// \"q\": 999999999, \"r\": 9999999999, \"s\": 99999999999, \"l\": 999999999999, \"m\": 9999999999999, \"n\": 99999999999999, \"o\": 999999999999999, \"p\": 999999999999999
-// \"q\": 9999999999999999, \"r\": 99999999999999999, \"s\": 999999999999999999, \"t\": 9999999999999999999, \"u\": 18446744073709551615
 
 #[test]
 fn test_numbers() {
     let text = "{ \"a\": 9, \"b\": 99, \"c\": 999, \"d\": 9999, \"e\": 99999, \"f\": 999999, \"g\": 9999999, \"h\": 99999999, \"i\": 999999999, \"j\": 9999999999, \"k\": 99999999999, \"l\": 999999999999, \"m\": 9999999999999, \"n\": 99999999999999, \"o\": 999999999999999, \"p\": 999999999999999,\"q\": 9999999999999999, \"r\": 99999999999999999, \"s\": 999999999999999999, \"t\": 9999999999999999999, \"u\": 18446744073709551615}";
-    let mut json: JSON<372, 16, 100, 23> = JSON {
-        json: text.as_bytes(),
-        raw_transcript: [0; 100],
-        transcript: [0; 100],
-        transcript_length: 0,
-        key_data: [0; 23],
-        key_hashes: [0; 23],
-        layer_type_of_root: 0,
-        root_id: 1,
-        root_index_in_transcript: 1,
-        json_entries_packed: [JSONEntryPacked::default(); 23],
-        json_packed: [0; 16]
-    };
-
-    json = json.build_transcript();
-    json.capture_missing_tokens();
-    json.keyswap();
-    json.compute_json_packed();
-    json.create_json_entries();
-
-    json.compute_keyhash_and_sort_json_entries();
+    let mut json: JSON<372, 16, 100, 24, 2> = JSON::parse_json_from_string(text);
 
     let a = json.get_number_unchecked("a".as_bytes());
     let b = json.get_number_unchecked("b".as_bytes());
     let c = json.get_number_unchecked("c".as_bytes());
     let d = json.get_number_unchecked("d".as_bytes());
     let e = json.get_number_unchecked("e".as_bytes());
-    let f = json.get_number_unchecked_var("ftrololol".as_bytes(), 1);
+    let f = json.get_number_unchecked_var(BoundedVec { storage: "ftrololol".as_bytes(), len: 1 });
     let g = json.get_number("g".as_bytes()).unwrap();
-    let h = json.get_number_var("h".as_bytes(), 1).unwrap();
+    let h = json.get_number_var(BoundedVec { storage: "h".as_bytes(), len: 1 }).unwrap();
     let i = json.get_number_unchecked("i".as_bytes());
     let j = json.get_number_unchecked("j".as_bytes());
     let k = json.get_number_unchecked("k".as_bytes());
@@ -694,407 +687,28 @@ fn test_numbers() {
 #[test]
 fn test_parent_array() {
     let text = "[0,10,21,32,44]";
-    let mut json = JSON {
-        json: text.as_bytes(),
-        raw_transcript: [0; 20],
-        transcript: [0; 20],
-        transcript_length: 0,
-        key_data: [0; 20],
-        key_hashes: [0; 20],
-        layer_type_of_root: 0,
-        root_id: 1,
-        root_index_in_transcript: 1,
-        json_entries_packed: [JSONEntryPacked::default(); 20],
-        json_packed: [0; 10]
-    };
-
-    json = json.build_transcript();
-    json.capture_missing_tokens();
-    json.keyswap();
-    json.compute_json_packed();
-    json.create_json_entries();
-
-    json.compute_keyhash_and_sort_json_entries();
-
+    let mut json: JSON<15, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
     assert(json.get_length() == 5);
     assert(json.get_number_from_array_unchecked(0) == 0);
     assert(json.get_number_from_array_unchecked(1) == 10);
     assert(json.get_number_from_array_unchecked(2) == 21);
     assert(json.get_number_from_array_unchecked(3) == 32);
     assert(json.get_number_from_array_unchecked(4) == 44);
-    // let result: JSONLiteral = json.get("testA".as_bytes(), 5);
-    // assert(result.is_false() == true);
-    // assert(result.is_true() == false);
-    // assert(result.is_null() == false);
-    // assert(result.to_bool() == false);
-    // let result_option: Option<JSONLiteral> = json.get_literal("testA".as_bytes(), 5);
-    // assert(result_option.is_some());
-    // assert(result_option.unwrap().value == result.value);
 }
 
 #[test]
 fn test_escaped_strings() {
-    // "{   "name": "\"Ade\nel Solangi\""
     let text = "{   \"name\": \"\\\"Ade\\nel Solangi\\\"\", \"testA\": false, \"testB\": true, \"testC\": null }                                                                   ";
-    let mut json = JSON {
-        json: text.as_bytes(),
-        raw_transcript: [0; 20],
-        transcript: [0; 20],
-        transcript_length: 0,
-        key_data: [0; 20],
-        key_hashes: [0; 20],
-        layer_type_of_root: OBJECT_LAYER,
-        root_id: 1,
-        root_index_in_transcript: 0,
-        json_entries_packed: [JSONEntryPacked::default(); 20],
-        json_packed: [0; 10]
-    };
-
-    json = json.build_transcript();
-    json.capture_missing_tokens();
-    json.keyswap();
-    json.compute_json_packed();
-    json.create_json_entries();
-    json.compute_keyhash_and_sort_json_entries();
-
+    let mut json: JSON<148, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
     let result: BoundedVec<u8,19>  = json.get_string_unchecked("name".as_bytes());
-
     assert(result.storage == BoundedVec::from_array("\"Ade\nel Solangi\"".as_bytes()).storage);
     assert(result.len == 16);
 }
 
 #[test]
-fn test_redux() {
-    /*
-0: {    0
-1: 
-2: "
-3: f    3
-4: o
-5: o
-6: "
-7: :    7
-8:  
-9: 1    9
-10: 2
-11: 3
-12: 4
-13: ,   13
-14:  
-15: "
-16: b   16
-17: a
-18: r
-19: "
-20: :   20
-21:  
-22: {   22
-23:  
-24: "
-25: f   25
-26: o
-27: o
-28: "
-29: :   29
-30:  
-31: 9   31
-32: 8
-33: 7
-34: 6
-35: ,   35
-36:  
-37: "
-38: b   38
-39: a
-40: r
-41: "
-42: :   42
-43:  
-44: t   44
-45: r
-46: u
-47: e
-48:  
-49:  }  49
-50:  ,  50
-51:   
-52:  "
-53:  b  53
-54:  a
-55:  z
-56:  "
-57:  :  57
-58:   
-59:  "
-60:  h  60
-61:  e
-62:  l
-63:  l
-64:  o
-65:  "
-66:  
-67:  }
-*/
+fn test_parse_json() {
     let text= "{ \"foo\": 1234, \"bar\": { \"foo\": 9876, \"bar\": true }, \"baz\": \"hello\" }";
-
-    let mut json = JSON {
-        json: text.as_bytes(),
-        raw_transcript: [0; 30],
-        transcript: [0; 30],
-        transcript_length: 0,
-        key_data: [0; 30],
-        key_hashes: [0; 30],
-        layer_type_of_root: OBJECT_LAYER,
-        root_id: 1,
-        root_index_in_transcript: 0,
-        json_entries_packed: [JSONEntryPacked::default(); 30],
-        json_packed: [0; 7]
-    };
-
-    json = json.build_transcript();
-    json.capture_missing_tokens();
-    let get = |idx| TranscriptEntry::from_field(json.transcript[idx]);
-
-    assert(get(0).index == 0);
-    assert(get(1).index == 3);
-    let xx = get(2).index;
-    println(f"index = {xx}");
-    assert(get(2).index == 7);
-    assert(get(3).index == 9);
-    assert(get(4).index == 13);
-    assert(get(5).index == 16);
-    assert(get(6).index == 20);
-    assert(get(7).index == 22);
-    assert(get(8).index == 25);
-    assert(get(9).index == 29);
-    assert(get(10).index == 31);
-    assert(get(11).index == 35);
-    assert(get(12).index == 38);
-    assert(get(13).index == 42);
-    assert(get(14).index == 44);
-    assert(get(15).index == 49);
-    assert(get(16).index == 50);
-    assert(get(17).index == 53);
-    assert(get(18).index == 57);
-    assert(get(19).index == 60);
-
-    //let t0 = TranscriptEntry::from_field(json.transcript[0]);
-    assert(get(0).token == BEGIN_OBJECT_TOKEN);
-    assert(get(1).token == STRING_TOKEN);
-    assert(get(2).token == KEY_SEPARATOR_TOKEN);
-    assert(get(3).token == NUMERIC_TOKEN);
-    assert(get(4).token == VALUE_SEPARATOR_TOKEN);
-    assert(get(5).token == STRING_TOKEN);
-    assert(get(6).token == KEY_SEPARATOR_TOKEN);
-    assert(get(7).token == BEGIN_OBJECT_TOKEN);
-    assert(get(8).token == STRING_TOKEN);
-    assert(get(9).token == KEY_SEPARATOR_TOKEN);
-    assert(get(10).token == NUMERIC_TOKEN);
-    assert(get(11).token == VALUE_SEPARATOR_TOKEN);
-    assert(get(12).token == STRING_TOKEN);
-    assert(get(13).token == KEY_SEPARATOR_TOKEN);
-    assert(get(14).token == LITERAL_TOKEN);
-    assert(get(15).token == END_OBJECT_TOKEN);
-    assert(get(16).token == VALUE_SEPARATOR_TOKEN);
-    assert(get(17).token == STRING_TOKEN);
-    assert(get(18).token == KEY_SEPARATOR_TOKEN);
-    assert(get(19).token == STRING_TOKEN);
-    assert(get(20).token == END_OBJECT_TOKEN);
-
-    assert(get(1).length == 3);
-    assert(get(3).length == 4);
-    assert(get(5).length == 3);
-    assert(get(8).length == 3);
-    assert(get(10).length == 4);
-    assert(get(12).length == 3);
-    assert(get(14).length == 4);
-    assert(get(17).length == 3);
-    assert(get(19).length == 5);
-
-    assert(get(0).length == 0);
-    assert(get(2).length == 0);
-    assert(get(4).length == 0);
-    assert(get(6).length == 0);
-    assert(get(7).length == 0);
-    assert(get(9).length == 0);
-    assert(get(11).length == 0);
-    assert(get(13).length == 0);
-    assert(get(15).length == 0);
-    assert(get(16).length == 0);
-    assert(get(18).length == 0);
-    assert(get(20).length == 0);
-
-    // validate key swap works
-    json.keyswap();
-
-    let get = |idx| TranscriptEntry::from_field(json.transcript[idx]);
-
-    assert(get(0).token == BEGIN_OBJECT_TOKEN);
-    assert(get(1).token == KEY_TOKEN);
-    assert(get(2).token == KEY_SEPARATOR_TOKEN);
-    assert(get(3).token == NUMERIC_TOKEN);
-    assert(get(4).token == VALUE_SEPARATOR_TOKEN);
-    assert(get(5).token == KEY_TOKEN);
-    assert(get(6).token == KEY_SEPARATOR_TOKEN);
-    assert(get(7).token == BEGIN_OBJECT_TOKEN);
-    assert(get(8).token == KEY_TOKEN);
-    assert(get(9).token == KEY_SEPARATOR_TOKEN);
-    assert(get(10).token == NUMERIC_TOKEN);
-    assert(get(11).token == VALUE_SEPARATOR_TOKEN);
-    assert(get(12).token == KEY_TOKEN);
-    assert(get(13).token == KEY_SEPARATOR_TOKEN);
-    assert(get(14).token == LITERAL_TOKEN);
-    assert(get(15).token == END_OBJECT_TOKEN);
-    assert(get(16).token == VALUE_SEPARATOR_TOKEN);
-    assert(get(17).token == KEY_TOKEN);
-    assert(get(18).token == KEY_SEPARATOR_TOKEN);
-    assert(get(19).token == STRING_TOKEN);
-    assert(get(20).token == END_OBJECT_TOKEN);
-
-    // create json entries
-    json.compute_json_packed();
-    json.create_json_entries();
-
-    let mut json_entries: [JSONEntry; 30] = [JSONEntry::new(); 30];
-    for i in 0..30 {
-        json_entries[i] = json.json_entries_packed[i].into();
-    }
-    /*
-
-struct JSONEntry {
-    key_pointer: Field,
-    array_pointer: Field,
-    entry_type: Field,
-    child_pointer: Field,
-    num_children: Field,
-    json_pointer: Field,
-    json_length: Field,
-    depth: Field,
-}
-    */
-
-    assert(json_entries[0].entry_type == NUMERIC_TOKEN);
-    assert(json_entries[0].json_pointer == get(3).index);
-    assert(json_entries[0].json_length == get(3).length);
-    let k = json.key_data[0];
-    let g = 1 + get(1).index * 0x10000 + get(1).length * 0x100000000;
-    println(f"{k}");
-    println(f"{g}");
-
-    assert(json.key_data[0] == 1 + get(1).index * 0x10000 + get(1).length * 0x100000000);
-    assert(
-        json_entries[0] == JSONEntry {
-            array_pointer: 0,
-            entry_type: NUMERIC_TOKEN,
-            child_pointer: 0,
-            num_children: 0,
-            json_pointer: get(3).index,
-            json_length: get(3).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
-
-    let k = json.key_data[1];
-    let gg = 2 + get(8).index * 0x10000;
-    println(f"{k}");
-    println(f"recon{gg}");
-    assert(json.key_data[1] == 2 + get(8).index * 0x10000 + get(8).length * 0x100000000);
-    assert(
-        json_entries[1] == JSONEntry {
-            array_pointer: 0,
-            entry_type: NUMERIC_TOKEN,
-            child_pointer: 0,
-            num_children: 0,
-            json_pointer: get(10).index,
-            json_length: get(10).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
-
-    assert(json.key_data[2] == 2 + get(12).index * 0x10000 + get(12).length * 0x100000000);
-    assert(
-        json_entries[2] == JSONEntry {
-            array_pointer: 1,
-            entry_type: LITERAL_TOKEN,
-            child_pointer: 0,
-            num_children: 0,
-            json_pointer: get(14).index,
-            json_length: get(14).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
-
-    assert(json.key_data[3] == 1 + get(5).index * 0x10000 + get(5).length * 0x100000000);
-
-    assert(
-        json_entries[3] == JSONEntry {
-            array_pointer: 1,
-            entry_type: BEGIN_OBJECT_TOKEN,
-            child_pointer: 0, // first child of object is json entry 1
-            num_children: 2,
-            json_pointer: get(7).index,
-            json_length: get(7).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
-
-    let q = json.key_data[4];
-    println(f"key[4] = {q}");
-
-    // what if depth is...hmm hmm hmm
-
-    assert(json.key_data[4] == 1 + get(17).index * 0x10000 + get(17).length * 0x100000000);
-
-    assert(
-        json_entries[4] == JSONEntry {
-            array_pointer: 2,
-            entry_type: STRING_TOKEN,
-            child_pointer: 0, // first child of object is json entry 1
-            num_children: 0,
-            json_pointer: get(19).index,
-            json_length: get(19).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
-
-    assert(json.key_data[5] == 0 + 0 * 0x10000);
-
-    // TODO: what to do with this? If JSON is an object, we shouldn't have a json entry that describes the top level object, no?
-    assert(
-        json_entries[5] == JSONEntry {
-            array_pointer: 0,
-            entry_type: BEGIN_OBJECT_TOKEN,
-            child_pointer: 0, // first child of object is json entry 1
-            num_children: 3,
-            json_pointer: get(0).index,
-            json_length: get(0).length,
-            parent_index: 0,
-            id: 0
-        }
-    );
-
-    json.compute_keyhash_and_sort_json_entries();
-
-    for i in 0..30 {
-        json_entries[i] = json.json_entries_packed[i].into();
-    }
-    // #####################
-    // let text = "{ \"foo\": 1234, \"bar\": { \"foo\": 9876, \"bar\": true }, \"baz\": \"hello\" }";
-
-    // begin object
-    // foo
-    // begin object
-    // bar.foo
-    // TODO: what to do with this? If JSON is an object, we shouldn't have a json entry that describes the top level object, no?
-    for i in 0..30 {
-        let jsonentries = json_entries[i];
-        println(f"NEW ENTRY[{i}]= {jsonentries}");
-    }
+    let mut json: JSON<68, 7, 30, 30, 2> = JSON::parse_json_from_string(text);
 
     let result = json.get_string_unchecked("baz".as_bytes());
     assert(result.storage == "hello".as_bytes());
@@ -1107,7 +721,6 @@ struct JSONEntry {
     assert(result.is_some() == false);
 
     let result: u64 = json.get_number_unchecked("foo".as_bytes());
-    println(f"result = {result}");
     assert(result == 1234);
 
     let result: Option<u64> = json.get_number("foo".as_bytes());
@@ -1118,7 +731,7 @@ struct JSONEntry {
     assert(result.is_some() == false);
 
     let mut nested_json = json.get_object("bar".as_bytes()).unwrap();
-    let result: Option<u64> = nested_json.get_number_var("foounusedkeybyteslolol".as_bytes(), 3);
+    let result: Option<u64> = nested_json.get_number_var(BoundedVec { storage: "foounusedkeybyteslolol".as_bytes(), len: 3 });
     assert(result.is_some() == true);
     assert(result.unwrap() == 9876);
 
@@ -1129,36 +742,10 @@ struct JSONEntry {
     assert(result.is_some() == false);
 }
 
-// next big TODOs:
-// 1. fix off-by-one layer_type_of_root values
-// 2. add layer_context into JSON. differentiate between single values, arrays and objects
-
-// despite objects not being sorted in element order, the JSON entries *do* have array_id values
-// so we CAN iterate through them!
 #[test]
 fn test_literal() {
     let text = "{   \"name\": \"Adeel Solangi\", \"testA\": false, \"testB\": true, \"testC\": null }                                                                   ";
-    let mut json: JSON<142, 10, 20, 20> = JSON {
-        json: text.as_bytes(),
-        raw_transcript: [0; 20],
-        transcript: [0; 20],
-        transcript_length: 0,
-        key_data: [0; 20],
-        key_hashes: [0; 20],
-        layer_type_of_root: OBJECT_LAYER,
-        root_id: 1,
-        root_index_in_transcript: 0,
-        json_entries_packed: [JSONEntryPacked::default(); 20],
-        json_packed: [0; 10]
-    };
-
-    json = json.build_transcript();
-    json.capture_missing_tokens();
-    json.keyswap();
-
-    json.compute_json_packed();
-    json.create_json_entries();
-    json.compute_keyhash_and_sort_json_entries();
+    let mut json: JSON<142, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
 
     let result: JSONLiteral = json.get_literal_unchecked("testA".as_bytes());
     assert(result.is_false() == true);
@@ -1173,92 +760,138 @@ fn test_literal() {
 
 #[test]
 fn test_arrays() {
-    /*
-{   
-    "name": "Adeel Solangi",
-    "age": 62,
-    "portfolio": {
-        "vibe_ratings": [1,2],
-        "elemental_lorem ": false
-    }
-}
-*/
-    // false produces a numeric not a literal. fix
     let text = "{   \"name\": \"Adeel Solangi\", \"age\": 62, \"portfolio\": { \"vibe_ratings\": [1,2],\"elemental_lorem\": false }}                                                 ";
-    // this one is fucked?
-    // let text = "{\"name\": \"Adeel Solangi\",\"age\": 62,\"portfolio\": {\"vibe_ratings\": [1, 4, 6, 89],\"elemental_lorem_ipsum\": [{\"flim\": \"flam\",\"polar\": \"bear\",\"watson\": false},{\"flim\": \"malf\",\"polar\": \"penguin\",\"watson\": true}]}}";
-    // let text = "{    \"name\": \"Adeel Solangi\",    \"age\": 62,  \"portfolio\": { \"vibe_ratings\": [1,2,3,89], \"elemental_lorem \": [ { \"flim\": \"flam\", \"polar\": \"bear\" }, { \"f\": [1,2] } ] } }";
-    let mut json = JSON {
-        json: text.as_bytes(),
-        raw_transcript: [0; 60],
-        transcript: [0; 60],
-        transcript_length: 0,
-        key_data: [0; 60],
-        key_hashes: [0; 60],
-        layer_type_of_root: OBJECT_LAYER,
-        root_id: 1,
-        root_index_in_transcript: 0,
-        json_entries_packed: [JSONEntryPacked::default(); 60],
-        json_packed: [0; 10]
-    };
+    let mut json: JSON<153, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
 
-    json = json.build_transcript();
-    json.capture_missing_tokens();
-    json.keyswap();
-    json.compute_json_packed();
-    json.create_json_entries();
-    json.compute_keyhash_and_sort_json_entries();
-
-    /*
-{   
-    "name": "Adeel Solangi",
-    "age": 62,
-    "portfolio": {
-        "vibe_ratings": [1,2,3,89],
-        "elemental_lorem ": [
-            {
-                "flim": "flam",
-                "polar": "bear",
-                "watson": false
-            },
-            {
-                "flim": "malf",
-                "polar": "penguin",
-                "watson": true
-            }
-        ]
-    }
-}
-*/
-    let mut json_entries: [JSONEntry; 60] = [JSONEntry::new(); 60];
-    for i in 0..60 {
-        json_entries[i] = json.json_entries_packed[i].into();
-    }
-    assert(json_entries[56].entry_type == LITERAL_TOKEN);
-    assert(json_entries[56].parent_index == 2);
-
-    assert(json_entries[57].entry_type == END_ARRAY_TOKEN);
-    assert(json_entries[57].parent_index == 2);
-
-    assert(json_entries[58].entry_type == NUMERIC_TOKEN);
-    assert(json_entries[58].parent_index == 3);
-
-    assert(json_entries[59].entry_type == NUMERIC_TOKEN);
-    assert(json_entries[59].parent_index == 3);
-
-    assert(json.key_exists("foo".as_bytes(), 3) == false);
-    assert(json.key_exists("name".as_bytes(), 4));
-    assert(json.key_exists("age".as_bytes(), 3));
-    assert(json.key_exists("portfolio".as_bytes(), 9));
+    assert(json.key_exists(BoundedVec { storage: "foo".as_bytes(), len: 3 }) == false);
+    assert(json.key_exists(BoundedVec { storage: "name".as_bytes(), len: 4 }));
+    assert(json.key_exists(BoundedVec { storage: "age".as_bytes(), len: 3 }));
+    assert(json.key_exists(BoundedVec { storage: "portfolio".as_bytes(), len: 9 }));
 }
 
-// testing jsonentrypacked as struct
-// old: 67373
-// new: 67373
-// ok...
-// after smol opts: 67120
-// removing junk: 65073
-// more junk: 63968
-// cheaper < checks: 63877
-// 62449
-// 62337
+#[test(should_fail_with = "build_transcript: MaxNumTokens limit exceeded!")]
+fn test_json_not_enough_tokens_fails() {
+    let text = "{ \"hello \": \"world\" }";
+    let _: JSON<26, 10, 2, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "capture_missing_tokens: MaxNumTokens limit exceeded!")]
+fn test_json_not_enough_tokens_fails_2() {
+    // we should exceed the limit of 8 tokens here, when capturing the `,` token missed by build_transcript
+    let text = "{ \"hello \": false,\"world\": true }";
+    let _: JSON<33, 10, 8, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "create_json_entries: MaxNumValues limit exceeded!")]
+fn test_json_not_enough_values_fails() {
+    let text = "{ \"hello \": false,\"world\": true }";
+    let _: JSON<33, 10, 10, 4, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ValidationFlags: grammar error")]
+fn test_json_object_without_key_fails() {
+    let text = "{ \"hello \": \"world\", 100 }";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ValidationFlags: grammar error")]
+fn test_json_array_with_key_fails() {
+    let text = "[ \"hello \": \"world\" ]";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ValidationFlags: grammar error")]
+fn test_json_unclosed_object_fails() {
+    let text = "{ \"hello \": \"world\" ";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ValidationFlags: grammar error")]
+fn test_json_object_closed_with_array_fails() {
+    let text = "{ \"hello \": \"world\" ]";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ValidationFlags: grammar error")]
+fn test_json_object_with_trailing_comma_fails() {
+    let text = "{ \"hello \" : \"world\", }";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ValidationFlags: grammar error")]
+fn test_json_unclosed_array_fails() {
+    let text = "[ \"hello \", \"world\"";
+    let _: JSON<19, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "validate_tokens: unclosed objects or arrays")]
+fn test_json_unclosed_array_fails_2() {
+    let text = "[ \"hello \", \"world\", [1,2,3,4] ";
+    let _: JSON<31, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ValidationFlags: grammar error")]
+fn test_json_array_with_trailing_comma_fails() {
+    let text = "[ \"hello \", \"world\", ]";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ValidationFlags: grammar error")]
+fn test_json_array_closed_with_object_fails() {
+    let text = "[ \"hello \": \"world\" }";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ScanData: Invalid token")]
+fn test_json_key_not_wrapped_in_quotes_fails() {
+    let text = "{ false: \"world\" }";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ScanData: Invalid token")]
+fn test_json_string_not_wrapped_in_quotes_fails() {
+    let text = "{ \"hello \": world }";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ScanData: Invalid token")]
+fn test_json_char_outside_of_string_fails() {
+    let text = "{ \"hello \", \"world\" a}";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ValidationFlags: grammar error")]
+fn test_json_char_outside_of_string_fails_2() {
+    // n could be the start of the literal "null", so this passes the ScanData check but fails ValidationFlags
+    let text = "{ \"hello \", \"world\" n}";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "ValidationFlags: grammar error")]
+fn test_json_array_with_invalid_tokens_fails() {
+    // n could be the start of the literal "null", so this passes the ScanData check but fails ValidationFlags
+    let text = "[,,,]";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "Cannot find key/value straddling KEY_DELIMITER_TOKEN")]
+fn test_json_object_with_invalid_tokens_fails() {
+    // n could be the start of the literal "null", so this passes the ScanData check but fails ValidationFlags
+    let text = "{:::}";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test]
+fn test_json_empty_object_passes() {
+    // n could be the start of the literal "null", so this passes the ScanData check but fails ValidationFlags
+    let text = "{}";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test]
+fn test_json_empty_array_passes() {
+    // n could be the start of the literal "null", so this passes the ScanData check but fails ValidationFlags
+    let text = "[]";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
