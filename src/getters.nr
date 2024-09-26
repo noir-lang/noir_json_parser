@@ -27,7 +27,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
     /**
      * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
-     * @description returns an Option<JSONEntry> which will be null if the entry does not exist  
+     * @description returns an Option<JSONEntry> which will be null if the entry does not exist
      **/
     fn get_json_entry<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> (bool, JSONEntry) {
         // let key_index = self.find_key_in_map(keyhash);
@@ -251,7 +251,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @brief figures out if `target` exists as a key in `self.key_hashes`
      * @details if `target` does not exist, we return the two indicies of adjacent
      *          entries in `self.key_hashes`, lhs_index, rhs_index, where
-     *          lhs_index < key_hash < rhs_index 
+     *          lhs_index < key_hash < rhs_index
      **/
     unconstrained fn search_for_key_in_map(self, target: Field) -> KeySearchResult {
         let mut found_index: Field = 0;
@@ -322,7 +322,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             If key does NOT exist. 3 cases
             case 1: keyhash < first entry
             case 2: keyhash > last entry
-            case 3: entry A > keyhash > entryB 
+            case 3: entry A > keyhash > entryB
 
         */
         let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
@@ -380,7 +380,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             If key does NOT exist. 3 cases
             case 1: keyhash < first entry
             case 2: keyhash > last entry
-            case 3: entry A > keyhash > entryB 
+            case 3: entry A > keyhash > entryB
 
         */
         let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
@@ -424,7 +424,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         (search_result.found, search_result.lhs_index)
     }
 
-    unconstrained fn __get_keys_at_root<let MaxNumKeys: u16, let MaxKeyBytes: u16>(self) -> BoundedVec<Field, MaxNumKeys> {
+    unconstrained fn __get_keys_at_root<let MaxNumKeys: u16>(self) -> BoundedVec<Field, MaxNumKeys> {
         let mut result: BoundedVec<Field, MaxNumKeys> = BoundedVec { len: 0, storage: [0; MaxNumKeys] };
 
         let root_object: JSONEntry = JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
