@@ -10,7 +10,7 @@ struct JSONContextStackEntry {
 }
 impl JSONContextStackEntry {
     unconstrained fn __from_field(f: Field) -> Self {
-        let bytes = f.to_be_bytes(11);
+        let bytes: [u8; 11] = f.to_be_bytes();
         let context = bytes[0] as Field;
         let num_entries = bytes[1] as Field * 0x100 + bytes[2] as Field;
         let current_key_length = bytes[3] as Field * 0x100 + bytes[4] as Field;
@@ -59,7 +59,7 @@ struct JSONEntry {
     entry_type: Field, // is this an OBJECT_TOKEN, ARRAY_TOKEN, STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN?
     id: Field, // if this is an object or array, describes the unique identifier assigned to this item
     parent_index: Field, // if parent is an object or array, describes the unique identifier assigned to our parent
-    array_pointer: Field, // if parent is an array, where in the array are we? 
+    array_pointer: Field, // if parent is an array, where in the array are we?
     child_pointer: Field, // if this is an object or array, points to the location in `json_entries_packed` of this item's first child
     num_children: Field, // if this is an object or array, how many child elements do we contain?
     json_pointer: Field, // points to the json that describes the first byte of this entry
@@ -145,7 +145,7 @@ impl JSONEntry {
         parent_index
     }
     unconstrained fn __from_field(f: Field) -> Self {
-        let bytes: [u8; 20] = f.to_be_bytes(20).as_array(); // 10.5 gates
+        let bytes: [u8; 20] = f.to_be_bytes(); // 10.5 gates
 
         let entry_type = bytes[0] as Field;
 
@@ -232,4 +232,3 @@ impl std::cmp::Eq for JSONEntryPacked {
 impl std::default::Default for JSONEntryPacked {
     fn default() -> Self { JSONEntryPacked{ value: 0 }}
 }
-

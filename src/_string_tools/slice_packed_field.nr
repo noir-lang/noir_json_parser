@@ -371,7 +371,7 @@ global PATH_LOOKUP: [[bool; 5]; 32] = [
  **/
 unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
     let head_path = PATH_LOOKUP[num_bytes];
-    let bytes = f.to_be_bytes(32);
+    let bytes: [u8; 32] = f.to_be_bytes();
     let bytes = bytes.map(|b: u8| b as Field);
 
     let mut chunks: [Field; 5] = [0; 5];
@@ -401,14 +401,14 @@ unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
         tail_ptr += 4;
     }
     if head_path[3] {
-        chunks[3] = 
+        chunks[3] =
         bytes[head_ptr] * 0x100000000000000 + bytes[head_ptr + 1] * 0x1000000000000
         + bytes[head_ptr + 2] * 0x10000000000 + bytes[head_ptr + 3] * 0x100000000
         + bytes[head_ptr + 4] * 0x1000000 + bytes[head_ptr + 5] * 0x10000
         + bytes[head_ptr + 6] * 0x100 + bytes[head_ptr + 7];
         head_ptr += 8;
     } else {
-        chunks[3] = 
+        chunks[3] =
         bytes[tail_ptr] * 0x100000000000000 + bytes[tail_ptr + 1] * 0x1000000000000
         + bytes[tail_ptr + 2] * 0x10000000000 + bytes[tail_ptr + 3] * 0x100000000
         + bytes[tail_ptr + 4] * 0x1000000 + bytes[tail_ptr + 5] * 0x10000
@@ -416,7 +416,7 @@ unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
         tail_ptr += 8;
     }
     if head_path[4] {
-        chunks[4] = 
+        chunks[4] =
         bytes[head_ptr] *       0x1000000000000000000000000000000 + bytes[head_ptr + 1] * 0x10000000000000000000000000000
         + bytes[head_ptr + 2] * 0x100000000000000000000000000 + bytes[head_ptr + 3] *      0x1000000000000000000000000
         + bytes[head_ptr + 4] * 0x10000000000000000000000 + bytes[head_ptr + 5] * 0x100000000000000000000
@@ -426,7 +426,7 @@ unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
         + bytes[head_ptr + 12] * 0x1000000 + bytes[head_ptr + 13] * 0x10000
         + bytes[head_ptr + 14] * 0x100 + bytes[head_ptr + 15];
     } else {
-        chunks[4] = 
+        chunks[4] =
         bytes[tail_ptr] * 0x1000000000000000000000000000000 + bytes[tail_ptr + 1] * 0x10000000000000000000000000000
         + bytes[tail_ptr + 2] * 0x100000000000000000000000000 + bytes[tail_ptr + 3] * 0x1000000000000000000000000
         + bytes[tail_ptr + 4] * 0x10000000000000000000000 + bytes[tail_ptr + 5] * 0x100000000000000000000
@@ -548,7 +548,7 @@ pub fn slice_field(f: Field, num_bytes: Field) -> (Field, Field) {
 
 /**
  * @brief Given an array of fields that pack 31 bytes, return an array that slices the packed byte array at a given index for a given number of bytes
- * @description Some serious dark black magic nonsense going on here. TODO: document 
+ * @description Some serious dark black magic nonsense going on here. TODO: document
  **/
 pub fn slice_fields<let InputFields: u16, let OutputFields: u16>(
     data: [Field; InputFields],
@@ -783,7 +783,7 @@ fn test_slice_fields() {
 fn test_slice_field() {
         let input = 0xffeebbccbbaa99887766554433221100112233445566778899aabbccddeeff;
 
-        let input_bytes: [u8; 32] = input.to_be_bytes(32).as_array();
+        let input_bytes: [u8; 32] = input.to_be_bytes();
 
         for i in 0..32 {
             println(f"i = {i}");

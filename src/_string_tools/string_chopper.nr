@@ -13,7 +13,7 @@ impl<let NeedlePackedFields: u16> StringChopper<NeedlePackedFields> {
 
         let sliced: [Field; NeedlePackedFields] = slice_fields(haystack, start_bytes, num_bytes);
 
-        let sliced_bytes = sliced.map(|x: Field| { let r: [u8; 31] = x.to_be_bytes(31).as_array(); r });
+        let sliced_bytes = sliced.map(|x: Field| { let r: [u8; 31] = x.to_be_bytes(); r });
 
         let num_slices = StringBytes / 31;
         let overflow = StringBytes % 31;
@@ -28,4 +28,3 @@ impl<let NeedlePackedFields: u16> StringChopper<NeedlePackedFields> {
         parsed_string
     }
 }
-

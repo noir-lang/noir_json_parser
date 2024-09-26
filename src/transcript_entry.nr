@@ -13,7 +13,7 @@ impl ValidationFlags {
     }
 
     unconstrained fn __from_field(f: Field) -> Self {
-        let bytes = f.to_be_bytes(4);
+        let bytes: [u8; 4] = f.to_be_bytes();
         let mut push_layer= bytes[3] as Field;
         let push_layer_type_of_root = bytes[2] as Field;
         let pop_layer = bytes[1] as Field;
@@ -57,7 +57,7 @@ impl RawTranscriptEntry {
     }
 
     unconstrained fn __from_field(felt: Field) -> Self {
-        let slices = felt.to_be_bytes(6); // 2 gates + 1.25 + 2 = 5.25
+        let slices: [u8; 6] = felt.to_be_bytes(); // 2 gates + 1.25 + 2 = 5.25
         let length = slices[1] as Field + slices[0] as Field * 0x100;
         let index = slices[3] as Field + slices[2] as Field * 0x100;
         let encoded_ascii = slices[5] as Field + slices[4] as Field * 0x100;
@@ -107,7 +107,7 @@ struct ScanData {
 
 impl ScanData {
     unconstrained fn __from_field(f: Field) -> Self {
-        let bytes = f.to_le_bytes(6);
+        let bytes : [u8; 6]= f.to_le_bytes();
 
         let mut scan_token = bytes[0] as Field;
         let push_transcript = bytes[1] as Field;
@@ -140,13 +140,13 @@ impl ScanData {
 }
 
 struct PostProcessScanData {
-    token: Field, 
+    token: Field,
     new_grammar: Field,
     scan_token: Field,
 }
 impl PostProcessScanData {
     fn from_field(f: Field) -> Self {
-        let bytes = f.to_be_bytes(3);
+        let bytes: [u8; 3] = f.to_be_bytes();
         let token = bytes[2] as Field;
         let new_grammar = bytes[1] as Field;
         let scan_token = bytes[0] as Field;
@@ -161,7 +161,7 @@ impl TranscriptEntry {
         self.token + self.index * 0x100 + self.length * (0x1000000)
     }
     unconstrained fn __from_field(felt: Field) -> Self {
-        let slices = felt.to_be_bytes(5); // 2 gates + 1.25 + 2 = 5.25
+        let slices: [u8; 5] = felt.to_be_bytes(); // 2 gates + 1.25 + 2 = 5.25
         let length = slices[1] as Field + slices[0] as Field * 256;
         let index = slices[3] as Field + slices[2] as Field * 256;
         let token = slices[4] as Field;
