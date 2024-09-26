@@ -117,6 +117,7 @@ There is an up-front processing cost, as well as a per-query cost.
 | 16kb      | 574k                               |
 
 | query type | query cost (in megaplonk gaes) |
+|-|-|
 | `get_value` | 364 |
 | `get_number` | 454 |
 | `get_literal` | 416 |
