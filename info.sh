@@ -1,1 +1,0 @@
-nargo compile --force && bb gates_mega_honk -b ./target/json_parser.json > ./out.txt

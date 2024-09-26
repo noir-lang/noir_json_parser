@@ -372,7 +372,7 @@ global PATH_LOOKUP: [[bool; 5]; 32] = [
 unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
     let head_path = PATH_LOOKUP[num_bytes];
     let bytes = f.to_be_bytes(32);
-    let bytes = bytes.map(|b| b as Field);
+    let bytes = bytes.map(|b: u8| b as Field);
 
     let mut chunks: [Field; 5] = [0; 5];
     let mut head_ptr = 1;
