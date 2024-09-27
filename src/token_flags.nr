@@ -11,7 +11,7 @@ struct TokenFlags {
 impl TokenFlags {
 
     unconstrained fn __from_field(f: Field) -> Self {
-        let bytes = f.to_be_bytes(7);
+        let bytes: [u8; 7] = f.to_be_bytes();
         let create_json_entry = bytes[0] as Field;
         let is_end_of_object_or_array = bytes[1] as Field;
         let is_start_of_object_or_array = bytes[2] as Field;

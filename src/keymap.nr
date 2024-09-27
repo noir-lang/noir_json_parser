@@ -26,7 +26,7 @@ impl KeyIndexData {
     }
 
     unconstrained fn __from_field(packed: Field) -> Self {
-        let unpacked = packed.to_be_bytes(8);
+        let unpacked: [u8; 8] = packed.to_be_bytes();
         let array_index: Field = unpacked[1] as Field + unpacked[0] as Field * 0x100;
         let json_length: Field = unpacked[3] as Field + unpacked[2] as Field * 0x100;
         let json_index: Field = unpacked[5] as Field + unpacked[4] as Field * 0x100;

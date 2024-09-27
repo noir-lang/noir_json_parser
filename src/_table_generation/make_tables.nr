@@ -1,6 +1,4 @@
-/**
- * @file Contains methods used to generate tables in `json_tables.nr`. These table generation methods shouldn't be used inside of actual circuits.
- **/
+//! Contains methods used to generate tables in `json_tables.nr`. These table generation methods shouldn't be used inside of actual circuits.
 
 mod CaptureMode {
     global GRAMMAR_CAPTURE = 0;

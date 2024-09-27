@@ -61,16 +61,18 @@ struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, 
  **/
 impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> std::cmp::Eq for JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
     fn eq(self, other: Self) -> bool {
-        (self.json == other.json) & (self.raw_transcript == other.raw_transcript)
-        & (self.transcript == other.transcript)
-        & (self.transcript_length == other.transcript_length)
-        & (self.key_data == other.key_data)
-        & (self.key_hashes == other.key_hashes)
-        & (self.layer_type_of_root == other.layer_type_of_root)
-        & (self.root_id == other.root_id)
-        & (self.root_index_in_transcript == other.root_index_in_transcript)
-        & (self.json_entries_packed == other.json_entries_packed)
-        & (self.json_packed == other.json_packed)
+        (self.json == other.json)
+            & (self.raw_transcript == other.raw_transcript)
+            & (self.transcript == other.transcript)
+            & (self.transcript_length == other.transcript_length)
+            & (self.key_data == other.key_data)
+            & (self.key_hashes == other.key_hashes)
+            & (self.layer_type_of_root == other.layer_type_of_root)
+            & (self.root_id == other.root_id)
+            & (self.root_index_in_transcript
+                                            == other.root_index_in_transcript)
+            & (self.json_entries_packed == other.json_entries_packed)
+            & (self.json_packed == other.json_packed)
     }
 }
 

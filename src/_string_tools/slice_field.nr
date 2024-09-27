@@ -8,7 +8,7 @@ struct Slice200 {
     hihi: u64, // 7 bytes
     hilo: u64, // 7 bytes
     lohi: u64, // 7 bytes
-    lolo: u32 // 4 bytes 
+    lolo: u32 // 4 bytes
 }
 global PHI_54: u64 = 0x30644E72E131A0;
 global PLO_200: Slice200 = Slice200 {
@@ -19,7 +19,7 @@ global PLO_200: Slice200 = Slice200 {
 };
 
 unconstrained fn __slice_200_bits_from_field(f: Field) -> (Field, Field, bool) {
-    let b = f.to_be_bytes(32);
+    let b: [u8; 32] = f.to_be_bytes();
 
     let mut res200: Slice200 = Slice200 { hihi: 0, hilo: 0, lohi: 0, lolo: 0 };
     let mut res54: u64 = 0;
@@ -74,4 +74,3 @@ pub fn slice_200_bits_from_field(f: Field) -> Field {
     hi_diff.assert_max_bit_size(56);
     lo
 }
-
