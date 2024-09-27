@@ -196,8 +196,10 @@ mod JSON512b {
         fn get_string_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> BoundedVec<u8, StringBytes> {
             self.inner.get_string_from_array_unchecked(array_index)
         }
-        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<BoundedVec<u8, StringBytes>>
-        {
+        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<BoundedVec<u8, StringBytes>> {
             self.inner.get_string_from_path(keys)
         }
         fn get_value<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> Option<crate::JSONValue<StringBytes>> {
@@ -218,11 +220,13 @@ mod JSON512b {
         fn get_value_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> crate::JSONValue<StringBytes> {
             self.inner.get_value_from_array_unchecked(array_index)
         }
-        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<crate::JSONValue<StringBytes>>
-        {
+        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<crate::JSONValue<StringBytes>> {
             self.inner.get_value_from_path(keys)
         }
-    
+
         fn key_exists<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> bool {
             self.inner.key_exists(key)
         }
@@ -355,8 +359,10 @@ mod JSON1kb {
         fn get_string_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> BoundedVec<u8, StringBytes> {
             self.inner.get_string_from_array_unchecked(array_index)
         }
-        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<BoundedVec<u8, StringBytes>>
-        {
+        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<BoundedVec<u8, StringBytes>> {
             self.inner.get_string_from_path(keys)
         }
         fn get_value<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> Option<crate::JSONValue<StringBytes>> {
@@ -377,8 +383,10 @@ mod JSON1kb {
         fn get_value_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> crate::JSONValue<StringBytes> {
             self.inner.get_value_from_array_unchecked(array_index)
         }
-        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<crate::JSONValue<StringBytes>>
-        {
+        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<crate::JSONValue<StringBytes>> {
             self.inner.get_value_from_path(keys)
         }
         fn key_exists<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> bool {
@@ -513,8 +521,10 @@ mod JSON2kb {
         fn get_string_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> BoundedVec<u8, StringBytes> {
             self.inner.get_string_from_array_unchecked(array_index)
         }
-        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<BoundedVec<u8, StringBytes>>
-        {
+        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<BoundedVec<u8, StringBytes>> {
             self.inner.get_string_from_path(keys)
         }
         fn get_value<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> Option<crate::JSONValue<StringBytes>> {
@@ -535,8 +545,10 @@ mod JSON2kb {
         fn get_value_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> crate::JSONValue<StringBytes> {
             self.inner.get_value_from_array_unchecked(array_index)
         }
-        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<crate::JSONValue<StringBytes>>
-        {
+        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<crate::JSONValue<StringBytes>> {
             self.inner.get_value_from_path(keys)
         }
         fn key_exists<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> bool {
@@ -671,8 +683,10 @@ mod JSON4kb {
         fn get_string_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> BoundedVec<u8, StringBytes> {
             self.inner.get_string_from_array_unchecked(array_index)
         }
-        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<BoundedVec<u8, StringBytes>>
-        {
+        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<BoundedVec<u8, StringBytes>> {
             self.inner.get_string_from_path(keys)
         }
         fn get_value<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> Option<crate::JSONValue<StringBytes>> {
@@ -693,8 +707,10 @@ mod JSON4kb {
         fn get_value_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> crate::JSONValue<StringBytes> {
             self.inner.get_value_from_array_unchecked(array_index)
         }
-        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<crate::JSONValue<StringBytes>>
-        {
+        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<crate::JSONValue<StringBytes>> {
             self.inner.get_value_from_path(keys)
         }
         fn key_exists<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> bool {
@@ -829,8 +845,10 @@ mod JSON8kb {
         fn get_string_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> BoundedVec<u8, StringBytes> {
             self.inner.get_string_from_array_unchecked(array_index)
         }
-        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<BoundedVec<u8, StringBytes>>
-        {
+        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<BoundedVec<u8, StringBytes>> {
             self.inner.get_string_from_path(keys)
         }
         fn get_value<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> Option<crate::JSONValue<StringBytes>> {
@@ -851,8 +869,10 @@ mod JSON8kb {
         fn get_value_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> crate::JSONValue<StringBytes> {
             self.inner.get_value_from_array_unchecked(array_index)
         }
-        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<crate::JSONValue<StringBytes>>
-        {
+        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<crate::JSONValue<StringBytes>> {
             self.inner.get_value_from_path(keys)
         }
         fn key_exists<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> bool {
@@ -987,8 +1007,10 @@ mod JSON16kb {
         fn get_string_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> BoundedVec<u8, StringBytes> {
             self.inner.get_string_from_array_unchecked(array_index)
         }
-        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<BoundedVec<u8, StringBytes>>
-        {
+        fn get_string_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<BoundedVec<u8, StringBytes>> {
             self.inner.get_string_from_path(keys)
         }
         fn get_value<let KeyBytes: u16, let StringBytes: u16>(self, key: [u8; KeyBytes]) -> Option<crate::JSONValue<StringBytes>> {
@@ -1009,8 +1031,10 @@ mod JSON16kb {
         fn get_value_from_array_unchecked<let StringBytes: u16>(self, array_index: Field) -> crate::JSONValue<StringBytes> {
             self.inner.get_value_from_array_unchecked(array_index)
         }
-        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(self, keys: [BoundedVec<u8, KeyBytes>; PathDepth]) -> Option<crate::JSONValue<StringBytes>>
-        {
+        fn get_value_from_path<let KeyBytes: u16, let StringBytes: u16, let PathDepth: u16>(
+            self,
+            keys: [BoundedVec<u8, KeyBytes>; PathDepth]
+        ) -> Option<crate::JSONValue<StringBytes>> {
             self.inner.get_value_from_path(keys)
         }
         fn key_exists<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> bool {

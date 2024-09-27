@@ -230,5 +230,7 @@ impl std::cmp::Eq for JSONEntryPacked {
 }
 
 impl std::default::Default for JSONEntryPacked {
-    fn default() -> Self { JSONEntryPacked{ value: 0 }}
+    fn default() -> Self {
+        JSONEntryPacked { value: 0 }
+    }
 }
