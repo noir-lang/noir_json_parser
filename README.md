@@ -139,7 +139,7 @@ If the predefined JSON types are not sufficient for your use case, you can defin
 
 The JSON struct in `dep::json_parser::json::JSON` is parametrised with the following parameters:
 
-`struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16>`
+`struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32>`
 
 - `NumBytes` : the maximum size of the initial json blob
 - `NumPackedFields` : take `NumBytes / 31`, round up to the nearest integer, then add 3!

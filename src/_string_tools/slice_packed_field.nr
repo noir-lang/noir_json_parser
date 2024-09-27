@@ -441,8 +441,8 @@ unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
 }
 
 unconstrained fn __divmod(numerator: Field, denominator: Field) -> (Field, Field) {
-    let quotient = numerator as u16 / denominator as u16;
-    let remainder = numerator as u16 % denominator as u16;
+    let quotient = numerator as u32 / denominator as u32;
+    let remainder = numerator as u32 % denominator as u32;
     (quotient as Field, remainder as Field)
 }
 
@@ -473,7 +473,7 @@ fn divmod_31(numerator: Field) -> (Field, Field) {
 unconstrained fn decompose(val: Field) -> [Field; 16] {
     let mut r: [Field; 16] = [0; 16];
 
-    let mut it = val as u16;
+    let mut it = val as u32;
     for i in 0..16 {
         r[i] = (it & 1) as Field;
         it >>= 1;
@@ -482,7 +482,7 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
 }
 
 // 5 gates?
-pub fn get_last_limb_path<let OutputFields: u16>(last_limb_index: Field) -> [Field; OutputFields] {
+pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Field; OutputFields] {
     // TODO we offset by 1 explain why (0 byte length produces 0 - 1 which = invalid array index. we just add 1 and increase array length by 1 to compensate)
     let path = LAST_LIMB_PATH[last_limb_index + 1]; // 2
 
@@ -550,7 +550,7 @@ pub fn slice_field(f: Field, num_bytes: Field) -> (Field, Field) {
  * @brief Given an array of fields that pack 31 bytes, return an array that slices the packed byte array at a given index for a given number of bytes
  * @description Some serious dark black magic nonsense going on here. TODO: document
  **/
-pub fn slice_fields<let InputFields: u16, let OutputFields: u16>(
+pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     data: [Field; InputFields],
     start_byte: Field,
     num_bytes: Field

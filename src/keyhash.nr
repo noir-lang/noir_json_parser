@@ -6,12 +6,12 @@ use crate::_string_tools::slice_field::slice_200_bits_from_field;
  *        when the bytes are represented as packed 31 byte Field elements
  * @note we wrap `get_keyhash` in a struct so that the KeyFields parameter can be defined ahead of time
  **/
-struct FieldHasher<let KeyFields: u16>
+struct FieldHasher<let KeyFields: u32>
 {}
 
-impl<let KeyFields: u16> FieldHasher<KeyFields> {
+impl<let KeyFields: u32> FieldHasher<KeyFields> {
 
-    fn get_keyhash<let NumPackedFields: u16>(
+    fn get_keyhash<let NumPackedFields: u32>(
         _: Self,
         packed_fields: [Field; NumPackedFields],
         body_index: Field,
@@ -29,22 +29,22 @@ impl<let KeyFields: u16> FieldHasher<KeyFields> {
  * @note we wrap `get_keyhash` in a struct so that the KeyFields parameter can be defined ahead of time
  * @note produces identical hash outputs when compared w. FieldHasher
  **/
-struct ByteHasher<let KeyFields: u16>
+struct ByteHasher<let KeyFields: u32>
 {}
 
-impl<let KeyFields: u16> ByteHasher<KeyFields> {
+impl<let KeyFields: u32> ByteHasher<KeyFields> {
 
     fn get_keyhash_var<let N: u32>(
         _: Self,
         body_text: [u8; N],
-        body_index: u16,
-        key_length: u16
+        body_index: u32,
+        key_length: u32
     ) -> Field {
         assert(key_length < KeyFields * 31, "key too large");
 
         let mut key_fields: [Field; KeyFields] = [0; KeyFields];
 
-        let mut key_idx: u16 = 0;
+        let mut key_idx: u32 = 0;
         let mut limb = 0;
 
         for j in 0..KeyFields {

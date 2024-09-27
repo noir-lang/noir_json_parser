@@ -40,12 +40,12 @@ impl<let MaxLength: u32> JSONValue<MaxLength> {
  * @description The "root" of the JSON refers to the parent object or array (or a value if the json is just a single value e.g. text = "\"foo\": \"bar\"")
  * @note text that describes just a single JSON value is not yet fully supported. Only use this library for processing objects or arrays for now
  **/
-struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> {
+struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> {
     json: [u8; NumBytes], // the raw json bytes
     json_packed: [Field; NumPackedFields], // raw bytes, but packed into 31-byte Field elements
     raw_transcript: [Field; MaxNumTokens], // transcript of json tokens after basic processing
     transcript: [Field; MaxNumTokens], // complete transcript of json tokens
-    transcript_length: u16, // how big is the transcript?
+    transcript_length: u32, // how big is the transcript?
     key_data: [Field; MaxNumValues], // description of each key, packed into a Field element
     key_hashes: [Field; MaxNumValues], // a sorted list of key hashes
     unsorted_json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
@@ -59,7 +59,7 @@ struct JSON<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, 
  * @brief are two JSON objects equal?
  * @note VERY EXPENSIVE! Currently only used in tests
  **/
-impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> std::cmp::Eq for JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> std::cmp::Eq for JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
     fn eq(self, other: Self) -> bool {
         (self.json == other.json)
             & (self.raw_transcript == other.raw_transcript)
@@ -77,12 +77,12 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 }
 
 // TODO: casting entry_ptr to u16 is kind of expensive when generating witnesses, can we fix?
-unconstrained fn __check_entry_ptr_bounds(entry_ptr: Field, max: u16) {
+unconstrained fn __check_entry_ptr_bounds(entry_ptr: Field, max: u32) {
     // n.b. even though this assert is in an unconstrained function, an out of bounds error will be triggered when writing into self.key_data[entry_ptr]
-    assert(entry_ptr as u16 < max - 1, "create_json_entries: MaxNumValues limit exceeded!");
+    assert(entry_ptr as u32 < max - 1, "create_json_entries: MaxNumValues limit exceeded!");
 }
 
-impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief pack the json bytes into Field elements, where each Field element represents 31 bytes
@@ -112,7 +112,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             limb *= 0x100;
         }
         std::as_witness(limb);
-        self.json_packed[NumWholeLimbs + (NumRemainingBytes == 0) as u16] = limb;
+        self.json_packed[NumWholeLimbs + (NumRemainingBytes == 0) as u32] = limb;
     }
 
     // TODO: when impl is more mature, merge this into create_json_entries
@@ -182,7 +182,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             let current_token = tokens[i];
 
             // 1 gate
-            let index = current_layer * NN + previous_token * NUM_TOKENS + current_token;
+            let index = current_layer * (NN as Field) + previous_token * (NUM_TOKENS as Field) + current_token;
 
             // 5 gates
             let  ValidationFlags{push_layer, push_layer_type_of_root, pop_layer} = ValidationFlags::from_field(TOKEN_VALIDATION_TABLE[index]);
@@ -256,7 +256,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
                 is_key_token: update_key,
                 is_value_token,
                 preserve_num_entries
-            } = TokenFlags::from_field(TOKEN_FLAGS_TABLE[token + context * NUM_TOKENS]);
+            } = TokenFlags::from_field(TOKEN_FLAGS_TABLE[token + context * (NUM_TOKENS as Field)]);
 
             // 2 gates
             let diff = (index + length * 0x10000) - current_key_index_and_length;
@@ -380,7 +380,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      **/
     unconstrained fn __build_transcript(self) -> [Field; MaxNumTokens] {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
-        let mut transcript_ptr: u16 = 0;
+        let mut transcript_ptr: u32 = 0;
         let mut scan_mode = GRAMMAR_SCAN as Field;
         let mut length: Field = 0;
         let mut previous_was_potential_escape_sequence = 0;
@@ -399,7 +399,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
 
             raw_transcript[transcript_ptr] = new_entry;
             length = length * (1 - push_transcript) + increase_length;
-            transcript_ptr += (push_transcript as bool) as u16;
+            transcript_ptr += (push_transcript as bool) as u32;
 
             previous_was_potential_escape_sequence = is_potential_escape_sequence;
 
@@ -486,7 +486,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             json: self.json,
             raw_transcript,
             transcript: self.transcript,
-            transcript_length: transcript_ptr as u16,
+            transcript_length: transcript_ptr as u32,
             key_data: self.key_data,
             key_hashes: self.key_hashes,
             layer_type_of_root: self.layer_type_of_root,
@@ -504,7 +504,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      **/
     unconstrained fn __capture_missing_tokens(self) -> [Field; MaxNumTokens] {
         let mut updated_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
-        let mut transcript_ptr: u16 = 0;
+        let mut transcript_ptr: u32 = 0;
         // TODO: do we need a null transcript value?!?!
 
         for i in 0..MaxNumTokens {
@@ -515,7 +515,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
             updated_transcript[transcript_ptr] = entry;
 
-            let index_valid: u16 = (i < self.transcript_length) as u16;
+            let index_valid: u32 = (i < self.transcript_length) as u32;
             transcript_ptr += index_valid;
 
             let index_of_possible_grammar = (index + length);
@@ -525,7 +525,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             let new_transcript = TranscriptEntry::to_field(new_entry);
             assert(transcript_ptr < MaxNumTokens, "capture_missing_tokens: MaxNumTokens limit exceeded!");
             updated_transcript[transcript_ptr] = new_transcript;
-            transcript_ptr += update as bool as u16;
+            transcript_ptr += update as bool as u32;
         }
         updated_transcript
     }
@@ -582,11 +582,11 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         } else if (first.token == BEGIN_ARRAY_TOKEN) {
             self.layer_type_of_root = ARRAY_LAYER;
         } else if (first.token == STRING_TOKEN) {
-            self.layer_type_of_root = SINGLE_VALUE_LAYER;
+            self.layer_type_of_root = SINGLE_VALUE_LAYER as Field;
         }
     }
 
-    fn parse_json<let StringBytes: u16>(stringbytes: [u8; StringBytes]) -> Self {
+    fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {
         assert(StringBytes <= NumBytes, "json length exceeds NumBytes!");
         let mut text: [u8; NumBytes] = [0; NumBytes];
         for i in 0..StringBytes {
@@ -621,7 +621,7 @@ impl<let NumBytes: u16, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
         json
     }
 
-    fn parse_json_from_string<let StringBytes: u16>(s: str<StringBytes>) -> Self {
+    fn parse_json_from_string<let StringBytes: u32>(s: str<StringBytes>) -> Self {
         JSON::parse_json(s.as_bytes())
     }
 }
