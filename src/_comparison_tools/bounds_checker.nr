@@ -34,7 +34,7 @@ pub fn get_validity_flags<let N: u32>(boundary: u32) -> [Field; N] {
 
 unconstrained fn __get_validity_flags<let N: u32>(boundary: u32) -> [Field; N] {
     let mut result: [Field; N] = [0; N];
-    for i in 0..N as u32 {
+    for i in 0..N {
         if i < boundary {
             result[i] = 1;
         }
