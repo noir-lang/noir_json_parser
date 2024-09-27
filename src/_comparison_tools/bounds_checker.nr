@@ -27,14 +27,14 @@ in this case, i == M
  * @description this method is cheaper than querying `i < boundary` for `u16` and `u32` types
  *              cost = 3 gates + 2 gates per iteration 
  **/
-pub fn get_validity_flags<let N: u16>(boundary: u16) -> [Field; N] {
+pub fn get_validity_flags<let N: u32>(boundary: u32) -> [Field; N] {
     let flags: [Field; N] = __get_validity_flags(boundary);
     get_validity_flags_inner(boundary, flags)
 }
 
-unconstrained fn __get_validity_flags<let N: u16>(boundary: u16) -> [Field; N] {
+unconstrained fn __get_validity_flags<let N: u32>(boundary: u32) -> [Field; N] {
     let mut result: [Field; N] = [0; N];
-    for i in 0..N as u16 {
+    for i in 0..N as u32 {
         if i < boundary {
             result[i] = 1;
         }
@@ -55,7 +55,7 @@ unconstrained fn __get_validity_flags<let N: u16>(boundary: u16) -> [Field; N] {
  *                 aligns with what is expected from testing `i < boundary`
  *  N.B. this method will revert if `boundary > N`
  **/
-fn get_validity_flags_inner<let N: u16>(boundary: u16, flags: [Field; N]) -> [Field; N] {
+fn get_validity_flags_inner<let N: u32>(boundary: u32, flags: [Field; N]) -> [Field; N] {
     let initial_flag = flags[0];
     let final_flag = flags[N - 1];
 

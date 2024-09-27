@@ -28,13 +28,13 @@ fn extract_number_from_array(arr: [u8; U64_LENGTH_AS_BASE10_STRING], json_length
  * @note numeric values must fit into a `u64` type.
  *       decimal values and scientific notation are not yet supported
  **/
-impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief if the root JSON is an object, extract a numeric value given by `key`
      * @description returns an Option<u64> which will be null if the key does not exist
      **/
-    fn get_number<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> Option<u64> {
+    fn get_number<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<u64> {
         let (exists, entry) = self.get_json_entry(key);
         assert(
             (entry.entry_type - NUMERIC_TOKEN) * exists as Field == 0, "get_number: entry exists but is not a number!"
@@ -48,7 +48,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @brief if the root JSON is an object, extract a u64 value given by `key`
      * @description will revert if the number does not exist
      **/
-    fn get_number_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> u64 {
+    fn get_number_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> u64 {
         let  entry = self.get_json_entry_unchecked(key);
         assert(entry.entry_type == NUMERIC_TOKEN, "get_number_unchecked: entry exists but is not a number!");
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
@@ -59,7 +59,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_number` for where the key length may be less than KeyBytes
      **/
-    fn get_number_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Option<u64> {
+    fn get_number_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<u64> {
         let (exists, entry) = self.get_json_entry_var(key);
         assert(
             (entry.entry_type - NUMERIC_TOKEN) * exists as Field == 0, "get_number: entry exists but is not a number!"
@@ -72,7 +72,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_number_unchecked` for where the key length may be less than KeyBytes
      **/
-    fn get_number_unchecked_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> u64 {
+    fn get_number_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> u64 {
         let  entry = self.get_json_entry_unchecked_var(key);
         assert(entry.entry_type == NUMERIC_TOKEN, "get_number_unchecked: entry exists but is not a number!");
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);

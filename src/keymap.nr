@@ -45,7 +45,7 @@ impl KeyIndexData {
     }
 }
 
-impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
     fn compute_keyhash_and_sort_json_entries(&mut self) {
         let hasher: FieldHasher<MaxKeyFields> = FieldHasher {};
 
@@ -107,7 +107,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
             // n.b. parent_identity_post - parent_identity_pre is not neccessarily 0 or 1 (can be larger)
             //      due to empty objects and arrays increasing identity value without creating associated child json entries
             let new_parent = lt_field_16_bit(parent_identity_pre, parent_identity_post) as Field;
-            // let new_parent = (parent_identity_post as u16 > parent_identity_pre as u16) as Field;
+            // let new_parent = (parent_identity_post as u32 > parent_identity_pre as u32) as Field;
             // 3.5 gates
             let index_of_parent = identity_to_json_map[parent_identity_post];
             // 1 gate + 3.5 gates

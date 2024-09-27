@@ -65,13 +65,13 @@ fn extract_literal_from_array(
 /**
  * @brief getter methods for extracting literal values out of a JSON struct
  **/
-impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let MaxNumValues: u16, let MaxKeyFields: u16> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief if the root JSON is an object, extract a literal value given by `key`
      * @description returns an Option<JSONLiteral> which will be null if the literal does not exist
      **/
-    fn get_literal<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
+    fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, entry) = self.get_json_entry(key);
@@ -87,7 +87,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
      * @brief if the root JSON is an object, extract a literal value given by `key`
      * @description will revert if the literal does not exist
      **/
-    fn get_literal_unchecked<let KeyBytes: u16>(self, key: [u8; KeyBytes]) -> JSONLiteral {
+    fn get_literal_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> JSONLiteral {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let entry= self.get_json_entry_unchecked(key);
@@ -102,7 +102,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_literal` for where the key length may be less than KeyBytes
      **/
-    fn get_literal_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> Option<JSONLiteral> {
+    fn get_literal_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<JSONLiteral> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, entry) = self.get_json_entry_var(key);
@@ -117,7 +117,7 @@ impl<let NumBytes: u32, let NumPackedFields: u16, let MaxNumTokens: u16, let Max
     /**
      * @brief same as `get_literal_unchecked` for where the key length may be less than KeyBytes
      **/
-    fn get_literal_unchecked_var<let KeyBytes: u16>(self, key: BoundedVec<u8, KeyBytes>) -> JSONLiteral {
+    fn get_literal_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> JSONLiteral {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let entry= self.get_json_entry_unchecked_var(key);
