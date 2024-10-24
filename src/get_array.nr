@@ -8,14 +8,15 @@ use crate::getters::JSONValue;
 /**
  * @brief getter methods for extracting array types out of a JSON struct
  **/
-impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief if the root JSON is an array, return its length
      **/
     fn get_length(self) -> u32 {
         assert(self.layer_type_of_root == ARRAY_LAYER, "can only get length of an array type");
-        let parent_entry: JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
+        let parent_entry: JSONEntry =
+            self.json_entries_packed[self.root_index_in_transcript].into();
         parent_entry.num_children as u32
     }
 
@@ -28,7 +29,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let (exists, key_index) = self.key_exists_impl(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         assert(
-            (entry.entry_type - END_ARRAY_TOKEN) * exists as Field == 0, "key does not describe an object"
+            (entry.entry_type - END_ARRAY_TOKEN) * exists as Field == 0,
+            "key does not describe an object",
         );
 
         let mut r = self;
@@ -68,7 +70,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         // TODO: ADD A layer_context VARIABLE INTO JSON WHICH DESCRIBES WHETHER WE ARE AN OBJECT, ARRAY OR SINGLE VALUE
         assert(
-            (entry.entry_type - END_ARRAY_TOKEN) * exists as Field == 0, "key does not describe an object"
+            (entry.entry_type - END_ARRAY_TOKEN) * exists as Field == 0,
+            "key does not describe an object",
         );
 
         let mut r = self;
@@ -103,15 +106,20 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value  
      **/
     fn get_array_from_array(self, array_index: Field) -> Option<Self> {
-        assert(self.layer_type_of_root == ARRAY_LAYER, "can only acceess array elements from array");
+        assert(
+            self.layer_type_of_root == ARRAY_LAYER,
+            "can only acceess array elements from array",
+        );
 
-        let parent_entry: JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
+        let parent_entry: JSONEntry =
+            self.json_entries_packed[self.root_index_in_transcript].into();
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
         let entry: JSONEntry = self.json_entries_packed[entry_index].into();
         assert(
-            (entry.entry_type - END_ARRAY_TOKEN) * valid as Field == 0, "get_object_from_array: entry exists but is not an object!"
+            (entry.entry_type - END_ARRAY_TOKEN) * valid as Field == 0,
+            "get_object_from_array: entry exists but is not an object!",
         );
 
         let mut r = self;
@@ -128,15 +136,20 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description will revert if the array does not exist
      **/
     fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
-        assert(self.layer_type_of_root == ARRAY_LAYER, "can only acceess array elements from array");
+        assert(
+            self.layer_type_of_root == ARRAY_LAYER,
+            "can only acceess array elements from array",
+        );
 
-        let parent_entry: JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
+        let parent_entry: JSONEntry =
+            self.json_entries_packed[self.root_index_in_transcript].into();
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
         let entry: JSONEntry = self.json_entries_packed[entry_index].into();
         assert(
-            entry.entry_type == END_ARRAY_TOKEN, "get_array_from_array_unchecked: entry exists but is not an array!"
+            entry.entry_type == END_ARRAY_TOKEN,
+            "get_array_from_array_unchecked: entry exists but is not an array!",
         );
 
         let mut r = self;
@@ -150,7 +163,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief if the root is an array, map over the array values, applying `fn f` to each value
      **/
-    fn map<U, let MaxElements: u32, let MaxElementBytes: u32>(self, f: fn(JSONValue<MaxElementBytes>) -> U) -> [U; MaxElements] where U: std::default::Default {
+    fn map<U, let MaxElements: u32, let MaxElementBytes: u32>(
+        self,
+        f: fn(JSONValue<MaxElementBytes>) -> U,
+    ) -> [U; MaxElements]
+    where
+        U: std::default::Default,
+    {
         assert(self.layer_type_of_root == ARRAY_LAYER, "can only call map on an array");
 
         let entry: JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
@@ -174,7 +193,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             if (valid) {
                 r[i] = f(
-                    JSONValue { value: BoundedVec{ len: child_entry.json_length as u32, storage: parsed_string }, value_type: child_entry.entry_type }
+                    JSONValue {
+                        value: BoundedVec {
+                            len: child_entry.json_length as u32,
+                            storage: parsed_string,
+                        },
+                        value_type: child_entry.entry_type,
+                    },
                 );
             }
         }
@@ -201,7 +226,7 @@ fn test_array() {
     assert(C.get_length() == 1);
 
     // incorrect sorting. the object comes before the array. why?
-    // 
+    //
     let D = first.get_array_from_array_unchecked(3);
     assert(D.get_length() == 0);
 

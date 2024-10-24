@@ -1,14 +1,14 @@
 /**
  * @file helper methods that evaluate comparison operations on Field elements that are known to be of a fixed size (e.g. <2^16)
  **/
-unconstrained pub fn get_lt_predicate_f(x: Field, y: Field) -> bool {
+pub unconstrained fn get_lt_predicate_f(x: Field, y: Field) -> bool {
     let a = x as u32;
     let b = y as u32;
     let r = a < b;
     r
 }
 
-unconstrained pub fn get_lte_predicate_large(x: Field, y: Field) -> bool {
+pub unconstrained fn get_lte_predicate_large(x: Field, y: Field) -> bool {
     let r = x.lt(y) | (x == y);
     r
 }
@@ -17,7 +17,7 @@ pub fn lte_field_240_bit(x: Field, y: Field) -> bool {
     let predicate = get_lte_predicate_large(x, y);
     let delta = y as Field - x as Field;
 
-    // (x - y) * predicate 
+    // (x - y) * predicate
     // if true, y - x >= 0
     // if false, x <= y is wrong therefore x > y => x - y > 0 => x - y + 1 >= 0
     // (y - x) * p + (1 - p) * (x - y + 1)
@@ -31,7 +31,7 @@ pub fn lte_field_240_bit(x: Field, y: Field) -> bool {
 pub fn assert_lte_240_bit(x: Field, y: Field) {
     let delta = y as Field - x as Field;
 
-    // (x - y) * predicate 
+    // (x - y) * predicate
     // if true, y - x >= 0
     // if false, x <= y is wrong therefore x > y => x - y > 0 => x - y + 1 >= 0
     // (y - x) * p + (1 - p) * (x - y + 1)

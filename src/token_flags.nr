@@ -27,7 +27,7 @@ impl TokenFlags {
             new_context,
             is_key_token,
             is_value_token,
-            preserve_num_entries
+            preserve_num_entries,
         }
     }
 
@@ -36,10 +36,13 @@ impl TokenFlags {
         let r = TokenFlags::__from_field(f);
 
         assert(r.create_json_entry * r.create_json_entry == r.create_json_entry);
-        assert(r.is_end_of_object_or_array * r.is_end_of_object_or_array == r.is_end_of_object_or_array);
+        assert(
+            r.is_end_of_object_or_array * r.is_end_of_object_or_array
+                == r.is_end_of_object_or_array,
+        );
         assert(
             r.is_start_of_object_or_array * r.is_start_of_object_or_array
-            == r.is_start_of_object_or_array
+                == r.is_start_of_object_or_array,
         );
         assert(r.new_context * r.new_context == r.new_context);
         assert(r.is_key_token * r.is_key_token == r.is_key_token);
@@ -69,7 +72,7 @@ impl TokenFlags {
             new_context: 0,
             is_key_token: 0,
             preserve_num_entries: 0,
-            is_value_token: 0
+            is_value_token: 0,
         }
     }
 }

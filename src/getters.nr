@@ -23,7 +23,7 @@ struct KeySearchResult {
 /**
  * @brief helper methods for extracting data out of a processed JSON object
  **/
-impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
@@ -65,7 +65,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      **/
     fn get_json_entry_var<let KeyBytes: u32>(
         self,
-        key: BoundedVec<u8, KeyBytes>
+        key: BoundedVec<u8, KeyBytes>,
     ) -> (bool, JSONEntry) {
         // let key_index = self.find_key_in_map(keyhash);
         // assert(self.key_hashes[key_index] == keyhash);
@@ -79,7 +79,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_json_entry_unchecked` but the key length may be less than KeyBytes
      **/
-    fn get_json_entry_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> JSONEntry {
+    fn get_json_entry_unchecked_var<let KeyBytes: u32>(
+        self,
+        key: BoundedVec<u8, KeyBytes>,
+    ) -> JSONEntry {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
@@ -99,7 +102,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.json_entries_packed`
      **/
-    fn get_json_entry_unchecked_with_key_index<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> (JSONEntry, Field) {
+    fn get_json_entry_unchecked_with_key_index<let KeyBytes: u32>(
+        self,
+        key: [u8; KeyBytes],
+    ) -> (JSONEntry, Field) {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
@@ -118,7 +124,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.json_entries_packed`
      **/
-    fn get_json_entry_unchecked_with_key_index_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> (JSONEntry, Field) {
+    fn get_json_entry_unchecked_with_key_index_var<let KeyBytes: u32>(
+        self,
+        key: BoundedVec<u8, KeyBytes>,
+    ) -> (JSONEntry, Field) {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
@@ -143,91 +152,63 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // todo can we make this faster? witness gen for this method is slow
         // TODO: document that StringBytes parameter includes non-escaped characters
         assert(
-            lt_field_16_bit(entry.json_length, StringBytes as Field + 1), "get_string, string size is larger than StringBytes"
+            lt_field_16_bit(entry.json_length, StringBytes as Field + 1),
+            "get_string, string size is larger than StringBytes",
         );
 
         let mut result: [u8; StringBytes] = [0; StringBytes];
-        if (StringBytes <= 31)
-        {
-            let s: StringChopper<1> = StringChopper{};
+        if (StringBytes <= 31) {
+            let s: StringChopper<1> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 62)
-        {
-            let s: StringChopper<2> = StringChopper{};
+        } else if (StringBytes <= 62) {
+            let s: StringChopper<2> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 93)
-        {
-            let s: StringChopper<3> = StringChopper{};
+        } else if (StringBytes <= 93) {
+            let s: StringChopper<3> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 124)
-        {
-            let s: StringChopper<4> = StringChopper{};
+        } else if (StringBytes <= 124) {
+            let s: StringChopper<4> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 155)
-        {
-            let s: StringChopper<5> = StringChopper{};
+        } else if (StringBytes <= 155) {
+            let s: StringChopper<5> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 186)
-        {
-            let s: StringChopper<6> = StringChopper{};
+        } else if (StringBytes <= 186) {
+            let s: StringChopper<6> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 217)
-        {
-            let s: StringChopper<7> = StringChopper{};
+        } else if (StringBytes <= 217) {
+            let s: StringChopper<7> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 248) // 8
+        } else if (StringBytes <= 248) // 8
         {
-            let s: StringChopper<8> = StringChopper{};
+            let s: StringChopper<8> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 496) // 16
+        } else if (StringBytes <= 496) // 16
         {
-            let s: StringChopper<16> = StringChopper{};
+            let s: StringChopper<16> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 992) // 32
+        } else if (StringBytes <= 992) // 32
         {
-            let s: StringChopper<32> = StringChopper{};
+            let s: StringChopper<32> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 1984)
-        {
-            let s: StringChopper<64> = StringChopper{};
+        } else if (StringBytes <= 1984) {
+            let s: StringChopper<64> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 3968)
-        {
-            let s: StringChopper<128> = StringChopper{};
+        } else if (StringBytes <= 3968) {
+            let s: StringChopper<128> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 7936)
-        {
-            let s: StringChopper<256> = StringChopper{};
+        } else if (StringBytes <= 7936) {
+            let s: StringChopper<256> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 15872)
-        {
-            let s: StringChopper<512> = StringChopper{};
+        } else if (StringBytes <= 15872) {
+            let s: StringChopper<512> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else if (StringBytes <= 31774)
-        {
-            let s: StringChopper<1024> = StringChopper{};
-        result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
-        else
-        {
+        } else if (StringBytes <= 31774) {
+            let s: StringChopper<1024> = StringChopper {};
+            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
+        } else {
             // max 16 bits = 65535 = 2115 31-byte slices
-            let s: StringChopper<2115> = StringChopper{};
+            let s: StringChopper<2115> = StringChopper {};
             result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-
         }
         result
     }
@@ -236,7 +217,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut found_index: Field = 0;
         let mut found: bool = false;
         for i in 0..MaxNumValues {
-            let key_hash= self.key_hashes[i];
+            let key_hash = self.key_hashes[i];
             if (key_hash == target) {
                 found_index = i as Field;
                 found = true;
@@ -262,7 +243,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut lhs_maximum_index: Field = 0;
         let mut rhs_minimum_index: Field = 0;
         for i in 0..MaxNumValues {
-            let key_hash= self.key_hashes[i];
+            let key_hash = self.key_hashes[i];
             if (key_hash == target) {
                 found_index = i as Field;
                 found = true;
@@ -281,7 +262,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let target_lt_smallest_entry = target.lt(self.key_hashes[0]);
         let target_gt_largest_entry = self.key_hashes[MaxNumValues - 1].lt(target);
 
-        let result_not_first_or_last = !target_lt_smallest_entry & !target_gt_largest_entry & !found;
+        let result_not_first_or_last =
+            !target_lt_smallest_entry & !target_gt_largest_entry & !found;
 
         let mut lhs_index = result_not_first_or_last as Field * lhs_maximum_index;
         let mut rhs_index = result_not_first_or_last as Field * rhs_minimum_index;
@@ -291,14 +273,20 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         rhs_index = rhs_index * (1 - target_lt_smallest_entry as Field);
 
         // we rely here on the fact that target_gt_largest_entry and result_not_first_or_last are mutually exclusive
-        lhs_index = lhs_index  + target_gt_largest_entry as Field * (MaxNumValues as Field - 1);
+        lhs_index = lhs_index + target_gt_largest_entry as Field * (MaxNumValues as Field - 1);
 
         // If target is FOUND, we want the following:
         // keyhash[target_index] - 1 < hash < keyhash[target_index] + 1
-        lhs_index = lhs_index  + found as Field * found_index;
-        rhs_index = rhs_index  + found as Field * found_index;
+        lhs_index = lhs_index + found as Field * found_index;
+        rhs_index = rhs_index + found as Field * found_index;
 
-        KeySearchResult { found, target_lt_smallest_entry, target_gt_largest_entry, lhs_index, rhs_index }
+        KeySearchResult {
+            found,
+            target_lt_smallest_entry,
+            target_gt_largest_entry,
+            lhs_index,
+            rhs_index,
+        }
     }
 
     /**
@@ -318,12 +306,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         /*
             Option A: key exists
             Option B: key does NOT exist
-
-            If key does NOT exist. 3 cases
+        If key does NOT exist. 3 cases
             case 1: keyhash < first entry
             case 2: keyhash > last entry
             case 3: entry A > keyhash > entryB
-
         */
         let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
         let keyhash = hasher.get_keyhash_var(key, 0, KeyBytes);
@@ -372,16 +358,17 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      *              Method computes a key hash and checks whether key hash exists in the list of sorted preprocessed key hashes
      *              If it does *not* exist, we can find two adjacent entries in `key_hashes` where `key_hashes[i]` < target_key_hash < `key_hashes[i+1]`
      **/
-    fn key_exists_impl_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> (bool, Field) {
+    fn key_exists_impl_var<let KeyBytes: u32>(
+        self,
+        key: BoundedVec<u8, KeyBytes>,
+    ) -> (bool, Field) {
         /*
             Option A: key exists
             Option B: key does NOT exist
-
-            If key does NOT exist. 3 cases
+        If key does NOT exist. 3 cases
             case 1: keyhash < first entry
             case 2: keyhash > last entry
             case 3: entry A > keyhash > entryB
-
         */
         let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
         let keyhash = hasher.get_keyhash_var(key.storage, 0, key.len as u32);
@@ -424,10 +411,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         (search_result.found, search_result.lhs_index)
     }
 
-    unconstrained fn __get_keys_at_root<let MaxNumKeys: u32>(self) -> BoundedVec<Field, MaxNumKeys> {
-        let mut result: BoundedVec<Field, MaxNumKeys> = BoundedVec { len: 0, storage: [0; MaxNumKeys] };
+    unconstrained fn __get_keys_at_root<let MaxNumKeys: u32>(
+        self,
+    ) -> BoundedVec<Field, MaxNumKeys> {
+        let mut result: BoundedVec<Field, MaxNumKeys> =
+            BoundedVec { len: 0, storage: [0; MaxNumKeys] };
 
-        let root_object: JSONEntry = JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
+        let root_object: JSONEntry =
+            JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
 
         let mut result_ptr = 0;
         for i in 0..MaxNumValues {
@@ -441,13 +432,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         result.len = result_ptr as u32;
         result
     }
-    fn get_keys_at_root<let MaxNumKeys: u32, let MaxKeyBytes: u32>(self) -> BoundedVec<BoundedVec<u8, MaxKeyBytes>, MaxNumKeys> {
-        let root_object: JSONEntry = JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
+    fn get_keys_at_root<let MaxNumKeys: u32, let MaxKeyBytes: u32>(
+        self,
+    ) -> BoundedVec<BoundedVec<u8, MaxKeyBytes>, MaxNumKeys> {
+        let root_object: JSONEntry =
+            JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
         let key_indices: BoundedVec<Field, MaxNumKeys> = self.__get_keys_at_root();
 
         assert(key_indices.len as Field == root_object.num_children);
 
-        let mut result: BoundedVec<BoundedVec<u8, MaxKeyBytes>, MaxNumKeys> = BoundedVec { len: 0, storage: [BoundedVec { len: 0, storage: [0; MaxKeyBytes] }; MaxNumKeys] };
+        let mut result: BoundedVec<BoundedVec<u8, MaxKeyBytes>, MaxNumKeys> = BoundedVec {
+            len: 0,
+            storage: [BoundedVec { len: 0, storage: [0; MaxKeyBytes] }; MaxNumKeys],
+        };
         for i in 0..MaxNumKeys {
             let key = KeyIndexData::from_field(self.key_data[key_indices.storage[i]]);
             // just a workaround to the interface for `extract_string_entry`

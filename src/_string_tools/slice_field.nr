@@ -8,7 +8,7 @@ struct Slice200 {
     hihi: u64, // 7 bytes
     hilo: u64, // 7 bytes
     lohi: u64, // 7 bytes
-    lolo: u32 // 4 bytes
+    lolo: u32, // 4 bytes
 }
 global PHI_54: u64 = 0x30644E72E131A0;
 global PLO_200: Slice200 = Slice200 {

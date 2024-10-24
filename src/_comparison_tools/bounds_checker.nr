@@ -1,5 +1,3 @@
-
-
 /*
 
 when iterating from 0 to N, validate i < M efficiently

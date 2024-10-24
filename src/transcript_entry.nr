@@ -1,10 +1,9 @@
 use crate::json_tables::ASCII_TO_TOKEN_TABLE;
 
-struct ValidationFlags
-{
+struct ValidationFlags {
     push_layer: Field,
     push_layer_type_of_root: Field,
-    pop_layer: Field
+    pop_layer: Field,
 }
 
 impl ValidationFlags {
@@ -14,7 +13,7 @@ impl ValidationFlags {
 
     unconstrained fn __from_field(f: Field) -> Self {
         let bytes: [u8; 4] = f.to_be_bytes();
-        let mut push_layer= bytes[3] as Field;
+        let mut push_layer = bytes[3] as Field;
         let push_layer_type_of_root = bytes[2] as Field;
         let pop_layer = bytes[1] as Field;
         let error = bytes[0] as Field;
@@ -95,7 +94,7 @@ impl RawTranscriptEntry {
 struct TranscriptEntry {
     token: Field,
     index: Field,
-    length: Field
+    length: Field,
 }
 
 struct ScanData {
@@ -107,7 +106,7 @@ struct ScanData {
 
 impl ScanData {
     unconstrained fn __from_field(f: Field) -> Self {
-        let bytes : [u8; 6]= f.to_le_bytes();
+        let bytes: [u8; 6] = f.to_le_bytes();
 
         let mut scan_token = bytes[0] as Field;
         let push_transcript = bytes[1] as Field;
@@ -126,14 +125,14 @@ impl ScanData {
         assert(result.push_transcript * result.push_transcript == result.push_transcript);
         assert(
             result.is_potential_escape_sequence * result.is_potential_escape_sequence
-            == result.is_potential_escape_sequence
+                == result.is_potential_escape_sequence,
         );
         assert(
             result.scan_token
-            + result.push_transcript * 0x100
-            + result.increase_length * 0x10000
-            + result.is_potential_escape_sequence * 0x1000000
-            == f
+                + result.push_transcript * 0x100
+                + result.increase_length * 0x10000
+                + result.is_potential_escape_sequence * 0x1000000
+                == f,
         );
         result
     }
