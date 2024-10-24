@@ -458,8 +458,8 @@ fn divmod_31(numerator: Field) -> (Field, Field) {
 
     // note: these range checks are because we know the denominator is 31
     // TODO: need more checks, atm remainder could equal 31
-    qf.assert_max_bit_size(14);
-    rf.assert_max_bit_size(5);
+    qf.assert_max_bit_size::<14>();
+    rf.assert_max_bit_size::<5>();
 
     // n / d = q
     // d * q + r = n
@@ -505,11 +505,11 @@ pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Fie
  **/
 pub fn slice_field(f: Field, num_bytes: Field) -> (Field, Field) {
     let chunks = __slice_field(f, num_bytes);
-    chunks[0].assert_max_bit_size(8); // 1.25 gates
-    chunks[1].assert_max_bit_size(16); // 1.5 gates
-    chunks[2].assert_max_bit_size(32); // 1.75 gates
-    chunks[3].assert_max_bit_size(64); // 3.25 gates
-    chunks[4].assert_max_bit_size(128); // 7.5 gates
+    chunks[0].assert_max_bit_size::<8>(); // 1.25 gates
+    chunks[1].assert_max_bit_size::<16>(); // 1.5 gates
+    chunks[2].assert_max_bit_size::<32>(); // 1.75 gates
+    chunks[3].assert_max_bit_size::<64>(); // 3.25 gates
+    chunks[4].assert_max_bit_size::<128>(); // 7.5 gates
 
     let mut head: Field = 0;
     let mut tail: Field = 0;

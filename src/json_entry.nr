@@ -29,11 +29,11 @@ impl JSONContextStackEntry {
     fn from_field(f: Field) -> Self {
         let result = JSONContextStackEntry::__from_field(f);
 
-        result.context.assert_max_bit_size(8); // 1.25
-        result.num_entries.assert_max_bit_size(16); // 1.5
-        result.current_key_index_and_length.assert_max_bit_size(32); // 1.75
-        result.json_index.assert_max_bit_size(16); // 1.5
-        result.current_identity.assert_max_bit_size(16); // 1.5
+        result.context.assert_max_bit_size::<8>(); // 1.25
+        result.num_entries.assert_max_bit_size::<16>(); // 1.5
+        result.current_key_index_and_length.assert_max_bit_size::<32>(); // 1.75
+        result.json_index.assert_max_bit_size::<16>(); // 1.5
+        result.current_identity.assert_max_bit_size::<16>(); // 1.5
         assert(result.to_field() == f); // 2
         result
     }
@@ -110,10 +110,10 @@ impl JSONEntry {
     // 11.75 gates
     fn extract_entry_type_id_and_parent_index_from_field(f: Field) -> (Field, Field, Field) {
         let (id, parent_index, mid, entry_type) = JSONEntry::__extract_entry_type_id_and_parent_index_from_field(f);
-        id.assert_max_bit_size(8); // 1.25
-        parent_index.assert_max_bit_size(16); // 1.5
-        entry_type.assert_max_bit_size(16); // 1.5
-        mid.assert_max_bit_size(136); // 5.5
+        id.assert_max_bit_size::<8>(); // 1.25
+        parent_index.assert_max_bit_size::<16>(); // 1.5
+        entry_type.assert_max_bit_size::<16>(); // 1.5
+        mid.assert_max_bit_size::<136>(); // 5.5
 
         assert(
             id
@@ -127,9 +127,9 @@ impl JSONEntry {
     }
     fn extract_entry_type_and_id_from_field(f: Field) -> (Field, Field) {
         let (id, mid, entry_type) = JSONEntry::__extract_entry_type_and_id_from_field(f);
-        id.assert_max_bit_size(8); // 1.25
-        entry_type.assert_max_bit_size(16); // 1.5
-        mid.assert_max_bit_size(136); // 5.5
+        id.assert_max_bit_size::<8>(); // 1.25
+        entry_type.assert_max_bit_size::<16>(); // 1.5
+        mid.assert_max_bit_size::<136>(); // 5.5
 
         assert(id + mid * 0x10000 + entry_type * 0x100000000000000000000000000000000000000 == f);
         (id, entry_type)
@@ -137,9 +137,9 @@ impl JSONEntry {
     fn extract_parent_index_from_field(f: Field) -> Field {
         let (low, parent_index, hi) = JSONEntry::__extract_parent_index_from_field(f);
 
-        low.assert_max_bit_size(16); // 1.75
-        hi.assert_max_bit_size(128); // 5.5
-        parent_index.assert_max_bit_size(16); // 1.75
+        low.assert_max_bit_size::<16>(); // 1.75
+        hi.assert_max_bit_size::<128>(); // 5.5
+        parent_index.assert_max_bit_size::<16>(); // 1.75
         assert(low + parent_index * 0x10000 + hi * 0x100000000 == f); // 1
         // 10 gates?
         parent_index
@@ -173,14 +173,14 @@ impl JSONEntry {
     }
     fn from_field(f: Field) -> Self {
         let result = JSONEntry::__from_field(f);
-        result.entry_type.assert_max_bit_size(8);
-        result.json_length.assert_max_bit_size(16);
-        result.json_pointer.assert_max_bit_size(16);
-        result.num_children.assert_max_bit_size(16);
-        result.child_pointer.assert_max_bit_size(16);
-        result.array_pointer.assert_max_bit_size(16);
-        result.parent_index.assert_max_bit_size(16);
-        result.id.assert_max_bit_size(16);
+        result.entry_type.assert_max_bit_size::<8>();
+        result.json_length.assert_max_bit_size::<16>();
+        result.json_pointer.assert_max_bit_size::<16>();
+        result.num_children.assert_max_bit_size::<16>();
+        result.child_pointer.assert_max_bit_size::<16>();
+        result.array_pointer.assert_max_bit_size::<16>();
+        result.parent_index.assert_max_bit_size::<16>();
+        result.id.assert_max_bit_size::<16>();
         assert(result.to_field() == f);
         result
     }
@@ -189,14 +189,14 @@ impl JSONEntry {
 impl std::convert::From<JSONEntryPacked> for JSONEntry {
     fn from(JSONEntryPacked{ value: f }: JSONEntryPacked) -> Self {
         let result = JSONEntry::__from_field(f);
-        result.entry_type.assert_max_bit_size(8);
-        result.json_length.assert_max_bit_size(16);
-        result.json_pointer.assert_max_bit_size(16);
-        result.num_children.assert_max_bit_size(16);
-        result.child_pointer.assert_max_bit_size(16);
-        result.array_pointer.assert_max_bit_size(16);
-        result.parent_index.assert_max_bit_size(16);
-        result.id.assert_max_bit_size(16);
+        result.entry_type.assert_max_bit_size::<8>();
+        result.json_length.assert_max_bit_size::<16>();
+        result.json_pointer.assert_max_bit_size::<16>();
+        result.num_children.assert_max_bit_size::<16>();
+        result.child_pointer.assert_max_bit_size::<16>();
+        result.array_pointer.assert_max_bit_size::<16>();
+        result.parent_index.assert_max_bit_size::<16>();
+        result.id.assert_max_bit_size::<16>();
         assert(result.to_field() == f);
         result
     }

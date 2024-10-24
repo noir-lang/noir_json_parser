@@ -69,9 +69,9 @@ impl RawTranscriptEntry {
     // 5.25 gates total
     fn from_field(felt: Field) -> Self {
         let result = RawTranscriptEntry::__from_field(felt);
-        result.length.assert_max_bit_size(16);
-        result.index.assert_max_bit_size(16);
-        result.encoded_ascii.assert_max_bit_size(14);
+        result.length.assert_max_bit_size::<16>();
+        result.index.assert_max_bit_size::<16>();
+        result.encoded_ascii.assert_max_bit_size::<14>();
 
         assert(result.encoded_ascii + result.index * 0x10000 + result.length * 0x100000000 == felt);
         result
@@ -85,8 +85,8 @@ impl RawTranscriptEntry {
     }
     fn extract_ascii(f: Field) -> (Field, Field) {
         let (ascii, remainder) = RawTranscriptEntry::__extract_ascii(f);
-        ascii.assert_max_bit_size(14);
-        remainder.assert_max_bit_size(32);
+        ascii.assert_max_bit_size::<14>();
+        remainder.assert_max_bit_size::<32>();
         assert(ascii + remainder * 0x10000 == f);
         (ascii, remainder)
     }
@@ -174,25 +174,25 @@ impl TranscriptEntry {
     // 4 gates
     fn get_token(f: Field) -> Field {
         let (token, remainder) = TranscriptEntry::__get_token(f);
-        remainder.assert_max_bit_size(32);
-        token.assert_max_bit_size(8);
+        remainder.assert_max_bit_size::<32>();
+        token.assert_max_bit_size::<8>();
         assert(token + remainder * 0x100 == f);
         token
     }
     // 5.25 gates
     fn from_field(felt: Field) -> Self {
         let result = TranscriptEntry::__from_field(felt);
-        result.length.assert_max_bit_size(16);
-        result.index.assert_max_bit_size(16);
-        result.token.assert_max_bit_size(8);
+        result.length.assert_max_bit_size::<16>();
+        result.index.assert_max_bit_size::<16>();
+        result.token.assert_max_bit_size::<8>();
         assert(result.token + result.index * 0x100 + result.length * 0x1000000 == felt);
         result
     }
 
     fn get_token_and_index_length_combined(f: Field) -> (Field, Field) {
         let (token, remainder) = TranscriptEntry::__get_token(f);
-        remainder.assert_max_bit_size(32);
-        token.assert_max_bit_size(8);
+        remainder.assert_max_bit_size::<32>();
+        token.assert_max_bit_size::<8>();
         assert(token + remainder * 0x100 == f);
         (token, remainder)
     }
@@ -200,7 +200,7 @@ impl TranscriptEntry {
     // 5.75 gates
     fn from_raw(raw_encoded: Field) -> Field {
         let (ascii, remainder) = RawTranscriptEntry::__extract_ascii(raw_encoded);
-        remainder.assert_max_bit_size(32);
+        remainder.assert_max_bit_size::<32>();
         assert(ascii + remainder * 0x10000 == raw_encoded);
         // this lookup enforces an implicit 10 bit range check on ascii
         let token = ASCII_TO_TOKEN_TABLE[ascii];

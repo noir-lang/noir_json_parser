@@ -407,7 +407,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
 
         // ensure an error isn't hiding in the last scanned token
-        scan_mode.assert_max_bit_size(2);
+        scan_mode.assert_max_bit_size::<2>();
         raw_transcript
     }
 
@@ -480,7 +480,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // we encode error flag into the scan_token value, which must be less than 4
         // the lookup into JSON_CAPTURE_TABLE applies an implicit 2-bit range check on `scan_token`
         // however this does not get triggered if the final byte scanned produces an error state
-        length.assert_max_bit_size(2);
+        length.assert_max_bit_size::<2>();
 
         JSON {
             json: self.json,

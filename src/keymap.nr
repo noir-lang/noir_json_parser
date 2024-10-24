@@ -36,10 +36,10 @@ impl KeyIndexData {
 
     fn from_field(packed: Field) -> Self {
         let result = KeyIndexData::__from_field(packed);
-        result.array_index.assert_max_bit_size(16);
-        result.json_length.assert_max_bit_size(16);
-        result.json_index.assert_max_bit_size(16);
-        result.parent_id.assert_max_bit_size(16);
+        result.array_index.assert_max_bit_size::<16>();
+        result.json_length.assert_max_bit_size::<16>();
+        result.json_index.assert_max_bit_size::<16>();
+        result.parent_id.assert_max_bit_size::<16>();
         assert(result.to_field() == packed);
         result
     }
