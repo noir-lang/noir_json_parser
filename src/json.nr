@@ -1,20 +1,20 @@
 use crate::_comparison_tools::bounds_checker;
 use crate::_comparison_tools::bounds_checker::get_validity_flags;
-use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER, SINGLE_VALUE_LAYER};
+use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
+use crate::enums::ScanMode::{GRAMMAR_SCAN, LITERAL_SCAN, NUMERIC_SCAN, STRING_SCAN};
 use crate::enums::Token::{
-    BEGIN_OBJECT_TOKEN, END_OBJECT_TOKEN, BEGIN_ARRAY_TOKEN, END_ARRAY_TOKEN, KEY_SEPARATOR_TOKEN,
-    VALUE_SEPARATOR_TOKEN, STRING_TOKEN, NUMERIC_TOKEN, LITERAL_TOKEN, KEY_TOKEN, NUM_TOKENS,
+    BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN,
+    KEY_TOKEN, LITERAL_TOKEN, NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN, VALUE_SEPARATOR_TOKEN,
 };
-use crate::enums::ScanMode::{GRAMMAR_SCAN, STRING_SCAN, NUMERIC_SCAN, LITERAL_SCAN};
 use crate::get_literal::JSONLiteral;
 use crate::json_entry::{JSONContextStackEntry, JSONEntry, JSONEntryPacked};
 use crate::json_tables::{
-    TOKEN_VALIDATION_TABLE, PROCESS_RAW_TRANSCRIPT_TABLE, JSON_CAPTURE_TABLE, TOKEN_FLAGS_TABLE,
-    TOKEN_IS_ARRAY_OBJECT_OR_VALUE,
+    JSON_CAPTURE_TABLE, PROCESS_RAW_TRANSCRIPT_TABLE, TOKEN_FLAGS_TABLE,
+    TOKEN_IS_ARRAY_OBJECT_OR_VALUE, TOKEN_VALIDATION_TABLE,
 };
 use crate::token_flags::TokenFlags;
 use crate::transcript_entry::{
-    ValidationFlags, TranscriptEntry, RawTranscriptEntry, ScanData, PostProcessScanData,
+    PostProcessScanData, RawTranscriptEntry, ScanData, TranscriptEntry, ValidationFlags,
 };
 
 /**

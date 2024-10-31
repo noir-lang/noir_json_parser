@@ -1,9 +1,9 @@
-use crate::json_entry::JSONEntry;
-use crate::json::JSON;
 use crate::_comparison_tools::lt::lt_field_16_bit;
-use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
+use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::LITERAL_TOKEN;
 use crate::getters::JSONValue;
+use crate::json::JSON;
+use crate::json_entry::JSONEntry;
 
 global MAX_LITERAL_LENGTH_AS_STRING = 5;
 global LITERAL_OFFSET_SHIFT: [Field; 6] =

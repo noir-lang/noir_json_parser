@@ -16,12 +16,12 @@ mod get_literal;
 mod get_object;
 mod get_array;
 
-use crate::json::JSON;
-use crate::json::JSONValue;
-use crate::json_entry::JSONEntryPacked;
-use crate::json_entry::JSONEntry;
 use crate::_string_tools::slice_packed_field::slice_fields;
 use crate::get_literal::JSONLiteral;
+use crate::json::JSON;
+use crate::json::JSONValue;
+use crate::json_entry::JSONEntry;
+use crate::json_entry::JSONEntryPacked;
 
 trait JSONParserTrait {
     fn parse_json_from_string<let StringBytes: u32>(s: str<StringBytes>) -> Self;

@@ -1,9 +1,9 @@
-use crate::json_entry::JSONEntry;
-use crate::json::JSON;
 use crate::_comparison_tools::lt::lt_field_16_bit;
+use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::END_ARRAY_TOKEN;
-use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
 use crate::getters::JSONValue;
+use crate::json::JSON;
+use crate::json_entry::JSONEntry;
 
 /**
  * @brief getter methods for extracting array types out of a JSON struct

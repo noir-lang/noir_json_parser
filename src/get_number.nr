@@ -1,10 +1,10 @@
-use crate::json_entry::JSONEntry;
-use crate::json::JSON;
 use crate::_comparison_tools::lt::lt_field_16_bit;
-use crate::json_tables::ASCII_TO_NUMBER;
+use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::NUMERIC_TOKEN;
-use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
 use crate::getters::JSONValue;
+use crate::json::JSON;
+use crate::json_entry::JSONEntry;
+use crate::json_tables::ASCII_TO_NUMBER;
 
 global U64_LENGTH_AS_BASE10_STRING = 20;
 global NUMBER_OFFSET_SHIFT: [Field; 21] = [

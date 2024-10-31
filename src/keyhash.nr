@@ -1,5 +1,5 @@
-use crate::_string_tools::slice_packed_field::slice_fields;
 use crate::_string_tools::slice_field::slice_200_bits_from_field;
+use crate::_string_tools::slice_packed_field::slice_fields;
 
 /**
  * @brief utility struct that computes a 200-bit Poseidon hash of some bytes,
