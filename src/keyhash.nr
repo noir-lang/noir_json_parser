@@ -1,13 +1,12 @@
-use crate::_string_tools::slice_packed_field::slice_fields;
 use crate::_string_tools::slice_field::slice_200_bits_from_field;
+use crate::_string_tools::slice_packed_field::slice_fields;
 
 /**
  * @brief utility struct that computes a 200-bit Poseidon hash of some bytes,
  *        when the bytes are represented as packed 31 byte Field elements
  * @note we wrap `get_keyhash` in a struct so that the KeyFields parameter can be defined ahead of time
  **/
-struct FieldHasher<let KeyFields: u32>
-{}
+struct FieldHasher<let KeyFields: u32> {}
 
 impl<let KeyFields: u32> FieldHasher<KeyFields> {
 
@@ -15,7 +14,7 @@ impl<let KeyFields: u32> FieldHasher<KeyFields> {
         _: Self,
         packed_fields: [Field; NumPackedFields],
         body_index: Field,
-        key_length: Field
+        key_length: Field,
     ) -> Field {
         let key_fields: [Field; KeyFields] = slice_fields(packed_fields, body_index, key_length);
         let hashed = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFields as u32);
@@ -29,8 +28,7 @@ impl<let KeyFields: u32> FieldHasher<KeyFields> {
  * @note we wrap `get_keyhash` in a struct so that the KeyFields parameter can be defined ahead of time
  * @note produces identical hash outputs when compared w. FieldHasher
  **/
-struct ByteHasher<let KeyFields: u32>
-{}
+struct ByteHasher<let KeyFields: u32> {}
 
 impl<let KeyFields: u32> ByteHasher<KeyFields> {
 
@@ -38,7 +36,7 @@ impl<let KeyFields: u32> ByteHasher<KeyFields> {
         _: Self,
         body_text: [u8; N],
         body_index: u32,
-        key_length: u32
+        key_length: u32,
     ) -> Field {
         assert(key_length < KeyFields * 31, "key too large");
 

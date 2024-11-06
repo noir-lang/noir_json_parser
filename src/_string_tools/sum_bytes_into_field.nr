@@ -5,54 +5,194 @@
  **/
 
 global PATH_LOOKUP: [[bool; 5]; 32] = [
-        [false, false, false, false, false],
-        [true, false, false, false, false],
-        [false, true, false, false, false],
-        [true, true, false, false, false],
-        [false, false, true, false, false],
-        [true, false, true, false, false],
-        [false, true, true, false, false],
-        [true, true, true, false, false],
-        [false, false, false, true, false],
-        [true, false, false, true, false],
-        [false, true, false, true, false],
-        [true, true, false, true, false],
-        [false, false, true, true, false],
-        [true, false, true, true, false],
-        [false, true, true, true, false],
-        [true, true, true, true, false],
-        [false, false, false, false, true],
-        [true, false, false, false, true],
-        [false, true, false, false, true],
-        [true, true, false, false, true],
-        [false, false, true, false, true],
-        [true, false, true, false, true],
-        [false, true, true, false, true],
-        [true, true, true, false, true],
-        [false, false, false, true, true],
-        [true, false, false, true, true],
-        [false, true, false, true, true],
-        [true, true, false, true, true],
-        [false, false, true, true, true],
-        [true, false, true, true, true],
-        [false, true, true, true, true],
-        [true, true, true, true, true]
-    ];
+    [false, false, false, false, false],
+    [true, false, false, false, false],
+    [false, true, false, false, false],
+    [true, true, false, false, false],
+    [false, false, true, false, false],
+    [true, false, true, false, false],
+    [false, true, true, false, false],
+    [true, true, true, false, false],
+    [false, false, false, true, false],
+    [true, false, false, true, false],
+    [false, true, false, true, false],
+    [true, true, false, true, false],
+    [false, false, true, true, false],
+    [true, false, true, true, false],
+    [false, true, true, true, false],
+    [true, true, true, true, false],
+    [false, false, false, false, true],
+    [true, false, false, false, true],
+    [false, true, false, false, true],
+    [true, true, false, false, true],
+    [false, false, true, false, true],
+    [true, false, true, false, true],
+    [false, true, true, false, true],
+    [true, true, true, false, true],
+    [false, false, false, true, true],
+    [true, false, false, true, true],
+    [false, true, false, true, true],
+    [true, true, false, true, true],
+    [false, false, true, true, true],
+    [true, false, true, true, true],
+    [false, true, true, true, true],
+    [true, true, true, true, true],
+];
 
 unconstrained fn get_path(idx: Field) -> [bool; 5] {
     PATH_LOOKUP[idx]
 }
 
-global tail_path_multipliers_chunk3: [Field; 32] = [0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-global tail_path_multipliers_chunk2: [Field; 32] = [0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x00, 0x00, 0x00, 0x00, 0x010000000000000000, 0x010000000000000000, 0x010000000000000000, 0x010000000000000000, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00];
-global tail_path_multipliers_chunk1: [Field; 32] = [0x0100000000000000000000000000000000000000000000000000000000, 0x0100000000000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x01000000000000000000000000000000000000000000000000, 0x01000000000000000000000000000000000000000000000000, 0x00, 0x00, 0x010000000000000000000000000000000000000000, 0x010000000000000000000000000000000000000000, 0x00, 0x00, 0x0100000000000000000000000000000000, 0x0100000000000000000000000000000000, 0x00, 0x00, 0x01000000000000000000000000, 0x01000000000000000000000000, 0x00, 0x00, 0x010000000000000000, 0x010000000000000000, 0x00, 0x00, 0x0100000000, 0x0100000000, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00];
-global tail_path_multipliers_chunk0: [Field; 32] = [0x01000000000000000000000000000000000000000000000000000000000000, 0x00, 0x0100000000000000000000000000000000000000000000000000000000, 0x00, 0x010000000000000000000000000000000000000000000000000000, 0x00, 0x01000000000000000000000000000000000000000000000000, 0x00, 0x0100000000000000000000000000000000000000000000, 0x00, 0x010000000000000000000000000000000000000000, 0x00, 0x01000000000000000000000000000000000000, 0x00, 0x0100000000000000000000000000000000, 0x00, 0x010000000000000000000000000000, 0x00, 0x01000000000000000000000000, 0x00, 0x0100000000000000000000, 0x00, 0x010000000000000000, 0x00, 0x01000000000000, 0x00, 0x0100000000, 0x00, 0x010000, 0x00, 0x01, 0x00];
+global tail_path_multipliers_chunk3: [Field; 32] = [
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x01,
+    0x01,
+    0x01,
+    0x01,
+    0x01,
+    0x01,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+];
+global tail_path_multipliers_chunk2: [Field; 32] = [
+    0x01000000000000000000000000000000000000000000000000,
+    0x01000000000000000000000000000000000000000000000000,
+    0x01000000000000000000000000000000000000000000000000,
+    0x01000000000000000000000000000000000000000000000000,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x010000000000000000,
+    0x010000000000000000,
+    0x010000000000000000,
+    0x010000000000000000,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x01,
+    0x01,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+];
+global tail_path_multipliers_chunk1: [Field; 32] = [
+    0x0100000000000000000000000000000000000000000000000000000000,
+    0x0100000000000000000000000000000000000000000000000000000000,
+    0x00,
+    0x00,
+    0x01000000000000000000000000000000000000000000000000,
+    0x01000000000000000000000000000000000000000000000000,
+    0x00,
+    0x00,
+    0x010000000000000000000000000000000000000000,
+    0x010000000000000000000000000000000000000000,
+    0x00,
+    0x00,
+    0x0100000000000000000000000000000000,
+    0x0100000000000000000000000000000000,
+    0x00,
+    0x00,
+    0x01000000000000000000000000,
+    0x01000000000000000000000000,
+    0x00,
+    0x00,
+    0x010000000000000000,
+    0x010000000000000000,
+    0x00,
+    0x00,
+    0x0100000000,
+    0x0100000000,
+    0x00,
+    0x00,
+    0x01,
+    0x01,
+    0x00,
+    0x00,
+];
+global tail_path_multipliers_chunk0: [Field; 32] = [
+    0x01000000000000000000000000000000000000000000000000000000000000,
+    0x00,
+    0x0100000000000000000000000000000000000000000000000000000000,
+    0x00,
+    0x010000000000000000000000000000000000000000000000000000,
+    0x00,
+    0x01000000000000000000000000000000000000000000000000,
+    0x00,
+    0x0100000000000000000000000000000000000000000000,
+    0x00,
+    0x010000000000000000000000000000000000000000,
+    0x00,
+    0x01000000000000000000000000000000000000,
+    0x00,
+    0x0100000000000000000000000000000000,
+    0x00,
+    0x010000000000000000000000000000,
+    0x00,
+    0x01000000000000000000000000,
+    0x00,
+    0x0100000000000000000000,
+    0x00,
+    0x010000000000000000,
+    0x00,
+    0x01000000000000,
+    0x00,
+    0x0100000000,
+    0x00,
+    0x010000,
+    0x00,
+    0x01,
+    0x00,
+];
 
-fn sum_var_bytes_into_field<let N: u32>(body_text: [u8; N], body_index: Field, num_bytes: Field) -> Field {
+fn sum_var_bytes_into_field<let N: u32>(
+    body_text: [u8; N],
+    body_index: Field,
+    num_bytes: Field,
+) -> Field {
     let path = get_path(num_bytes); // 5 gates
-    let path_f: [Field; 5] = [path[0] as Field, path[1] as Field, path[2] as Field, path[3] as Field, path[4] as Field];
+    let path_f: [Field; 5] =
+        [path[0] as Field, path[1] as Field, path[2] as Field, path[3] as Field, path[4] as Field];
 
-    assert(path_f[0] + path_f[1] * 2 + path_f[2] * 4 + path_f[3] * 8 + path_f[4] * 16 == num_bytes as Field);
+    assert(
+        path_f[0] + path_f[1] * 2 + path_f[2] * 4 + path_f[3] * 8 + path_f[4] * 16
+            == num_bytes as Field,
+    );
 
     let mut idx: Field = body_index as Field;
 
@@ -64,24 +204,38 @@ fn sum_var_bytes_into_field<let N: u32>(body_text: [u8; N], body_index: Field, n
     chunks[1] = body_text[idx] as Field * 0x100 + body_text[idx + 1] as Field;
     idx += path_f[1] * 2;
 
-    chunks[2] = body_text[idx] as Field * 0x1000000 + body_text[idx + 1] as Field * 0x10000
-    + body_text[idx + 2] as Field * 0x100 + body_text[idx + 3] as Field;
+    chunks[2] = body_text[idx] as Field * 0x1000000
+        + body_text[idx + 1] as Field * 0x10000
+        + body_text[idx + 2] as Field * 0x100
+        + body_text[idx + 3] as Field;
     idx += path_f[2] * 4;
 
-    chunks[3] = body_text[idx] as Field * 0x100000000000000 + body_text[idx + 1] as Field * 0x1000000000000
-    + body_text[idx + 2] as Field       * 0x10000000000 + body_text[idx + 3] as Field     * 0x100000000
-    + body_text[idx + 4] as Field       * 0x1000000 + body_text[idx + 5] as Field         * 0x10000
-    + body_text[idx + 6] as Field       * 0x100 + body_text[idx + 7] as Field;
+    chunks[3] = body_text[idx] as Field * 0x100000000000000
+        + body_text[idx + 1] as Field * 0x1000000000000
+        + body_text[idx + 2] as Field * 0x10000000000
+        + body_text[idx + 3] as Field * 0x100000000
+        + body_text[idx + 4] as Field * 0x1000000
+        + body_text[idx + 5] as Field * 0x10000
+        + body_text[idx + 6] as Field * 0x100
+        + body_text[idx + 7] as Field;
     idx += path_f[3] * 8;
 
-    chunks[4] = body_text[idx] as Field * 0x1000000000000000000000000000000 + body_text[idx + 1] as Field * 0x1000000000000000000000000000
-    + body_text[idx + 2] as Field * 0x100000000000000000000000000 + body_text[idx + 3] as Field * 0x1000000000000000000000000 
-    + body_text[idx + 4] as Field * 0x10000000000000000000000 + body_text[idx + 5] as Field * 0x100000000000000000000
-    + body_text[idx + 6] as Field * 0x1000000000000000000 + body_text[idx + 7] as Field * 0000000000000000
-    + body_text[idx + 8] as Field * 0x100000000000000 + body_text[idx + 9] as Field * 0x100000000000
-    + body_text[idx + 10] as Field * 0x10000000000 + body_text[idx + 11] as Field * 0x100000000
-    + body_text[idx + 12] as Field * 0x1000000 + body_text[idx + 13] as Field * 0x10000
-    + body_text[idx + 14] as Field * 0x100 + body_text[idx + 15] as Field;
+    chunks[4] = body_text[idx] as Field * 0x1000000000000000000000000000000
+        + body_text[idx + 1] as Field * 0x1000000000000000000000000000
+        + body_text[idx + 2] as Field * 0x100000000000000000000000000
+        + body_text[idx + 3] as Field * 0x1000000000000000000000000
+        + body_text[idx + 4] as Field * 0x10000000000000000000000
+        + body_text[idx + 5] as Field * 0x100000000000000000000
+        + body_text[idx + 6] as Field * 0x1000000000000000000
+        + body_text[idx + 7] as Field * 0000000000000000
+        + body_text[idx + 8] as Field * 0x100000000000000
+        + body_text[idx + 9] as Field * 0x100000000000
+        + body_text[idx + 10] as Field * 0x10000000000
+        + body_text[idx + 11] as Field * 0x100000000
+        + body_text[idx + 12] as Field * 0x1000000
+        + body_text[idx + 13] as Field * 0x10000
+        + body_text[idx + 14] as Field * 0x100
+        + body_text[idx + 15] as Field;
 
     chunks[0] *= path_f[0];
     chunks[1] *= path_f[1];

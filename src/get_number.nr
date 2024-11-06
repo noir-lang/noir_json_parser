@@ -1,14 +1,34 @@
-use crate::json_entry::JSONEntry;
-use crate::json::JSON;
 use crate::_comparison_tools::lt::lt_field_16_bit;
-use crate::json_tables::ASCII_TO_NUMBER;
+use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::NUMERIC_TOKEN;
-use crate::enums::Layer::{OBJECT_LAYER, ARRAY_LAYER};
 use crate::getters::JSONValue;
+use crate::json::JSON;
+use crate::json_entry::JSONEntry;
+use crate::json_tables::ASCII_TO_NUMBER;
 
 global U64_LENGTH_AS_BASE10_STRING = 20;
 global NUMBER_OFFSET_SHIFT: [Field; 21] = [
-    100000000000000000000,10000000000000000000,1000000000000000000,100000000000000000,10000000000000000,1000000000000000,100000000000000,10000000000000, 1000000000000, 100000000000, 10000000000, 1000000000, 100000000,10000000,1000000,100000,10000,1000,100,10,1
+    100000000000000000000,
+    10000000000000000000,
+    1000000000000000000,
+    100000000000000000,
+    10000000000000000,
+    1000000000000000,
+    100000000000000,
+    10000000000000,
+    1000000000000,
+    100000000000,
+    10000000000,
+    1000000000,
+    100000000,
+    10000000,
+    1000000,
+    100000,
+    10000,
+    1000,
+    100,
+    10,
+    1,
 ];
 
 fn extract_number_from_array(arr: [u8; U64_LENGTH_AS_BASE10_STRING], json_length: Field) -> u64 {
@@ -28,7 +48,7 @@ fn extract_number_from_array(arr: [u8; U64_LENGTH_AS_BASE10_STRING], json_length
  * @note numeric values must fit into a `u64` type.
  *       decimal values and scientific notation are not yet supported
  **/
-impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes,NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief if the root JSON is an object, extract a numeric value given by `key`
@@ -37,11 +57,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     fn get_number<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<u64> {
         let (exists, entry) = self.get_json_entry(key);
         assert(
-            (entry.entry_type - NUMERIC_TOKEN) * exists as Field == 0, "get_number: entry exists but is not a number!"
+            (entry.entry_type - NUMERIC_TOKEN) * exists as Field == 0,
+            "get_number: entry exists but is not a number!",
         );
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
 
-        Option { _is_some: exists, _value: extract_number_from_array(parsed_string, entry.json_length) }
+        Option {
+            _is_some: exists,
+            _value: extract_number_from_array(parsed_string, entry.json_length),
+        }
     }
 
     /**
@@ -49,8 +73,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description will revert if the number does not exist
      **/
     fn get_number_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> u64 {
-        let  entry = self.get_json_entry_unchecked(key);
-        assert(entry.entry_type == NUMERIC_TOKEN, "get_number_unchecked: entry exists but is not a number!");
+        let entry = self.get_json_entry_unchecked(key);
+        assert(
+            entry.entry_type == NUMERIC_TOKEN,
+            "get_number_unchecked: entry exists but is not a number!",
+        );
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
 
         extract_number_from_array(parsed_string, entry.json_length)
@@ -62,19 +89,26 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     fn get_number_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<u64> {
         let (exists, entry) = self.get_json_entry_var(key);
         assert(
-            (entry.entry_type - NUMERIC_TOKEN) * exists as Field == 0, "get_number: entry exists but is not a number!"
+            (entry.entry_type - NUMERIC_TOKEN) * exists as Field == 0,
+            "get_number: entry exists but is not a number!",
         );
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
 
-        Option { _is_some: exists, _value: extract_number_from_array(parsed_string, entry.json_length) }
+        Option {
+            _is_some: exists,
+            _value: extract_number_from_array(parsed_string, entry.json_length),
+        }
     }
 
     /**
      * @brief same as `get_number_unchecked` for where the key length may be less than KeyBytes
      **/
     fn get_number_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> u64 {
-        let  entry = self.get_json_entry_unchecked_var(key);
-        assert(entry.entry_type == NUMERIC_TOKEN, "get_number_unchecked: entry exists but is not a number!");
+        let entry = self.get_json_entry_unchecked_var(key);
+        assert(
+            entry.entry_type == NUMERIC_TOKEN,
+            "get_number_unchecked: entry exists but is not a number!",
+        );
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
 
         extract_number_from_array(parsed_string, entry.json_length)
@@ -85,17 +119,22 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description returns an Option<u64> which will be null if the number does not exist
      **/
     fn get_number_from_array(self, array_index: Field) -> Option<u64> {
-        assert(self.layer_type_of_root == ARRAY_LAYER, "can only acceess array elements from array");
+        assert(
+            self.layer_type_of_root == ARRAY_LAYER,
+            "can only acceess array elements from array",
+        );
 
-        let parent_entry : JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
+        let parent_entry: JSONEntry =
+            self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry : JSONEntry = self.json_entries_packed[entry_index].into();
+        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
 
         assert(
-            (entry.entry_type - NUMERIC_TOKEN) * valid as Field == 0, "get_number: entry exists but is not a number!"
+            (entry.entry_type - NUMERIC_TOKEN) * valid as Field == 0,
+            "get_number: entry exists but is not a number!",
         );
 
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
@@ -109,15 +148,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description will revert if the number does not exist
      **/
     fn get_number_from_array_unchecked(self, array_index: Field) -> u64 {
-        assert(self.layer_type_of_root == ARRAY_LAYER, "can only acceess array elements from array");
+        assert(
+            self.layer_type_of_root == ARRAY_LAYER,
+            "can only acceess array elements from array",
+        );
 
-        let parent_entry : JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
+        let parent_entry: JSONEntry =
+            self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
 
-        let entry : JSONEntry = self.json_entries_packed[entry_index].into();
+        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
 
         assert(entry.entry_type == NUMERIC_TOKEN, "get_number: entry exists but is not a number!");
 

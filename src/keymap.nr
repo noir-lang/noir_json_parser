@@ -1,10 +1,10 @@
-use crate::json::JSON;
-use crate::json_entry::{JSONEntryPacked, JSONEntry};
+use crate::_comparison_tools::lt::assert_lte_240_bit;
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::_comparison_tools::lt::lte_field_240_bit;
-use crate::_comparison_tools::lt::assert_lte_240_bit;
-use crate::json_tables::TOKEN_ENDS_OBJECT_OR_ARRAY;
 use crate::_string_tools::slice_packed_field::slice_fields;
+use crate::json::JSON;
+use crate::json_entry::{JSONEntry, JSONEntryPacked};
+use crate::json_tables::TOKEN_ENDS_OBJECT_OR_ARRAY;
 use crate::keyhash::FieldHasher;
 
 use dep::noir_sort;
@@ -36,10 +36,10 @@ impl KeyIndexData {
 
     fn from_field(packed: Field) -> Self {
         let result = KeyIndexData::__from_field(packed);
-        result.array_index.assert_max_bit_size(16);
-        result.json_length.assert_max_bit_size(16);
-        result.json_index.assert_max_bit_size(16);
-        result.parent_id.assert_max_bit_size(16);
+        result.array_index.assert_max_bit_size::<16>();
+        result.json_length.assert_max_bit_size::<16>();
+        result.json_index.assert_max_bit_size::<16>();
+        result.parent_id.assert_max_bit_size::<16>();
         assert(result.to_field() == packed);
         result
     }
@@ -54,18 +54,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let two_pow_200 = 0x10000000000000000000000000000000000000000000000000000;
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
         for i in 0..MaxNumValues {
-            let KeyIndexData{ json_index, json_length, parent_id, array_index } = KeyIndexData::from_field(self.key_data[i]);
+            let KeyIndexData { json_index, json_length, parent_id, array_index } =
+                KeyIndexData::from_field(self.key_data[i]);
             let hash = hasher.get_keyhash(self.json_packed, json_index, json_length);
             hashlist[i] = hash + array_index * two_pow_200 + parent_id * two_pow_216;
         }
 
         hashlist[MaxNumValues - 1] = 0; // we always ensure the last (unused hopefully!) entry goes first.
-
         self.json_entries_packed[MaxNumValues - 1] = JSONEntryPacked::default();
         // when updating identity_to_json_map we are relying on the fact that we can update sorted entry 0? maybe? oof document better
         let sort_result = noir_sort::sort_advanced(hashlist, lte_field_240_bit, assert_lte_240_bit);
 
-        let mut sorted_entries: [JSONEntryPacked; MaxNumValues] = [JSONEntryPacked::default(); MaxNumValues];
+        let mut sorted_entries: [JSONEntryPacked; MaxNumValues] =
+            [JSONEntryPacked::default(); MaxNumValues];
         for i in 0..MaxNumValues {
             sorted_entries[sort_result.sort_indices[i]] = self.json_entries_packed[i];
         }
@@ -76,7 +77,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         for i in 0..MaxNumValues {
             // 11.75 + 3.5 = 15.25 gates per iteration
-            let (id, parent_index, entry_type) = JSONEntry::extract_entry_type_id_and_parent_index_from_field(sorted_entries[i].value);
+            let (id, parent_index, entry_type) = JSONEntry::extract_entry_type_id_and_parent_index_from_field(
+                sorted_entries[i].value,
+            );
             ids[i] = id;
             parent_indices[i] = parent_index;
             entry_types[i] = entry_type;
@@ -101,7 +104,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         for i in 1..MaxNumValues {
             let parent_identity_post = parent_indices[i];
             // if the parent identity changes,
-
             // 3.5 gate
             // the list is sorted according to parent_ideneity,
             // n.b. parent_identity_post - parent_identity_pre is not neccessarily 0 or 1 (can be larger)
@@ -111,18 +113,20 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 3.5 gates
             let index_of_parent = identity_to_json_map[parent_identity_post];
             // 1 gate + 3.5 gates
-            let updated = JSONEntry::add_child_pointer_into_field(sorted_entries[index_of_parent].value, i as Field);
+            let updated = JSONEntry::add_child_pointer_into_field(
+                sorted_entries[index_of_parent].value,
+                i as Field,
+            );
 
             // RELIES ON THE SMALLEST ENTRY IN THE SORTED LIST BEING EMPTY
             // 1 gate
             let index = (index_of_parent * new_parent);
             // 3.5 gates
-            sorted_entries[index] = JSONEntryPacked{ value: updated };
+            sorted_entries[index] = JSONEntryPacked { value: updated };
 
             parent_identity_pre = parent_identity_post;
         }
         sorted_entries[0] = JSONEntryPacked::default(); // TODO document why we want to always make 0 a dead entry
-
         self.unsorted_json_entries_packed = self.json_entries_packed;
         self.json_entries_packed = sorted_entries;
         self.key_hashes = sort_result.sorted;
@@ -132,7 +136,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     unconstrained fn __find_root_entry(self) -> Field {
         let mut found_index = 0;
         for i in 0..MaxNumValues {
-            let entry : JSONEntry = self.json_entries_packed[i].into();
+            let entry: JSONEntry = self.json_entries_packed[i].into();
             if (entry.parent_index == 0) & (self.json_entries_packed[i].value != 0) {
                 found_index = i as Field;
                 break;

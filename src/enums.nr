@@ -15,7 +15,7 @@ mod Token {
     global VALUE_SEPARATOR_TOKEN = 6;
     global STRING_TOKEN = 7;
     global NUMERIC_TOKEN = 8;
-    global LITERAL_TOKEN  =9;
+    global LITERAL_TOKEN = 9;
     global KEY_TOKEN = 10;
     global NUM_TOKENS = 11;
     global NUM_TOKENS_MUL_2 = 22;

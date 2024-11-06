@@ -8,7 +8,7 @@ struct Slice200 {
     hihi: u64, // 7 bytes
     hilo: u64, // 7 bytes
     lohi: u64, // 7 bytes
-    lolo: u32 // 4 bytes
+    lolo: u32, // 4 bytes
 }
 global PHI_54: u64 = 0x30644E72E131A0;
 global PLO_200: Slice200 = Slice200 {
@@ -66,11 +66,11 @@ unconstrained fn __slice_200_bits_from_field(f: Field) -> (Field, Field, bool) {
 pub fn slice_200_bits_from_field(f: Field) -> Field {
     let (lo, hi, borrow) = __slice_200_bits_from_field(f);
     assert(hi * TWO_POW_200 + lo == f);
-    lo.assert_max_bit_size(200);
-    hi.assert_max_bit_size(56);
+    lo.assert_max_bit_size::<200>();
+    hi.assert_max_bit_size::<56>();
     let lo_diff = PLO_200_felt - lo + (borrow as Field * TWO_POW_200);
     let hi_diff = PHI_54_felt - hi - borrow as Field;
-    lo_diff.assert_max_bit_size(200);
-    hi_diff.assert_max_bit_size(56);
+    lo_diff.assert_max_bit_size::<200>();
+    hi_diff.assert_max_bit_size::<56>();
     lo
 }
