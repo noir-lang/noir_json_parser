@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/noir-lang/noir_json_parser/compare/v0.2.0...v0.3.0) (2024-11-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* update to support Noir 0.37.0 ([#16](https://github.com/noir-lang/noir_json_parser/issues/16))
+
+### Features
+
+* Update to support Noir 0.37.0 ([#16](https://github.com/noir-lang/noir_json_parser/issues/16)) ([b31c3a7](https://github.com/noir-lang/noir_json_parser/commit/b31c3a7ad950634031ae692941e23a2f6f0b035e))
+
+
+### Bug Fixes
+
+* Add type declarations to globals ([#21](https://github.com/noir-lang/noir_json_parser/issues/21)) ([c32dcd5](https://github.com/noir-lang/noir_json_parser/commit/c32dcd5bc6c924b613500122bb84ca8cc94c6cb9))
+
 ## 0.2.0 (2024-09-27)
 
 
