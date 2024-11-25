@@ -1,6 +1,6 @@
 mod ScanMode {
-    global GRAMMAR_SCAN: Field  = 0;
-    global STRING_SCAN: Field =    1;
+    global GRAMMAR_SCAN: Field = 0;
+    global STRING_SCAN: Field = 1;
     global NUMERIC_SCAN: Field = 2;
     global LITERAL_SCAN: Field = 3;
 }
@@ -22,7 +22,7 @@ mod Token {
 }
 
 mod Layer {
-    global OBJECT_LAYER: Field  = 0;
+    global OBJECT_LAYER: Field = 0;
     global ARRAY_LAYER: Field = 1;
     global SINGLE_VALUE_LAYER: Field = 2;
 }
