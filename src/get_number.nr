@@ -6,7 +6,7 @@ use crate::json::JSON;
 use crate::json_entry::JSONEntry;
 use crate::json_tables::ASCII_TO_NUMBER;
 
-global U64_LENGTH_AS_BASE10_STRING = 20;
+global U64_LENGTH_AS_BASE10_STRING: u32 = 20;
 global NUMBER_OFFSET_SHIFT: [Field; 21] = [
     100000000000000000000,
     10000000000000000000,
