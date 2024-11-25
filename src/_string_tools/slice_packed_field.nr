@@ -5,10 +5,10 @@
 // #############################################################
 // ### GLOBAL VARIABLES AND LOOKUP TABLES
 // #############################################################
-global two_pow_128 = 0x100000000000000000000000000000000;
-global two_pow_64 = 0x10000000000000000;
-global two_pow_32 = 0x100000000;
-global two_pow_16 = 0x10000;
+global two_pow_128: Field = 0x100000000000000000000000000000000;
+global two_pow_64: Field = 0x10000000000000000;
+global two_pow_32: Field = 0x100000000;
+global two_pow_16: Field = 0x10000;
 
 global path_multipliers_chunk4: [Field; 32] = [
     /* 0  (00000) */ 0,

@@ -5,7 +5,7 @@ use crate::getters::JSONValue;
 use crate::json::JSON;
 use crate::json_entry::JSONEntry;
 
-global MAX_LITERAL_LENGTH_AS_STRING = 5;
+global MAX_LITERAL_LENGTH_AS_STRING : u32= 5;
 global LITERAL_OFFSET_SHIFT: [Field; 6] =
     [0x10000000000, 0x100000000, 0x1000000, 0x10000, 0x100, 1];
 
