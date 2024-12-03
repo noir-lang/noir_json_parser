@@ -3,12 +3,12 @@ use crate::_table_generation::make_tables::CaptureMode::{
 };
 use crate::enums::Token::{
     BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN,
-    KEY_TOKEN, LITERAL_TOKEN, NO_TOKEN, NUMERIC_TOKEN, STRING_TOKEN, VALUE_SEPARATOR_TOKEN,
+    LITERAL_TOKEN, NO_TOKEN, NUMERIC_TOKEN, STRING_TOKEN, VALUE_SEPARATOR_TOKEN,
 };
 
-global TOKEN_IS_NUMERIC_OR_LITERAL: [Field; 11] = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0];
+pub global TOKEN_IS_NUMERIC_OR_LITERAL: [Field; 11] = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0];
 
-global GRAMMAR_CAPTURE_TABLE: [Field; 128] = [
+pub global GRAMMAR_CAPTURE_TABLE: [Field; 128] = [
     /* NULL */ ERROR_CAPTURE,
     /* SOH */ ERROR_CAPTURE,
     /* TXT */ ERROR_CAPTURE,
@@ -142,7 +142,7 @@ global GRAMMAR_CAPTURE_TABLE: [Field; 128] = [
     /*DEL*/ ERROR_CAPTURE,
 ];
 
-global STRING_CAPTURE_TABLE: [Field; 128] = [
+pub global STRING_CAPTURE_TABLE: [Field; 128] = [
     /* NULL */ ERROR_CAPTURE,
     /* SOH */ ERROR_CAPTURE,
     /* TXT */ ERROR_CAPTURE,
@@ -273,7 +273,7 @@ global STRING_CAPTURE_TABLE: [Field; 128] = [
     /*DEL*/ ERROR_CAPTURE,
 ];
 
-global NUMERIC_CAPTURE_TABLE: [Field; 128] = [
+pub global NUMERIC_CAPTURE_TABLE: [Field; 128] = [
     /* NULL */ ERROR_CAPTURE,
     /* SOH */ ERROR_CAPTURE,
     /* TXT */ ERROR_CAPTURE,
@@ -404,7 +404,7 @@ global NUMERIC_CAPTURE_TABLE: [Field; 128] = [
     /*DEL*/ ERROR_CAPTURE,
 ];
 
-global LITERAL_CAPTURE_TABLE: [Field; 128] = [
+pub global LITERAL_CAPTURE_TABLE: [Field; 128] = [
     /* NULL */ ERROR_CAPTURE,
     /* SOH */ ERROR_CAPTURE,
     /* TXT */ ERROR_CAPTURE,
@@ -535,7 +535,7 @@ global LITERAL_CAPTURE_TABLE: [Field; 128] = [
     /*DEL*/ ERROR_CAPTURE,
 ];
 
-global GRAMMAR_CAPTURE_TOKEN: [Field; 128] = [
+pub global GRAMMAR_CAPTURE_TOKEN: [Field; 128] = [
     /* NULL */ NO_TOKEN,
     /* SOH */ NO_TOKEN,
     /* TXT */ NO_TOKEN,
@@ -677,7 +677,7 @@ global GRAMMAR_CAPTURE_TOKEN: [Field; 128] = [
     /*DEL*/ NO_TOKEN,
 ];
 
-global GRAMMAR_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
+pub global GRAMMAR_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
     /* NULL */ false,
     /* SOH */ false,
     /* TXT */ false,
@@ -819,7 +819,7 @@ global GRAMMAR_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-global GRAMMAR_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
+pub global GRAMMAR_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
     /* NULL */ false,
     /* SOH */ false,
     /* TXT */ false,
@@ -961,7 +961,7 @@ global GRAMMAR_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-global STRING_CAPTURE_TOKEN: [Field; 128] = [
+pub global STRING_CAPTURE_TOKEN: [Field; 128] = [
     /* NULL */ NO_TOKEN,
     /* SOH */ NO_TOKEN,
     /* TXT */ NO_TOKEN,
@@ -1103,7 +1103,7 @@ global STRING_CAPTURE_TOKEN: [Field; 128] = [
     /*DEL*/ NO_TOKEN,
 ];
 
-global STRING_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
+pub global STRING_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
     /* NULL */ false,
     /* SOH */ false,
     /* TXT */ false,
@@ -1245,7 +1245,7 @@ global STRING_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-global STRING_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
+pub global STRING_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
     /* NULL */ false,
     /* SOH */ false,
     /* TXT */ false,
@@ -1387,7 +1387,7 @@ global STRING_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-global NUMERIC_CAPTURE_TOKEN: [Field; 128] = [
+pub global NUMERIC_CAPTURE_TOKEN: [Field; 128] = [
     /* NULL */ NO_TOKEN,
     /* SOH */ NO_TOKEN,
     /* TXT */ NO_TOKEN,
@@ -1529,7 +1529,7 @@ global NUMERIC_CAPTURE_TOKEN: [Field; 128] = [
     /*DEL*/ NO_TOKEN,
 ];
 
-global NUMERIC_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
+pub global NUMERIC_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
     /* NULL */ false,
     /* SOH */ false,
     /* TXT */ false,
@@ -1671,7 +1671,7 @@ global NUMERIC_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-global NUMERIC_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
+pub global NUMERIC_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
     /* NULL */ false,
     /* SOH */ false,
     /* TXT */ false,
@@ -1813,7 +1813,7 @@ global NUMERIC_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-global LITERAL_CAPTURE_TOKEN: [Field; 128] = [
+pub global LITERAL_CAPTURE_TOKEN: [Field; 128] = [
     /* NULL */ NO_TOKEN,
     /* SOH */ NO_TOKEN,
     /* TXT */ NO_TOKEN,
@@ -1944,7 +1944,7 @@ global LITERAL_CAPTURE_TOKEN: [Field; 128] = [
     /*DEL*/ NO_TOKEN,
 ];
 
-global LITERAL_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
+pub global LITERAL_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
     /* NULL */ false,
     /* SOH */ false,
     /* TXT */ false,
@@ -2086,7 +2086,7 @@ global LITERAL_CAPTURE_PUSH_TRANSCRIPT: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-global LITERAL_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
+pub global LITERAL_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
     /* NULL */ false,
     /* SOH */ false,
     /* TXT */ false,
@@ -2230,7 +2230,7 @@ global LITERAL_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
 
 // ####
 
-global GRAMMAR_CAPTURE_ERROR_FLAG: [bool; 128] = [
+pub global GRAMMAR_CAPTURE_ERROR_FLAG: [bool; 128] = [
     /* NULL */ true,
     /* SOH */ true,
     /* TXT */ true,
@@ -2364,7 +2364,7 @@ global GRAMMAR_CAPTURE_ERROR_FLAG: [bool; 128] = [
     /*DEL*/ true,
 ];
 
-global STRING_CAPTURE_ERROR_FLAG: [bool; 128] = [
+pub global STRING_CAPTURE_ERROR_FLAG: [bool; 128] = [
     /* NULL */ true,
     /* SOH */ true,
     /* TXT */ true,
@@ -2495,7 +2495,7 @@ global STRING_CAPTURE_ERROR_FLAG: [bool; 128] = [
     /*DEL*/ true,
 ];
 
-global NUMERIC_CAPTURE_ERROR_FLAG: [bool; 128] = [
+pub global NUMERIC_CAPTURE_ERROR_FLAG: [bool; 128] = [
     /* NULL */ true,
     /* SOH */ true,
     /* TXT */ true,
@@ -2626,7 +2626,7 @@ global NUMERIC_CAPTURE_ERROR_FLAG: [bool; 128] = [
     /*DEL*/ true,
 ];
 
-global LITERAL_CAPTURE_ERROR_FLAG: [bool; 128] = [
+pub global LITERAL_CAPTURE_ERROR_FLAG: [bool; 128] = [
     /* NULL */ true,
     /* SOH */ true,
     /* TXT */ true,

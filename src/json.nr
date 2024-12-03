@@ -1,10 +1,9 @@
-use crate::_comparison_tools::bounds_checker;
 use crate::_comparison_tools::bounds_checker::get_validity_flags;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
-use crate::enums::ScanMode::{GRAMMAR_SCAN, LITERAL_SCAN, NUMERIC_SCAN, STRING_SCAN};
+use crate::enums::ScanMode::GRAMMAR_SCAN;
 use crate::enums::Token::{
-    BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN,
-    KEY_TOKEN, LITERAL_TOKEN, NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN, VALUE_SEPARATOR_TOKEN,
+    BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN, KEY_TOKEN, LITERAL_TOKEN,
+    NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN,
 };
 use crate::get_literal::JSONLiteral;
 use crate::json_entry::{JSONContextStackEntry, JSONEntry, JSONEntryPacked};
@@ -20,9 +19,9 @@ use crate::transcript_entry::{
 /**
  * @brief records a value in a json blob
  **/
-struct JSONValue<let MaxLength: u32> {
-    value: BoundedVec<u8, MaxLength>, // raw bytes that constitute the json value entry
-    value_type: Field, // either STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN
+pub struct JSONValue<let MaxLength: u32> {
+    pub value: BoundedVec<u8, MaxLength>, // raw bytes that constitute the json value entry
+    pub value_type: Field, // either STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN
 }
 
 impl<let MaxLength: u32> JSONValue<MaxLength> {
@@ -42,19 +41,19 @@ impl<let MaxLength: u32> JSONValue<MaxLength> {
  * @description The "root" of the JSON refers to the parent object or array (or a value if the json is just a single value e.g. text = "\"foo\": \"bar\"")
  * @note text that describes just a single JSON value is not yet fully supported. Only use this library for processing objects or arrays for now
  **/
-struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> {
-    json: [u8; NumBytes], // the raw json bytes
-    json_packed: [Field; NumPackedFields], // raw bytes, but packed into 31-byte Field elements
-    raw_transcript: [Field; MaxNumTokens], // transcript of json tokens after basic processing
-    transcript: [Field; MaxNumTokens], // complete transcript of json tokens
-    transcript_length: u32, // how big is the transcript?
-    key_data: [Field; MaxNumValues], // description of each key, packed into a Field element
-    key_hashes: [Field; MaxNumValues], // a sorted list of key hashes
-    unsorted_json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
-    json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
-    layer_type_of_root: Field, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
-    root_id: Field, // the unique identifier of the root (if an object or array)
-    root_index_in_transcript: Field, // location in json_entries_packed of the root
+pub struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> {
+    pub json: [u8; NumBytes], // the raw json bytes
+    pub json_packed: [Field; NumPackedFields], // raw bytes, but packed into 31-byte Field elements
+    pub raw_transcript: [Field; MaxNumTokens], // transcript of json tokens after basic processing
+    pub transcript: [Field; MaxNumTokens], // complete transcript of json tokens
+    pub transcript_length: u32, // how big is the transcript?
+    pub key_data: [Field; MaxNumValues], // description of each key, packed into a Field element
+    pub key_hashes: [Field; MaxNumValues], // a sorted list of key hashes
+    pub unsorted_json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
+    pub json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
+    pub layer_type_of_root: Field, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
+    pub root_id: Field, // the unique identifier of the root (if an object or array)
+    pub root_index_in_transcript: Field, // location in json_entries_packed of the root
 }
 
 /**
@@ -251,7 +250,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut tokens: [Field; MaxNumTokens] = [0; MaxNumTokens];
         //  maybe 71.75 gates per iteration
         for i in 0..MaxNumTokens {
-            __check_entry_ptr_bounds(entry_ptr, MaxNumValues);
+            unsafe { __check_entry_ptr_bounds(entry_ptr, MaxNumValues) };
             // 5.25 gates
             let TranscriptEntry { token, index, length } =
                 TranscriptEntry::from_field(self.transcript[i]);
@@ -462,7 +461,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut scan_mode = GRAMMAR_SCAN;
         let mut length: Field = 0;
 
-        let raw_transcript = self.__build_transcript();
+        let raw_transcript = unsafe { self.__build_transcript() };
 
         // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
         let mut previous_was_potential_escape_sequence = 0;
@@ -570,7 +569,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     fn capture_missing_tokens(&mut self) {
         let mut transcript_ptr: Field = 0;
         // hmm probably need a null transcript value?!?!
-        let updated_transcript = self.__capture_missing_tokens();
+        let updated_transcript = unsafe { self.__capture_missing_tokens() };
         // 26? gates per iteration
         let range_valid: [Field; MaxNumTokens] = get_validity_flags(self.transcript_length);
         for i in 0..MaxNumTokens {
@@ -620,7 +619,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {
+    pub fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {
         assert(StringBytes <= NumBytes, "json length exceeds NumBytes!");
         let mut text: [u8; NumBytes] = [0; NumBytes];
         for i in 0..StringBytes {
@@ -655,7 +654,21 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         json
     }
 
-    fn parse_json_from_string<let StringBytes: u32>(s: str<StringBytes>) -> Self {
+    pub fn parse_json_from_bounded_vec<let MaxBytes: u32>(
+        stringbytes: BoundedVec<u8, MaxBytes>,
+    ) -> Self {
+        let mut padded_json: [u8; MaxBytes] = [0; MaxBytes];
+        for i in 0..MaxBytes {
+            let lhs = stringbytes.get_unchecked(i) as Field;
+            let rhs = 32;
+            let predicate = (i < stringbytes.len()) as Field;
+            let byte = ((lhs - rhs) * predicate + rhs) as u8;
+            padded_json[i] = byte;
+        }
+        JSON::parse_json(padded_json)
+    }
+
+    pub fn parse_json_from_string<let StringBytes: u32>(s: str<StringBytes>) -> Self {
         JSON::parse_json(s.as_bytes())
     }
 }
@@ -737,8 +750,8 @@ fn test_escaped_strings() {
     let text = "{   \"name\": \"\\\"Ade\\nel Solangi\\\"\", \"testA\": false, \"testB\": true, \"testC\": null }                                                                   ";
     let mut json: JSON<148, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
     let result: BoundedVec<u8, 19> = json.get_string_unchecked("name".as_bytes());
-    assert(result.storage == BoundedVec::from_array("\"Ade\nel Solangi\"".as_bytes()).storage);
-    assert(result.len == 16);
+    assert(result.storage() == BoundedVec::from_array("\"Ade\nel Solangi\"".as_bytes()).storage());
+    assert(result.len() == 16);
 }
 
 #[test]
@@ -747,11 +760,52 @@ fn test_parse_json() {
     let mut json: JSON<68, 7, 30, 30, 2> = JSON::parse_json_from_string(text);
 
     let result = json.get_string_unchecked("baz".as_bytes());
-    assert(result.storage == "hello".as_bytes());
+    assert(result.storage() == "hello".as_bytes());
 
     let result: Option<BoundedVec<u8, 5>> = json.get_string("baz".as_bytes());
     assert(result.is_some());
-    assert(result.unwrap().storage == "hello".as_bytes());
+    assert(result.unwrap().storage() == "hello".as_bytes());
+
+    let result: Option<BoundedVec<u8, 1>> = json.get_string("wibble".as_bytes());
+    assert(result.is_some() == false);
+
+    let result: u64 = json.get_number_unchecked("foo".as_bytes());
+    assert(result == 1234);
+
+    let result: Option<u64> = json.get_number("foo".as_bytes());
+    assert(result.is_some());
+    assert(result.unwrap() == 1234);
+
+    let result: Option<u64> = json.get_number("fooo".as_bytes());
+    assert(result.is_some() == false);
+
+    let mut nested_json = json.get_object("bar".as_bytes()).unwrap();
+    let result: Option<u64> = nested_json.get_number_var(
+        BoundedVec { storage: "foounusedkeybyteslolol".as_bytes(), len: 3 },
+    );
+    assert(result.is_some() == true);
+    assert(result.unwrap() == 9876);
+
+    let key0: BoundedVec<u8, 3> = BoundedVec::from_array("bar".as_bytes());
+    let key1: BoundedVec<u8, 3> = BoundedVec::from_array("baz".as_bytes());
+
+    let result: Option<BoundedVec<u8, 10>> = json.get_string_from_path([key0, key1]);
+    assert(result.is_some() == false);
+}
+
+#[test]
+fn test_parse_json_bounded_vec() {
+    let text = "{ \"foo\": 1234, \"bar\": { \"foo\": 9876, \"bar\": true }, \"baz\": \"hello\" }";
+    let mut vec: BoundedVec<u8, 90> = BoundedVec::from_array(text.as_bytes());
+
+    let mut json: JSON<90, 7, 30, 30, 2> = JSON::parse_json_from_bounded_vec(vec);
+
+    let result = json.get_string_unchecked("baz".as_bytes());
+    assert(result.storage() == "hello".as_bytes());
+
+    let result: Option<BoundedVec<u8, 5>> = json.get_string("baz".as_bytes());
+    assert(result.is_some());
+    assert(result.unwrap().storage() == "hello".as_bytes());
 
     let result: Option<BoundedVec<u8, 1>> = json.get_string("wibble".as_bytes());
     assert(result.is_some() == false);

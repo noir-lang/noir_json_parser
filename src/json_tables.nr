@@ -1,8 +1,8 @@
 use crate::enums::Token::NUM_TOKENS_MUL_2;
 
-global TOKEN_ENDS_OBJECT_OR_ARRAY: [Field; 11] = [0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0];
-global TOKEN_IS_ARRAY_OBJECT_OR_VALUE: [Field; 11] = [0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0];
-global TOKEN_FLAGS_TABLE: [Field; NUM_TOKENS_MUL_2] = [
+pub global TOKEN_ENDS_OBJECT_OR_ARRAY: [Field; 11] = [0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0];
+pub global TOKEN_IS_ARRAY_OBJECT_OR_VALUE: [Field; 11] = [0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0];
+pub global TOKEN_FLAGS_TABLE: [Field; NUM_TOKENS_MUL_2] = [
     0x01,
     0x0100000000,
     0x01010000000000,
@@ -26,7 +26,7 @@ global TOKEN_FLAGS_TABLE: [Field; NUM_TOKENS_MUL_2] = [
     0x01000001000101,
     0x01010001,
 ];
-global PROCESS_RAW_TRANSCRIPT_TABLE: [Field; 1024] = [
+pub global PROCESS_RAW_TRANSCRIPT_TABLE: [Field; 1024] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x060006, 0x00, 0x00,
@@ -95,7 +95,7 @@ global PROCESS_RAW_TRANSCRIPT_TABLE: [Field; 1024] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ];
-global ASCII_TO_TOKEN_TABLE: [Field; 1024] = [
+pub global ASCII_TO_TOKEN_TABLE: [Field; 1024] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
@@ -161,7 +161,7 @@ global ASCII_TO_TOKEN_TABLE: [Field; 1024] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ];
-global JSON_CAPTURE_TABLE: [Field; 2048] = [
+pub global JSON_CAPTURE_TABLE: [Field; 2048] = [
     0x0100000004,
     0x0100000004,
     0x0100000004,
@@ -2211,7 +2211,7 @@ global JSON_CAPTURE_TABLE: [Field; 2048] = [
     0x0100000000,
     0x0100000000,
 ];
-global TOKEN_VALIDATION_TABLE: [Field; 363] = [
+pub global TOKEN_VALIDATION_TABLE: [Field; 363] = [
     0x00, 0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x01000000,
     0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x010000, 0x01000000, 0x01000000,
     0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x01000000, 0x00, 0x00, 0x01000000, 0x010000,
@@ -2258,7 +2258,7 @@ global TOKEN_VALIDATION_TABLE: [Field; 363] = [
     0x01000000, 0x01000000, 0x01000000, 0x00, 0x01000000, 0x01000000, 0x01000000, 0x01000000,
     0x01000000,
 ];
-global ASCII_TO_NUMBER: [u8; 128] = [
+pub global ASCII_TO_NUMBER: [u8; 128] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     /*   */ 0, /*"!"*/ 0, /* " */ 0, /*"#"*/ 0, /*"$"*/ 0, /*"%"*/ 0, /*"&"*/ 0, /*"'"*/ 0, /*"("*/ 0,
     /*")"*/ 0, /*"*"*/ 0, /*"+"*/ 0, /*","*/ 0, /*"-"*/ 0, /*"."*/ 0, /*"/"*/ 0, /*"0"*/ 0, // numeric value
@@ -2297,7 +2297,7 @@ global ASCII_TO_NUMBER: [u8; 128] = [
     0, /*"}"*/ 0, /*"~"*/ 0, /*DEL*/ 0,
 ];
 
-global ESCAPE_SEQUENCE_END_CHARS: [bool; 128] = [
+pub global ESCAPE_SEQUENCE_END_CHARS: [bool; 128] = [
     /* NULL */ false,
     /* SOH */ false,
     /* TXT */ false,
@@ -2435,7 +2435,7 @@ global ESCAPE_SEQUENCE_END_CHARS: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-global ESCAPE_SEQUENCE_START_CHARS: [bool; 128] = [
+pub global ESCAPE_SEQUENCE_START_CHARS: [bool; 128] = [
     /* NULL */ false,
     /* SOH */ false,
     /* TXT */ false,
@@ -2567,7 +2567,7 @@ global ESCAPE_SEQUENCE_START_CHARS: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-global ESCAPE_SEQUENCE_REPLACEMENT: [u8; 128] = [
+pub global ESCAPE_SEQUENCE_REPLACEMENT: [u8; 128] = [
     /* NULL */ 0,
     /* SOH */ 0,
     /* TXT */ 0,

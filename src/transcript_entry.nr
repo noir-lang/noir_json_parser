@@ -1,9 +1,9 @@
 use crate::json_tables::ASCII_TO_TOKEN_TABLE;
 
-struct ValidationFlags {
-    push_layer: Field,
-    push_layer_type_of_root: Field,
-    pop_layer: Field,
+pub struct ValidationFlags {
+    pub push_layer: Field,
+    pub push_layer_type_of_root: Field,
+    pub pop_layer: Field,
 }
 
 impl ValidationFlags {
@@ -32,8 +32,8 @@ impl ValidationFlags {
     }
 
     // 3 gates
-    fn from_field(f: Field) -> Self {
-        let r = ValidationFlags::__from_field(f);
+    pub fn from_field(f: Field) -> Self {
+        let r = unsafe { ValidationFlags::__from_field(f) };
         assert(r.pop_layer * r.pop_layer == r.pop_layer);
         assert(r.push_layer_type_of_root * r.push_layer_type_of_root == r.push_layer_type_of_root);
         assert(r.pop_layer * 0x10000 + r.push_layer_type_of_root * 0x100 + r.push_layer == f);
@@ -41,21 +41,21 @@ impl ValidationFlags {
     }
 }
 
-struct RawTranscriptEntry {
-    encoded_ascii: Field,
-    index: Field,
-    length: Field,
+pub struct RawTranscriptEntry {
+    pub encoded_ascii: Field,
+    pub index: Field,
+    pub length: Field,
 }
 
 impl RawTranscriptEntry {
-    fn new() -> Self {
+    pub fn new() -> Self {
         RawTranscriptEntry { encoded_ascii: 0, index: 0, length: 0 }
     }
-    fn to_field(self) -> Field {
+    pub fn to_field(self) -> Field {
         self.encoded_ascii + self.index * 0x10000 + self.length * (0x100000000)
     }
 
-    unconstrained fn __from_field(felt: Field) -> Self {
+    pub unconstrained fn __from_field(felt: Field) -> Self {
         let slices: [u8; 6] = felt.to_be_bytes(); // 2 gates + 1.25 + 2 = 5.25
         let length = slices[1] as Field + slices[0] as Field * 0x100;
         let index = slices[3] as Field + slices[2] as Field * 0x100;
@@ -66,8 +66,8 @@ impl RawTranscriptEntry {
     // 1.25 gates for range checks
     // 2 gates to get u16s
     // 5.25 gates total
-    fn from_field(felt: Field) -> Self {
-        let result = RawTranscriptEntry::__from_field(felt);
+    pub fn from_field(felt: Field) -> Self {
+        let result = unsafe { RawTranscriptEntry::__from_field(felt) };
         result.length.assert_max_bit_size::<16>();
         result.index.assert_max_bit_size::<16>();
         result.encoded_ascii.assert_max_bit_size::<14>();
@@ -83,7 +83,7 @@ impl RawTranscriptEntry {
         (ascii, remainder)
     }
     fn extract_ascii(f: Field) -> (Field, Field) {
-        let (ascii, remainder) = RawTranscriptEntry::__extract_ascii(f);
+        let (ascii, remainder) = unsafe { RawTranscriptEntry::__extract_ascii(f) };
         ascii.assert_max_bit_size::<14>();
         remainder.assert_max_bit_size::<32>();
         assert(ascii + remainder * 0x10000 == f);
@@ -91,17 +91,17 @@ impl RawTranscriptEntry {
     }
 }
 
-struct TranscriptEntry {
-    token: Field,
-    index: Field,
-    length: Field,
+pub struct TranscriptEntry {
+    pub token: Field,
+    pub index: Field,
+    pub length: Field,
 }
 
-struct ScanData {
-    scan_token: Field,
-    push_transcript: Field,
-    increase_length: Field,
-    is_potential_escape_sequence: Field,
+pub struct ScanData {
+    pub scan_token: Field,
+    pub push_transcript: Field,
+    pub increase_length: Field,
+    pub is_potential_escape_sequence: Field,
 }
 
 impl ScanData {
@@ -118,8 +118,8 @@ impl ScanData {
         scan_token = scan_token + error * 0x100000000;
         ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence }
     }
-    fn from_field(f: Field) -> Self {
-        let result = ScanData::__from_field(f);
+    pub fn from_field(f: Field) -> Self {
+        let result = unsafe { ScanData::__from_field(f) };
 
         assert(result.increase_length * result.increase_length == result.increase_length);
         assert(result.push_transcript * result.push_transcript == result.push_transcript);
@@ -138,13 +138,13 @@ impl ScanData {
     }
 }
 
-struct PostProcessScanData {
-    token: Field,
-    new_grammar: Field,
-    scan_token: Field,
+pub struct PostProcessScanData {
+    pub token: Field,
+    pub new_grammar: Field,
+    pub scan_token: Field,
 }
 impl PostProcessScanData {
-    fn from_field(f: Field) -> Self {
+    pub fn from_field(f: Field) -> Self {
         let bytes: [u8; 3] = f.to_be_bytes();
         let token = bytes[2] as Field;
         let new_grammar = bytes[1] as Field;
@@ -153,13 +153,13 @@ impl PostProcessScanData {
     }
 }
 impl TranscriptEntry {
-    fn new() -> Self {
+    pub fn new() -> Self {
         TranscriptEntry { token: 0, index: 0, length: 0 }
     }
-    fn to_field(self) -> Field {
+    pub fn to_field(self) -> Field {
         self.token + self.index * 0x100 + self.length * (0x1000000)
     }
-    unconstrained fn __from_field(felt: Field) -> Self {
+    pub unconstrained fn __from_field(felt: Field) -> Self {
         let slices: [u8; 5] = felt.to_be_bytes(); // 2 gates + 1.25 + 2 = 5.25
         let length = slices[1] as Field + slices[0] as Field * 256;
         let index = slices[3] as Field + slices[2] as Field * 256;
@@ -171,16 +171,16 @@ impl TranscriptEntry {
         (r.token, (r.index + r.length * 0x10000))
     }
     // 4 gates
-    fn get_token(f: Field) -> Field {
-        let (token, remainder) = TranscriptEntry::__get_token(f);
+    pub fn get_token(f: Field) -> Field {
+        let (token, remainder) = unsafe { TranscriptEntry::__get_token(f) };
         remainder.assert_max_bit_size::<32>();
         token.assert_max_bit_size::<8>();
         assert(token + remainder * 0x100 == f);
         token
     }
     // 5.25 gates
-    fn from_field(felt: Field) -> Self {
-        let result = TranscriptEntry::__from_field(felt);
+    pub fn from_field(felt: Field) -> Self {
+        let result = unsafe { TranscriptEntry::__from_field(felt) };
         result.length.assert_max_bit_size::<16>();
         result.index.assert_max_bit_size::<16>();
         result.token.assert_max_bit_size::<8>();
@@ -188,8 +188,8 @@ impl TranscriptEntry {
         result
     }
 
-    fn get_token_and_index_length_combined(f: Field) -> (Field, Field) {
-        let (token, remainder) = TranscriptEntry::__get_token(f);
+    pub fn get_token_and_index_length_combined(f: Field) -> (Field, Field) {
+        let (token, remainder) = unsafe { TranscriptEntry::__get_token(f) };
         remainder.assert_max_bit_size::<32>();
         token.assert_max_bit_size::<8>();
         assert(token + remainder * 0x100 == f);
@@ -197,8 +197,8 @@ impl TranscriptEntry {
     }
 
     // 5.75 gates
-    fn from_raw(raw_encoded: Field) -> Field {
-        let (ascii, remainder) = RawTranscriptEntry::__extract_ascii(raw_encoded);
+    pub fn from_raw(raw_encoded: Field) -> Field {
+        let (ascii, remainder) = unsafe { RawTranscriptEntry::__extract_ascii(raw_encoded) };
         remainder.assert_max_bit_size::<32>();
         assert(ascii + remainder * 0x10000 == raw_encoded);
         // this lookup enforces an implicit 10 bit range check on ascii

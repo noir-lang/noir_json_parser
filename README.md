@@ -8,7 +8,7 @@ Features:
 - flexible interface can process arbitrary JSON schemas
 - O(1) algorithms to query whether keys exist
 
-> **requires Noir v0.32 or greater**
+> **requires Noir v0.37 or greater**
 
 > **if using bb backend, megaplonk (`bb prove_mega_honk`) will give best performance as json-parser uses a megaplonk-friendly hash function Poseidon2**
 > (see [bb documentation](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/cpp/src/barretenberg/bb/readme.md#installation) for install/upgrade details)
