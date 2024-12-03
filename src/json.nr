@@ -658,11 +658,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         stringbytes: BoundedVec<u8, MaxBytes>,
     ) -> Self {
         let mut padded_json: [u8; MaxBytes] = [0; MaxBytes];
+        let range_valid: [Field; MaxBytes] = get_validity_flags(stringbytes.len());
         for i in 0..MaxBytes {
             let lhs = stringbytes.get_unchecked(i) as Field;
             let rhs = 32;
-            let predicate = (i < stringbytes.len()) as Field;
-            let byte = ((lhs - rhs) * predicate + rhs) as u8;
+            // delta = 0 gates, rhs is constant
+            let delta = lhs - rhs;
+            // 1 arithmetic gate + 1.25 gates to cast to u8 + 2 gates to generate range_valid[i]
+            // total = 4.25 gates per iteration
+            let byte = (delta * range_valid[i] + rhs) as u8;
             padded_json[i] = byte;
         }
         JSON::parse_json(padded_json)
