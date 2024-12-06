@@ -1,9 +1,9 @@
 use crate::_string_tools::slice_packed_field::slice_fields;
 
-struct StringChopper<let NeedlePackedFields: u32> {}
+pub struct StringChopper<let NeedlePackedFields: u32> {}
 
 impl<let NeedlePackedFields: u32> StringChopper<NeedlePackedFields> {
-    fn slice_string<let StringBytes: u32, let HaystackPackedFields: u32>(
+    pub fn slice_string<let StringBytes: u32, let HaystackPackedFields: u32>(
         _: Self,
         haystack: [Field; HaystackPackedFields],
         start_bytes: Field,

@@ -1,7 +1,6 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::END_OBJECT_TOKEN;
-use crate::getters::JSONValue;
 use crate::json::JSON;
 use crate::json_entry::JSONEntry;
 
@@ -14,7 +13,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract a child object given by `key`
      * @description returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value  
      **/
-    fn get_object<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
+    pub fn get_object<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl(key);
@@ -36,7 +35,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract a child object given by `key`
      * @description will revert if the requested object does not exist
      **/
-    fn get_object_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
+    pub fn get_object_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
@@ -56,7 +55,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_object` for where the key length may be less than KeyBytes
      **/
-    fn get_object_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<Self> {
+    pub fn get_object_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<Self> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl_var(key);
@@ -77,7 +76,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_object_unchecked` for where the key length may be less than KeyBytes
      **/
-    fn get_object_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Self {
+    pub fn get_object_unchecked_var<let KeyBytes: u32>(
+        self,
+        key: BoundedVec<u8, KeyBytes>,
+    ) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
@@ -98,7 +100,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract an object given by the position of the target in the source array
      * @description returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value  
      **/
-    fn get_object_from_array(self, array_index: Field) -> Option<Self> {
+    pub fn get_object_from_array(self, array_index: Field) -> Option<Self> {
         assert(
             self.layer_type_of_root == ARRAY_LAYER,
             "can only acceess array elements from array",
@@ -130,7 +132,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract an object given by the position of the target in the source array
      * @description will revert if the object does not exist
      **/
-    fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
+    pub fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
         assert(
             self.layer_type_of_root == ARRAY_LAYER,
             "can only acceess array elements from array",
@@ -202,7 +204,7 @@ fn test_object() {
     let E: BoundedVec<u8, 1> = third.get_string_from_array_unchecked(0);
     let F: BoundedVec<u8, 1> = third.get_string_from_array_unchecked(1);
     let G: BoundedVec<u8, 1> = third.get_string_from_array_unchecked(2);
-    assert(E.storage == "b".as_bytes());
-    assert(F.storage == "a".as_bytes());
-    assert(G.storage == "z".as_bytes());
+    assert(E.storage() == "b".as_bytes());
+    assert(F.storage() == "a".as_bytes());
+    assert(G.storage() == "z".as_bytes());
 }
