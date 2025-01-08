@@ -42,7 +42,7 @@ impl<let MaxLength: u32> JSONValue<MaxLength> {
  * @description The "root" of the JSON refers to the parent object or array (or a value if the json is just a single value e.g. text = "\"foo\": \"bar\"")
  * @note text that describes just a single JSON value is not yet fully supported. Only use this library for processing objects or arrays for now
  **/
-struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> {
+pub struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> {
     json: [u8; NumBytes], // the raw json bytes
     json_packed: [Field; NumPackedFields], // raw bytes, but packed into 31-byte Field elements
     raw_transcript: [Field; MaxNumTokens], // transcript of json tokens after basic processing
