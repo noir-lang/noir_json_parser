@@ -1,7 +1,6 @@
 use crate::_comparison_tools::lt::assert_lte_240_bit;
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::_comparison_tools::lt::lte_field_240_bit;
-use crate::_string_tools::slice_packed_field::slice_fields;
 use crate::json::JSON;
 use crate::json_entry::{JSONEntry, JSONEntryPacked};
 use crate::json_tables::TOKEN_ENDS_OBJECT_OR_ARRAY;
@@ -9,16 +8,15 @@ use crate::keyhash::FieldHasher;
 
 use dep::noir_sort;
 
-use dep::std::hash::poseidon2;
-struct KeyIndexData {
-    json_index: Field,
-    json_length: Field,
-    parent_id: Field,
-    array_index: Field,
+pub struct KeyIndexData {
+    pub json_index: Field,
+    pub json_length: Field,
+    pub parent_id: Field,
+    pub array_index: Field,
 }
 
 impl KeyIndexData {
-    fn to_field(self) -> Field {
+    pub fn to_field(self) -> Field {
         self.parent_id
             + self.json_index as Field * 0x10000
             + self.json_length as Field * 0x100000000
@@ -34,8 +32,8 @@ impl KeyIndexData {
         KeyIndexData { json_index, json_length, parent_id, array_index }
     }
 
-    fn from_field(packed: Field) -> Self {
-        let result = KeyIndexData::__from_field(packed);
+    pub fn from_field(packed: Field) -> Self {
+        let result = unsafe { KeyIndexData::__from_field(packed) };
         result.array_index.assert_max_bit_size::<16>();
         result.json_length.assert_max_bit_size::<16>();
         result.json_index.assert_max_bit_size::<16>();
@@ -46,7 +44,7 @@ impl KeyIndexData {
 }
 
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
-    fn compute_keyhash_and_sort_json_entries(&mut self) {
+    pub fn compute_keyhash_and_sort_json_entries(&mut self) {
         let hasher: FieldHasher<MaxKeyFields> = FieldHasher {};
 
         let mut hashlist: [Field; MaxNumValues] = [0; MaxNumValues];
@@ -133,7 +131,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.set_root_entry();
     }
 
-    unconstrained fn __find_root_entry(self) -> Field {
+    pub unconstrained fn __find_root_entry(self) -> Field {
         let mut found_index = 0;
         for i in 0..MaxNumValues {
             let entry: JSONEntry = self.json_entries_packed[i].into();
@@ -145,8 +143,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         found_index
     }
 
-    fn set_root_entry(&mut self) {
-        let root_index = self.__find_root_entry();
+    pub fn set_root_entry(&mut self) {
+        let root_index = unsafe { self.__find_root_entry() };
 
         let packed_entry = self.json_entries_packed[root_index];
         let entry: JSONEntry = packed_entry.into();

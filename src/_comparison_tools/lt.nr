@@ -14,7 +14,7 @@ pub unconstrained fn get_lte_predicate_large(x: Field, y: Field) -> bool {
 }
 
 pub fn lte_field_240_bit(x: Field, y: Field) -> bool {
-    let predicate = get_lte_predicate_large(x, y);
+    let predicate = unsafe { get_lte_predicate_large(x, y) };
     let delta = y as Field - x as Field;
 
     // (x - y) * predicate
@@ -40,7 +40,7 @@ pub fn assert_lte_240_bit(x: Field, y: Field) {
 }
 
 pub fn lt_field_16_bit(x: Field, y: Field) -> bool {
-    let predicate = get_lt_predicate_f(x, y);
+    let predicate = unsafe { get_lt_predicate_f(x, y) };
     let delta = y as Field - x as Field;
     let lt_parameter = 2 * (predicate as Field) * delta - predicate as Field - delta;
     lt_parameter.assert_max_bit_size::<16>();
@@ -49,7 +49,7 @@ pub fn lt_field_16_bit(x: Field, y: Field) -> bool {
 }
 
 pub fn lt_field_8_bit(x: Field, y: Field) -> bool {
-    let predicate = get_lt_predicate_f(x, y);
+    let predicate = unsafe { get_lt_predicate_f(x, y) };
     let delta = y as Field - x as Field;
     let lt_parameter = 2 * (predicate as Field) * delta - predicate as Field - delta;
     lt_parameter.assert_max_bit_size::<8>();

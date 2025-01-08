@@ -1,8 +1,8 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
-use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
+use crate::enums::Layer::ARRAY_LAYER;
 use crate::enums::Token::END_ARRAY_TOKEN;
-use crate::getters::JSONValue;
 use crate::json::JSON;
+use crate::json::JSONValue;
 use crate::json_entry::JSONEntry;
 
 /**
@@ -13,7 +13,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief if the root JSON is an array, return its length
      **/
-    fn get_length(self) -> u32 {
+    pub fn get_length(self) -> u32 {
         assert(self.layer_type_of_root == ARRAY_LAYER, "can only get length of an array type");
         let parent_entry: JSONEntry =
             self.json_entries_packed[self.root_index_in_transcript].into();
@@ -24,7 +24,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract an array given by `key`
      * @description returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value  
      **/
-    fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
+    pub fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
@@ -46,7 +46,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract an array given by `key`
      * @description will revert if the array does not exist
      **/
-    fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
+    pub fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index(key);
@@ -64,7 +64,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_array` for where the key length may be less than KeyBytes
      **/
-    fn get_array_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<Self> {
+    pub fn get_array_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<Self> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
@@ -86,7 +86,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_array_unchecked` for where the key length may be less than KeyBytes
      **/
-    fn get_array_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Self {
+    pub fn get_array_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
@@ -105,7 +105,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract an array given by the position of the target in the source array
      * @description returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value  
      **/
-    fn get_array_from_array(self, array_index: Field) -> Option<Self> {
+    pub fn get_array_from_array(self, array_index: Field) -> Option<Self> {
         assert(
             self.layer_type_of_root == ARRAY_LAYER,
             "can only acceess array elements from array",
@@ -135,7 +135,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract an array given by the position of the target in the source array
      * @description will revert if the array does not exist
      **/
-    fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
+    pub fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
         assert(
             self.layer_type_of_root == ARRAY_LAYER,
             "can only acceess array elements from array",
@@ -163,7 +163,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief if the root is an array, map over the array values, applying `fn f` to each value
      **/
-    fn map<U, let MaxElements: u32, let MaxElementBytes: u32>(
+    pub fn map<U, let MaxElements: u32, let MaxElementBytes: u32>(
         self,
         f: fn(JSONValue<MaxElementBytes>) -> U,
     ) -> [U; MaxElements]
