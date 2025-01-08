@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [nightly, 1.0.0-beta.1]
+        toolchain: [nightly, 1.0.0-beta.0]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
