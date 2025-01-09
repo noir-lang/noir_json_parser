@@ -20,7 +20,7 @@ use crate::transcript_entry::{
 /**
  * @brief records a value in a json blob
  **/
-struct JSONValue<let MaxLength: u32> {
+pub struct JSONValue<let MaxLength: u32> {
     value: BoundedVec<u8, MaxLength>, // raw bytes that constitute the json value entry
     value_type: Field, // either STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN
 }
