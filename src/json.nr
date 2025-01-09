@@ -10,7 +10,7 @@ use crate::get_literal::JSONLiteral;
 use crate::json_entry::{JSONContextStackEntry, JSONEntry, JSONEntryPacked};
 use crate::json_tables::{
     JSON_CAPTURE_TABLE, PROCESS_RAW_TRANSCRIPT_TABLE, TOKEN_FLAGS_TABLE,
-    TOKEN_IS_ARRAY_OBJECT_OR_VALUE, TOKEN_VALIDATION_TABLE,
+    TOKEN_IS_ARRAY_OBJECT_OR_VALUE, TOKEN_IS_STRING, TOKEN_VALIDATION_TABLE,
 };
 use crate::token_flags::TokenFlags;
 use crate::transcript_entry::{
@@ -127,7 +127,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             let next_is_key = (next.token == KEY_SEPARATOR_TOKEN) as Field;
 
-            let valid_token = TOKEN_IS_ARRAY_OBJECT_OR_VALUE[current.token];
+            let valid_token: Field = TOKEN_IS_STRING[current.token];
             assert(
                 (valid_token * next_is_key) + (1 - next_is_key) == 1,
                 "Cannot find key/value straddling KEY_DELIMITER_TOKEN",
@@ -196,6 +196,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let ValidationFlags { push_layer, push_layer_type_of_root, pop_layer } =
                 ValidationFlags::from_field(TOKEN_VALIDATION_TABLE[index]);
 
+            if (i < 10) {
+                println(f"push layer = {push_layer}");
+                println(f"current token = {current_token}");
+            }
+            assert(push_layer != 0x1000000);
             // 3.5 gates
             parent_layer_stack[depth] = current_layer;
 
@@ -385,6 +390,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // subtotal 66.75?
             entry_ptr += create_json_entry;
             std::as_witness(entry_ptr);
+        }
+        for i in 0..10 {
+            let f = tokens[i];
+            println(f"token = {f}");
         }
         self.validate_tokens(tokens);
     }
@@ -645,8 +654,20 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         };
 
         json = json.build_transcript();
+        for i in 0..5 {
+            let foo = json.raw_transcript[i];
+            println(f"raw transcript {foo}");
+        }
         json.capture_missing_tokens();
+        for i in 0..5 {
+            let foo = json.transcript[i];
+            println(f"updated transcript {foo}");
+        }
         json.keyswap();
+        for i in 0..5 {
+            let foo = json.transcript[i];
+            println(f"keyswapped transcript {foo}");
+        }
         json.compute_json_packed();
         json.create_json_entries();
 

@@ -129,3 +129,9 @@ pub type JSON2kb = JSON<2048, 70, 256, 129, 2>;
 pub type JSON4kb = JSON<4096, 136, 512, 257, 2>;
 pub type JSON8kb = JSON<8192, 268, 1024, 513, 2>;
 pub type JSON16kb = JSON<16384, 532, 2048, 1025, 2>;
+
+#[test(should_fail_with = "Cannot find key/value straddling KEY_DELIMITER_TOKEN")]
+fn test_fuzzing_case() {
+    let text = "{{:\"\\t(A|#USd9?) 4*waP<6(=>?I*\\\"}?]EEAG/26 =g>$30`}o\\r+`>,J=K}0FI><ffn4g:=T:5!bT>@\\t)?;\\t{a)\\\\vY36z_/sV~9!\\nU3D\\r$FXyHy)8\\t 27 dbJ(@Uh^,\"}";
+    let _: JSON512b = JSON::parse_json_from_string(text);
+}
