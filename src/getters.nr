@@ -12,7 +12,7 @@ use crate::transcript_entry::TranscriptEntry;
 /**
  * @brief records data used to reason about whether a key exists in a json blob
  **/
-struct KeySearchResult {
+pub struct KeySearchResult {
     found: bool, // does the key exist?
     target_lt_smallest_entry: bool, // is the target keyhash smaller than the smallest keyhash in self.key_hashes?
     target_gt_largest_entry: bool, // is the target keyhash larger than the largest keyhash in self.key_hashes?

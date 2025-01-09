@@ -13,7 +13,7 @@ global LITERAL_OFFSET_SHIFT: [Field; 6] =
  * @brief a JSON "literal" type has 3 states: "true", "false", "null".
  *        As such we can't directly convert to a bool and cover all possible cases
  **/
-struct JSONLiteral {
+pub struct JSONLiteral {
     value: Field,
 }
 
