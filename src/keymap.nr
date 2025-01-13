@@ -35,11 +35,17 @@ impl KeyIndexData {
     }
 
     fn from_field(packed: Field) -> Self {
-        let result = KeyIndexData::__from_field(packed);
+        //@Safety: check the comments below
+        let result = unsafe { KeyIndexData::__from_field(packed) };
+        // checks that array_index is in range
         result.array_index.assert_max_bit_size::<16>();
+        // checks that json_length is in range
         result.json_length.assert_max_bit_size::<16>();
+        // checks that json_index is in range
         result.json_index.assert_max_bit_size::<16>();
+        // checks that parent_id is in range
         result.parent_id.assert_max_bit_size::<16>();
+        // checks that the input is a valid combination of the outputs of the decomposition
         assert(result.to_field() == packed);
         result
     }
@@ -146,12 +152,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     fn set_root_entry(&mut self) {
-        let root_index = self.__find_root_entry();
+        //@Safety: check the comments below
+        let root_index = unsafe { self.__find_root_entry() };
 
         let packed_entry = self.json_entries_packed[root_index];
         let entry: JSONEntry = packed_entry.into();
 
+        // checks that the entry is not empty
         assert(packed_entry.value != 0);
+        // checks that the parent index is 0
         assert(entry.parent_index == 0);
         self.root_index_in_transcript = root_index;
     }

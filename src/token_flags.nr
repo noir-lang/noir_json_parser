@@ -33,8 +33,10 @@ impl TokenFlags {
 
     fn from_field(f: Field) -> Self {
         // 10 gates
-        let r = TokenFlags::__from_field(f);
+        //@Safety: check the comments below
+        let r = unsafe { TokenFlags::__from_field(f) };
 
+        // checks that the flags are binary     
         assert(r.create_json_entry * r.create_json_entry == r.create_json_entry);
         assert(
             r.is_end_of_object_or_array * r.is_end_of_object_or_array
@@ -49,6 +51,7 @@ impl TokenFlags {
         assert(r.is_value_token * r.is_value_token == r.is_value_token);
         assert(r.preserve_num_entries * r.preserve_num_entries == r.preserve_num_entries);
 
+        // asserts the relation of r and f 
         assert(r.to_field() == f);
         r
     }

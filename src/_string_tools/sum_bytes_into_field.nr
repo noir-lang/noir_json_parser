@@ -185,10 +185,12 @@ fn sum_var_bytes_into_field<let N: u32>(
     body_index: Field,
     num_bytes: Field,
 ) -> Field {
-    let path = get_path(num_bytes); // 5 gates
+    //@Safety: check the comments below
+    let path = unsafe { get_path(num_bytes) }; // 5 gates
     let path_f: [Field; 5] =
         [path[0] as Field, path[1] as Field, path[2] as Field, path[3] as Field, path[4] as Field];
 
+    // checkes that path_f is the binary representation of num_bytes
     assert(
         path_f[0] + path_f[1] * 2 + path_f[2] * 4 + path_f[3] * 8 + path_f[4] * 16
             == num_bytes as Field,

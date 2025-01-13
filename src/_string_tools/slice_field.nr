@@ -64,8 +64,11 @@ unconstrained fn __slice_200_bits_from_field(f: Field) -> (Field, Field, bool) {
 }
 
 pub fn slice_200_bits_from_field(f: Field) -> Field {
-    let (lo, hi, borrow) = __slice_200_bits_from_field(f);
+    //@Safety: check the comments below
+    let (lo, hi, borrow) = unsafe { __slice_200_bits_from_field(f) };
+    // checks that lo and hi are the correct slices of f
     assert(hi * TWO_POW_200 + lo == f);
+    // checks that lo and hi are the correct bit sizes
     lo.assert_max_bit_size::<200>();
     hi.assert_max_bit_size::<56>();
     let lo_diff = PLO_200_felt - lo + (borrow as Field * TWO_POW_200);

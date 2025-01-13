@@ -33,9 +33,13 @@ impl ValidationFlags {
 
     // 3 gates
     fn from_field(f: Field) -> Self {
-        let r = ValidationFlags::__from_field(f);
+        //@Safety: check the comments below
+        let r = unsafe { ValidationFlags::__from_field(f) };
+        // checks pop_layer is a valid boolean
         assert(r.pop_layer * r.pop_layer == r.pop_layer);
+        // checks push_layer_type_of_root is a valid boolean
         assert(r.push_layer_type_of_root * r.push_layer_type_of_root == r.push_layer_type_of_root);
+        // checks the input field is a valid combination of the outputs of the decomposition
         assert(r.pop_layer * 0x10000 + r.push_layer_type_of_root * 0x100 + r.push_layer == f);
         r
     }
@@ -67,7 +71,8 @@ impl RawTranscriptEntry {
     // 2 gates to get u16s
     // 5.25 gates total
     fn from_field(felt: Field) -> Self {
-        let result = RawTranscriptEntry::__from_field(felt);
+        //@Safety: check the comments below
+        let result = unsafe { RawTranscriptEntry::__from_field(felt) };
         result.length.assert_max_bit_size::<16>();
         result.index.assert_max_bit_size::<16>();
         result.encoded_ascii.assert_max_bit_size::<14>();
@@ -83,7 +88,8 @@ impl RawTranscriptEntry {
         (ascii, remainder)
     }
     fn extract_ascii(f: Field) -> (Field, Field) {
-        let (ascii, remainder) = RawTranscriptEntry::__extract_ascii(f);
+        //@Safety: ascci length is checked. remainder size is checked. the relation to the input is asserted as well. 
+        let (ascii, remainder) = unsafe { RawTranscriptEntry::__extract_ascii(f) };
         ascii.assert_max_bit_size::<14>();
         remainder.assert_max_bit_size::<32>();
         assert(ascii + remainder * 0x10000 == f);
@@ -119,14 +125,18 @@ impl ScanData {
         ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence }
     }
     fn from_field(f: Field) -> Self {
-        let result = ScanData::__from_field(f);
-
+        //@Safety: check the comments below
+        let result = unsafe { ScanData::__from_field(f) };
+        // checks increase_length is a valid boolean
         assert(result.increase_length * result.increase_length == result.increase_length);
+        // checks push_transcript is a valid boolean
         assert(result.push_transcript * result.push_transcript == result.push_transcript);
+        // checks is_potential_escape_sequence is a valid boolean
         assert(
             result.is_potential_escape_sequence * result.is_potential_escape_sequence
                 == result.is_potential_escape_sequence,
         );
+        // checks the input field is a valid combination of the outputs of the decomposition
         assert(
             result.scan_token
                 + result.push_transcript * 0x100
@@ -172,34 +182,50 @@ impl TranscriptEntry {
     }
     // 4 gates
     fn get_token(f: Field) -> Field {
-        let (token, remainder) = TranscriptEntry::__get_token(f);
+        //@Safety: check the comments below
+        let (token, remainder) = unsafe { TranscriptEntry::__get_token(f) };
+        // checks that remainder is in range
         remainder.assert_max_bit_size::<32>();
+        // checks that token is in range
         token.assert_max_bit_size::<8>();
+        // checks that the input is a valid combination of the outputs of the decomposition
         assert(token + remainder * 0x100 == f);
         token
     }
     // 5.25 gates
     fn from_field(felt: Field) -> Self {
-        let result = TranscriptEntry::__from_field(felt);
+        //@Safety: check the comments below
+        let result = unsafe { TranscriptEntry::__from_field(felt) };
+        // checks that length is in range
         result.length.assert_max_bit_size::<16>();
+        // checks that index is in range
         result.index.assert_max_bit_size::<16>();
+        // checks that token is in range
         result.token.assert_max_bit_size::<8>();
+        // checks that the input is a valid combination of the outputs of the decomposition
         assert(result.token + result.index * 0x100 + result.length * 0x1000000 == felt);
         result
     }
 
     fn get_token_and_index_length_combined(f: Field) -> (Field, Field) {
-        let (token, remainder) = TranscriptEntry::__get_token(f);
+        //@Safety: check the comments below
+        let (token, remainder) = unsafe { TranscriptEntry::__get_token(f) };
+        // checks that remainder is in range
         remainder.assert_max_bit_size::<32>();
+        // checks that token is in range
         token.assert_max_bit_size::<8>();
+        // checks that the input is a valid combination of the outputs of the decomposition
         assert(token + remainder * 0x100 == f);
         (token, remainder)
     }
 
     // 5.75 gates
     fn from_raw(raw_encoded: Field) -> Field {
-        let (ascii, remainder) = RawTranscriptEntry::__extract_ascii(raw_encoded);
+        //@Safety: check the comments below
+        let (ascii, remainder) = unsafe { RawTranscriptEntry::__extract_ascii(raw_encoded) };
+        // checks that remainder is in range
         remainder.assert_max_bit_size::<32>();
+        // checks that the input is a valid combination of the outputs of the decomposition
         assert(ascii + remainder * 0x10000 == raw_encoded);
         // this lookup enforces an implicit 10 bit range check on ascii
         let token = ASCII_TO_TOKEN_TABLE[ascii];

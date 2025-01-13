@@ -251,7 +251,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut tokens: [Field; MaxNumTokens] = [0; MaxNumTokens];
         //  maybe 71.75 gates per iteration
         for i in 0..MaxNumTokens {
-            __check_entry_ptr_bounds(entry_ptr, MaxNumValues);
+            //@Safety: check the comments below
+            unsafe { __check_entry_ptr_bounds(entry_ptr, MaxNumValues) };
             // 5.25 gates
             let TranscriptEntry { token, index, length } =
                 TranscriptEntry::from_field(self.transcript[i]);
@@ -462,7 +463,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut scan_mode = GRAMMAR_SCAN;
         let mut length: Field = 0;
 
-        let raw_transcript = self.__build_transcript();
+        //@Safety: check the comments below
+        let raw_transcript = unsafe { self.__build_transcript() };
 
         // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
         let mut previous_was_potential_escape_sequence = 0;
@@ -570,7 +572,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     fn capture_missing_tokens(&mut self) {
         let mut transcript_ptr: Field = 0;
         // hmm probably need a null transcript value?!?!
-        let updated_transcript = self.__capture_missing_tokens();
+        //@Safety: check the comments below
+        let updated_transcript = unsafe { self.__capture_missing_tokens() };
         // 26? gates per iteration
         let range_valid: [Field; MaxNumTokens] = get_validity_flags(self.transcript_length);
         for i in 0..MaxNumTokens {
