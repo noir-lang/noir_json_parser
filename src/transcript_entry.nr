@@ -88,7 +88,7 @@ impl RawTranscriptEntry {
         (ascii, remainder)
     }
     fn extract_ascii(f: Field) -> (Field, Field) {
-        //@Safety: ascci length is checked. remainder size is checked. the relation to the input is asserted as well. 
+        //@Safety: ascci length is checked. remainder size is checked. the relation to the input is asserted as well.
         let (ascii, remainder) = unsafe { RawTranscriptEntry::__extract_ascii(f) };
         ascii.assert_max_bit_size::<14>();
         remainder.assert_max_bit_size::<32>();

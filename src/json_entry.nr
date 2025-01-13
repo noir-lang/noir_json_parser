@@ -33,7 +33,7 @@ impl JSONContextStackEntry {
      * @note method cost = 9.5 gates
      **/
     fn from_field(f: Field) -> Self {
-        //@Safety: the set of assertions done below will ensure the result is in the correct domain, and the computed result matches the input f 
+        //@Safety: the set of assertions done below will ensure the result is in the correct domain, and the computed result matches the input f
         let result = unsafe { JSONContextStackEntry::__from_field(f) };
 
         result.context.assert_max_bit_size::<8>(); // 1.25
@@ -120,7 +120,7 @@ impl JSONEntry {
 
     // 11.75 gates
     fn extract_entry_type_id_and_parent_index_from_field(f: Field) -> (Field, Field, Field) {
-        //@Safety: we check all the outputs are in the correct range and we can construct the input from the outputs of the decomposition 
+        //@Safety: we check all the outputs are in the correct range and we can construct the input from the outputs of the decomposition
         let (id, parent_index, mid, entry_type) =
             unsafe { JSONEntry::__extract_entry_type_id_and_parent_index_from_field(f) };
         id.assert_max_bit_size::<8>(); // 1.25
@@ -145,9 +145,9 @@ impl JSONEntry {
         assert(id + mid * 0x10000 + entry_type * 0x100000000000000000000000000000000000000 == f);
         (id, entry_type)
     }
-    
+
     fn extract_parent_index_from_field(f: Field) -> Field {
-        //@Safety: we check all the outputs are in the correct range and we can construct the input from the outputs of the decomposition 
+        //@Safety: we check all the outputs are in the correct range and we can construct the input from the outputs of the decomposition
         let (low, parent_index, hi) = unsafe { JSONEntry::__extract_parent_index_from_field(f) };
 
         low.assert_max_bit_size::<16>(); // 1.75
@@ -192,7 +192,7 @@ impl JSONEntry {
         // 4 gates. oof
     }
     fn from_field(f: Field) -> Self {
-        //@Safety: we check all the outputs are in the correct range and match the input field value 
+        //@Safety: we check all the outputs are in the correct range and match the input field value
         let result = unsafe { JSONEntry::__from_field(f) };
         result.entry_type.assert_max_bit_size::<8>();
         result.json_length.assert_max_bit_size::<16>();
@@ -209,7 +209,7 @@ impl JSONEntry {
 
 impl std::convert::From<JSONEntryPacked> for JSONEntry {
     fn from(JSONEntryPacked { value: f }: JSONEntryPacked) -> Self {
-        //@Safety: we check all the outputs are in the correct range and match the input field value 
+        //@Safety: we check all the outputs are in the correct range and match the input field value
         let result = unsafe { JSONEntry::__from_field(f) };
         result.entry_type.assert_max_bit_size::<8>();
         result.json_length.assert_max_bit_size::<16>();

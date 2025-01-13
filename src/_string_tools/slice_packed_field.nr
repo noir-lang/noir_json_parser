@@ -607,7 +607,7 @@ unconstrained fn __divmod(numerator: Field, denominator: Field) -> (Field, Field
  *        we know the quotient will fit into a 14 bit range check which will save us some fractional gates
  **/
 fn divmod_31(numerator: Field) -> (Field, Field) {
-    //@Safety: we check the bit lengths of qf and rf and their relation to the numerator with assertions later 
+    //@Safety: we check the bit lengths of qf and rf and their relation to the numerator with assertions later
     let (quotient, remainder) = unsafe { __divmod(numerator, 31) };
 
     let qf = quotient as Field;
@@ -648,7 +648,7 @@ pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Fie
     let mut path_valid_sum: Field = 0;
     let mut path_valid_output: [Field; OutputFields] = [0; OutputFields];
     for i in 0..OutputFields {
-        // we check that the path valid bits are binary 
+        // we check that the path valid bits are binary
         assert(path_valid_bits[i] * path_valid_bits[i] - path_valid_bits[i] == 0);
         path_valid_sum += (path_valid_bits[i] * (1 << i as u8) as Field);
         path_valid_output[i] = path_valid_bits[i];
@@ -869,8 +869,9 @@ mod test {
         // let start_byte = 26;
         let num_bytes = 0;
         let start_byte: u32 = 0;
-        //@Safety: this is a test 
-        let mut expected_slices: [Field; 3] = unsafe { build_slices_for_test(text, start_byte, num_bytes) };
+        //@Safety: this is a test
+        let mut expected_slices: [Field; 3] =
+            unsafe { build_slices_for_test(text, start_byte, num_bytes) };
         let result_slices: [Field; 3] =
             slice_fields(slices, start_byte as Field, num_bytes as Field);
         assert(result_slices == expected_slices);
@@ -902,10 +903,10 @@ mod test {
             for j in 0..18 {
                 let start_byte: u32 = byte_positions[j];
                 let mut expected_slices: [Field; 3] =
-                    //@Safety: this is a test 
+                //@Safety: this is a test
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
-                    //@Safety: this is a test 
+                //@Safety: this is a test
                     unsafe { slice_fields(slices, start_byte as Field, num_bytes as Field) };
                 assert(result_slices == expected_slices);
             }
@@ -913,8 +914,8 @@ mod test {
             for j in 0..18 {
                 let start_byte: u32 = text.len() - num_bytes - byte_positions[j];
                 let mut expected_slices: [Field; 3] =
-                    //@Safety: this is a test 
-                    unsafe {build_slices_for_test(text, start_byte, num_bytes)};
+                //@Safety: this is a test
+                    unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
                     slice_fields(slices, start_byte as Field, num_bytes as Field);
                 assert(result_slices == expected_slices);

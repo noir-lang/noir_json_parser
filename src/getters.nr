@@ -383,7 +383,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         let keyhash = keyhash + self.root_id * two_pow_216;
 
-        //@Safety: the assertion (search_result.lhs_index - search_result.rhs_index) * found == 0 constraints this function 
+        //@Safety: the assertion (search_result.lhs_index - search_result.rhs_index) * found == 0 constraints this function
         let search_result = unsafe { self.search_for_key_in_map(keyhash) };
         let found = search_result.found as Field;
 
@@ -443,7 +443,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     ) -> BoundedVec<BoundedVec<u8, MaxKeyBytes>, MaxNumKeys> {
         let root_object: JSONEntry =
             JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
-        //@Safety: the length of the index is constrained later. 
+        //@Safety: the length of the index is constrained later.
         let key_indices: BoundedVec<Field, MaxNumKeys> = unsafe { self.__get_keys_at_root() };
 
         assert(key_indices.len as Field == root_object.num_children);
