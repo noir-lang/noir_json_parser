@@ -23,7 +23,6 @@ pub fn lte_field_240_bit(x: Field, y: Field) -> bool {
     // if false, x <= y is wrong therefore x > y => x - y > 0 => x - y + 1 >= 0
     // (y - x) * p + (1 - p) * (x - y + 1)
     // (y - x) * p + x - y + 1 + p * (y - x)
-
     let lt_parameter = 2 * (predicate as Field) * delta - predicate as Field - delta + 1;
     // checks that the bit length of lt_parameter is 240
     // i.e. checks the sign of lt_parameter
