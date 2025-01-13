@@ -2,7 +2,7 @@
 name = "json_parser"
 type = "lib"
 authors = [""]
-compiler_version = "1.0.0"
+compiler_version = ">=0.37.0"
 
 [dependencies]
 noir_sort = {tag = "v0.2.1", git = "https://github.com/noir-lang/noir_sort"}
