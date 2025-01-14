@@ -26,7 +26,8 @@ in this case, i == M
  *              cost = 3 gates + 2 gates per iteration 
  **/
 pub fn get_validity_flags<let N: u32>(boundary: u32) -> [Field; N] {
-    let flags: [Field; N] = __get_validity_flags(boundary);
+    //@Safety: The constraining is happening inside get_validity_flags_inner
+    let flags: [Field; N] = unsafe { __get_validity_flags(boundary) };
     get_validity_flags_inner(boundary, flags)
 }
 
