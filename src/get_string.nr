@@ -30,7 +30,8 @@ fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<
             + (1 - is_escape_sequence) * character as Field;
 
         written_byte = written_byte * (1 - skip) + cached_byte * skip;
-        let written_byte_u8 = to_u8(written_byte);
+        //@Safety: we assert that the casting is done correctly
+        let written_byte_u8 = unsafe { to_u8(written_byte) };
         assert(written_byte_u8 as Field == written_byte);
 
         result[result_ptr] = written_byte_u8;
@@ -41,7 +42,8 @@ fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<
     }
 
     let written_byte: Field = character as Field * (1 - skip) + cached_byte * skip;
-    let written_byte_u8 = to_u8(written_byte);
+    //@Safety: we assert that the casting is done correctly
+    let written_byte_u8 = unsafe { to_u8(written_byte) };
     assert(written_byte_u8 as Field == written_byte);
     result[result_ptr] = written_byte_u8;
     result_ptr += 1;

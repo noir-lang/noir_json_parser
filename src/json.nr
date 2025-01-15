@@ -20,7 +20,7 @@ use crate::transcript_entry::{
 /**
  * @brief records a value in a json blob
  **/
-struct JSONValue<let MaxLength: u32> {
+pub struct JSONValue<let MaxLength: u32> {
     value: BoundedVec<u8, MaxLength>, // raw bytes that constitute the json value entry
     value_type: Field, // either STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN
 }
@@ -42,7 +42,7 @@ impl<let MaxLength: u32> JSONValue<MaxLength> {
  * @description The "root" of the JSON refers to the parent object or array (or a value if the json is just a single value e.g. text = "\"foo\": \"bar\"")
  * @note text that describes just a single JSON value is not yet fully supported. Only use this library for processing objects or arrays for now
  **/
-struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> {
+pub struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> {
     json: [u8; NumBytes], // the raw json bytes
     json_packed: [Field; NumPackedFields], // raw bytes, but packed into 31-byte Field elements
     raw_transcript: [Field; MaxNumTokens], // transcript of json tokens after basic processing
@@ -251,7 +251,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut tokens: [Field; MaxNumTokens] = [0; MaxNumTokens];
         //  maybe 71.75 gates per iteration
         for i in 0..MaxNumTokens {
-            __check_entry_ptr_bounds(entry_ptr, MaxNumValues);
+            //@Safety: check the comments below
+            unsafe { __check_entry_ptr_bounds(entry_ptr, MaxNumValues) };
             // 5.25 gates
             let TranscriptEntry { token, index, length } =
                 TranscriptEntry::from_field(self.transcript[i]);
@@ -462,7 +463,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut scan_mode = GRAMMAR_SCAN;
         let mut length: Field = 0;
 
-        let raw_transcript = self.__build_transcript();
+        //@Safety: check the comments below
+        let raw_transcript = unsafe { self.__build_transcript() };
 
         // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
         let mut previous_was_potential_escape_sequence = 0;
@@ -570,7 +572,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     fn capture_missing_tokens(&mut self) {
         let mut transcript_ptr: Field = 0;
         // hmm probably need a null transcript value?!?!
-        let updated_transcript = self.__capture_missing_tokens();
+        //@Safety: check the comments below
+        let updated_transcript = unsafe { self.__capture_missing_tokens() };
         // 26? gates per iteration
         let range_valid: [Field; MaxNumTokens] = get_validity_flags(self.transcript_length);
         for i in 0..MaxNumTokens {
