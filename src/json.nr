@@ -10,7 +10,7 @@ use crate::get_literal::JSONLiteral;
 use crate::json_entry::{JSONContextStackEntry, JSONEntry, JSONEntryPacked};
 use crate::json_tables::{
     JSON_CAPTURE_TABLE, PROCESS_RAW_TRANSCRIPT_TABLE, TOKEN_FLAGS_TABLE,
-    TOKEN_IS_ARRAY_OBJECT_OR_VALUE, TOKEN_VALIDATION_TABLE,
+    TOKEN_IS_ARRAY_OBJECT_OR_VALUE, TOKEN_IS_STRING, TOKEN_VALIDATION_TABLE,
 };
 use crate::token_flags::TokenFlags;
 use crate::transcript_entry::{
@@ -127,7 +127,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             let next_is_key = (next.token == KEY_SEPARATOR_TOKEN) as Field;
 
-            let valid_token = TOKEN_IS_ARRAY_OBJECT_OR_VALUE[current.token];
+            let valid_token = TOKEN_IS_STRING[current.token];
             assert(
                 (valid_token * next_is_key) + (1 - next_is_key) == 1,
                 "Cannot find key/value straddling KEY_DELIMITER_TOKEN",
@@ -946,36 +946,23 @@ fn test_json_empty_array_passes() {
 #[test(should_fail)]
 fn test_finishing_with_string_scan_fails() {
     let json_string = "{ } \"}";
-
-    let json_string_bytes = json_string.as_bytes();
-    let mut json_buffer = [32; 512];
-    for i in 0..json_string_bytes.len() {
-        json_buffer[512 - json_string_bytes.len() + i] = json_string_bytes[i];
-    }
-    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json(json_buffer);
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
 }
 
 #[test(should_fail)]
 fn test_finishing_with_literal_scan_fails() {
     let json_string = "{ } fa";
-
-    let json_string_bytes = json_string.as_bytes();
-    let mut json_buffer = [32; 512];
-    for i in 0..json_string_bytes.len() {
-        json_buffer[512 - json_string_bytes.len() + i] = json_string_bytes[i];
-    }
-    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json(json_buffer);
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
 }
 
 #[test(should_fail)]
 fn test_finishing_with_numeric_scan_fails() {
     let json_string = "{ } 123";
-
-    let json_string_bytes = json_string.as_bytes();
-    let mut json_buffer = [32; 512];
-    for i in 0..json_string_bytes.len() {
-        json_buffer[512 - json_string_bytes.len() + i] = json_string_bytes[i];
-    }
-    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json(json_buffer);
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
 }
 
+#[test(should_fail)]
+fn key_is_not_a_key() {
+    let json_string = "{1\n:0}";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
+}
