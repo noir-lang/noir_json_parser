@@ -429,6 +429,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             scan_mode = scan_token;
         }
 
+        // if we end in a scan mode where we're searching for a number, string or a literal (true/false/null), we have an incomplete token and this is invalid JSON
+        // NOTE: if we upgrade this parser to be able to process single-value JSON (e,g, "999" or ""hello" : "world"" this logic needs to be upgraded)
+        assert(
+            scan_mode == GRAMMAR_SCAN as Field,
+            "build_transcript: incomplete token (number, string or literal)",
+        );
+
         // ensure an error isn't hiding in the last scanned token
         scan_mode.assert_max_bit_size::<2>();
         raw_transcript
@@ -934,5 +941,41 @@ fn test_json_empty_array_passes() {
     // n could be the start of the literal "null", so this passes the ScanData check but fails ValidationFlags
     let text = "[]";
     let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail)]
+fn test_finishing_with_string_scan_fails() {
+    let json_string = "{ } \"}";
+
+    let json_string_bytes = json_string.as_bytes();
+    let mut json_buffer = [32; 512];
+    for i in 0..json_string_bytes.len() {
+        json_buffer[512 - json_string_bytes.len() + i] = json_string_bytes[i];
+    }
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json(json_buffer);
+}
+
+#[test(should_fail)]
+fn test_finishing_with_literal_scan_fails() {
+    let json_string = "{ } fa";
+
+    let json_string_bytes = json_string.as_bytes();
+    let mut json_buffer = [32; 512];
+    for i in 0..json_string_bytes.len() {
+        json_buffer[512 - json_string_bytes.len() + i] = json_string_bytes[i];
+    }
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json(json_buffer);
+}
+
+#[test(should_fail)]
+fn test_finishing_with_numeric_scan_fails() {
+    let json_string = "{ } 123";
+
+    let json_string_bytes = json_string.as_bytes();
+    let mut json_buffer = [32; 512];
+    for i in 0..json_string_bytes.len() {
+        json_buffer[512 - json_string_bytes.len() + i] = json_string_bytes[i];
+    }
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json(json_buffer);
 }
 
