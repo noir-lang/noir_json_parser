@@ -1,6 +1,7 @@
 use crate::enums::Token::NUM_TOKENS_MUL_2;
 
 global TOKEN_ENDS_OBJECT_OR_ARRAY: [Field; 11] = [0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0];
+global TOKEN_IS_STRING: [Field; 11] = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0];
 global TOKEN_IS_ARRAY_OBJECT_OR_VALUE: [Field; 11] = [0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0];
 global TOKEN_FLAGS_TABLE: [Field; NUM_TOKENS_MUL_2] = [
     0x01,

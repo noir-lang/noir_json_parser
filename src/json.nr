@@ -10,7 +10,7 @@ use crate::get_literal::JSONLiteral;
 use crate::json_entry::{JSONContextStackEntry, JSONEntry, JSONEntryPacked};
 use crate::json_tables::{
     JSON_CAPTURE_TABLE, PROCESS_RAW_TRANSCRIPT_TABLE, TOKEN_FLAGS_TABLE,
-    TOKEN_IS_ARRAY_OBJECT_OR_VALUE, TOKEN_VALIDATION_TABLE,
+    TOKEN_IS_ARRAY_OBJECT_OR_VALUE, TOKEN_IS_STRING, TOKEN_VALIDATION_TABLE,
 };
 use crate::token_flags::TokenFlags;
 use crate::transcript_entry::{
@@ -127,7 +127,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             let next_is_key = (next.token == KEY_SEPARATOR_TOKEN) as Field;
 
-            let valid_token = TOKEN_IS_ARRAY_OBJECT_OR_VALUE[current.token];
+            let valid_token = TOKEN_IS_STRING[current.token];
             assert(
                 (valid_token * next_is_key) + (1 - next_is_key) == 1,
                 "Cannot find key/value straddling KEY_DELIMITER_TOKEN",
@@ -428,6 +428,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             scan_mode = scan_token;
         }
+
+        // if we end in a scan mode where we're searching for a number, string or a literal (true/false/null), we have an incomplete token and this is invalid JSON
+        // NOTE: if we upgrade this parser to be able to process single-value JSON (e,g, "999" or ""hello" : "world"" this logic needs to be upgraded)
+        assert(
+            scan_mode == GRAMMAR_SCAN as Field,
+            "build_transcript: incomplete token (number, string or literal)",
+        );
 
         // ensure an error isn't hiding in the last scanned token
         scan_mode.assert_max_bit_size::<2>();
@@ -936,3 +943,26 @@ fn test_json_empty_array_passes() {
     let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
 }
 
+#[test(should_fail)]
+fn test_finishing_with_string_scan_fails() {
+    let json_string = "{ } \"}";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
+}
+
+#[test(should_fail)]
+fn test_finishing_with_literal_scan_fails() {
+    let json_string = "{ } fa";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
+}
+
+#[test(should_fail)]
+fn test_finishing_with_numeric_scan_fails() {
+    let json_string = "{ } 123";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
+}
+
+#[test(should_fail)]
+fn key_is_not_a_key() {
+    let json_string = "{1\n:0}";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
+}
