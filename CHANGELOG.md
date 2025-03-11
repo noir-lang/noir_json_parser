@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/noir-lang/noir_json_parser/compare/v0.3.0...v0.4.0) (2025-02-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* fixed invalid json passing as valid json ([#32](https://github.com/noir-lang/noir_json_parser/issues/32))
+* replace fixed size JSON modules with type aliases ([#19](https://github.com/noir-lang/noir_json_parser/issues/19))
+
+### Bug Fixes
+
+* Add safety blocks and safety comments ([#31](https://github.com/noir-lang/noir_json_parser/issues/31)) ([b6bbbd1](https://github.com/noir-lang/noir_json_parser/commit/b6bbbd1ec549c67842790d3396059265b324efdb))
+* Export types mistakenly left private ([#27](https://github.com/noir-lang/noir_json_parser/issues/27)) ([682df8b](https://github.com/noir-lang/noir_json_parser/commit/682df8b6b734a7058c57d8ac58766b3ca7592df2))
+* Fixed invalid json passing as valid json ([#32](https://github.com/noir-lang/noir_json_parser/issues/32)) ([cfb29f8](https://github.com/noir-lang/noir_json_parser/commit/cfb29f854d12ca351ed0143f68440695975efc59))
+
+
+### Miscellaneous Chores
+
+* Replace fixed size JSON modules with type aliases ([#19](https://github.com/noir-lang/noir_json_parser/issues/19)) ([e5669b6](https://github.com/noir-lang/noir_json_parser/commit/e5669b6ed89a4b047bb7dcaf33c6f4b99c7e42f2))
+
 ## [0.3.0](https://github.com/noir-lang/noir_json_parser/compare/v0.2.0...v0.3.0) (2024-11-25)
 
 
