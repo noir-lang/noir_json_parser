@@ -22,19 +22,19 @@ Multiple JSON parser types are exposed that accomodate different maximum length 
 > Notation explainer: a _token_ is a distinct JSON element, either `{` `}` `[` `]` `,` `:` , strings, numbers of literals (`false`, `true`, `null`)
 > Notation explainer: a _value_ is an object, array, string, number of literal
 
-- `JSON512b::JSON` a parser that can handle up to 512 bytes of JSON, up to 64 _tokens_ and 32 _values_
-- `JSON1kb::JSON` a parser that can handle up to 1kb of JSON, up to 128 _tokens_ and 64 _values_
-- `JSON2kb::JSON` a parser that can handle up to 2kb bytes of JSON, up to 256 _tokens_ and 128 _values_
-- `JSON4kb::JSON` a parser that can handle up to 4kb bytes of JSON, up to 512 _tokens_ and 256 _values_
-- `JSON8kb::JSON` a parser that can handle up to 8kb bytes of JSON, up to 1,024 _tokens_ and 512 _values_
-- `JSON16kb::JSON` a parser that can handle up to 16kb bytes of JSON, up to 2,048 _tokens_ and 1,024 _values_
+- `JSON512b` a parser that can handle up to 512 bytes of JSON, up to 64 _tokens_ and 32 _values_
+- `JSON1kb` a parser that can handle up to 1kb of JSON, up to 128 _tokens_ and 64 _values_
+- `JSON2kb` a parser that can handle up to 2kb bytes of JSON, up to 256 _tokens_ and 128 _values_
+- `JSON4kb` a parser that can handle up to 4kb bytes of JSON, up to 512 _tokens_ and 256 _values_
+- `JSON8kb` a parser that can handle up to 8kb bytes of JSON, up to 1,024 _tokens_ and 512 _values_
+- `JSON16kb` a parser that can handle up to 16kb bytes of JSON, up to 2,048 _tokens_ and 1,024 _values_
 
 The maximum length of keys in the JSON blob is _62 bytes_. All of these parameters are configurable, see [Advanced usage](#advanced-usage) for more info.
 
 ## Usage
 
 ```
-use crate::json_parser::1kbJSON::JSON;
+use crate::json_parser::JSON1kb;
 use crate::json_parser::JSONLiteral;
 /*
 example schema. In this example we require every field to exist except "dlc_enabled", which is optional.
