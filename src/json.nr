@@ -1,10 +1,9 @@
-use crate::_comparison_tools::bounds_checker;
 use crate::_comparison_tools::bounds_checker::get_validity_flags;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
-use crate::enums::ScanMode::{GRAMMAR_SCAN, LITERAL_SCAN, NUMERIC_SCAN, STRING_SCAN};
+use crate::enums::ScanMode::GRAMMAR_SCAN;
 use crate::enums::Token::{
-    BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN,
-    KEY_TOKEN, LITERAL_TOKEN, NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN, VALUE_SEPARATOR_TOKEN,
+    BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN, KEY_TOKEN, LITERAL_TOKEN,
+    NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN,
 };
 use crate::get_literal::JSONLiteral;
 use crate::json_entry::{JSONContextStackEntry, JSONEntry, JSONEntryPacked};
@@ -251,7 +250,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut tokens: [Field; MaxNumTokens] = [0; MaxNumTokens];
         //  maybe 71.75 gates per iteration
         for i in 0..MaxNumTokens {
-            //@Safety: check the comments below
+            // Safety: check the comments below
             unsafe { __check_entry_ptr_bounds(entry_ptr, MaxNumValues) };
             // 5.25 gates
             let TranscriptEntry { token, index, length } =
@@ -470,7 +469,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut scan_mode = GRAMMAR_SCAN;
         let mut length: Field = 0;
 
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let raw_transcript = unsafe { self.__build_transcript() };
 
         // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
@@ -579,7 +578,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     fn capture_missing_tokens(&mut self) {
         let mut transcript_ptr: Field = 0;
         // hmm probably need a null transcript value?!?!
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let updated_transcript = unsafe { self.__capture_missing_tokens() };
         // 26? gates per iteration
         let range_valid: [Field; MaxNumTokens] = get_validity_flags(self.transcript_length);

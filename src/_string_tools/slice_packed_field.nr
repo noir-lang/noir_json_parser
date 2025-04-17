@@ -327,44 +327,6 @@ global tail_path_multipliers_chunk0: [Field; 32] = [
     0x00,
 ];
 
-global LIMB_VALID_PATH: [Field; 35] = [
-    0x000000000, // 0 0 0 0 0 0 0 0 0
-    0x000000001, // 0 0 0 0 0 0 0 0 1
-    0x000000003, // 0 0 0 0 0 0 0 1 1
-    0x000000007, // 0 0 0 0 0 0 1 1 1
-    0x000000008, // 0 0 0 0 0 1 1 1 1
-    0x000000010, // 0 0 0 0 1 0 0 0 0
-    0x000000020, // 0 0 0 1 0 0 0 0 0
-    0x000000040, // 0 0 1 0 0 0 0 0 0
-    0x000000080, // 0 1 0 0 0 0 0 0 0
-    0x000000100, // 1 0 0 0 0 0 0 0 0
-    0x000000200, // 0 0 0 0 0 0 0 1 0
-    0x000000400, // 0 0 0 0 0 0 1 0 0
-    0x000000800, // 0 0 0 0 0 1 0 0 0
-    0x000001000, // 0 0 0 0 1 0 0 0 0
-    0x000002000, // 0 0 0 1 0 0 0 0 0
-    0x000004000, // 0 0 1 0 0 0 0 0 0
-    0x000008000, // 0 1 0 0 0 0 0 0 0
-    0x000010000, // 0 0 0 0 0 0 0 0 1
-    0x000020000, // 0 0 0 0 0 0 0 1 0
-    0x000040000, // 0 0 0 0 0 0 1 0 0
-    0x000080000, // 0 0 0 0 0 1 0 0 0
-    0x000100000, // 0 0 0 0 1 0 0 0 0
-    0x000200000, // 0 0 0 1 0 0 0 0 0
-    0x000400000, // 0 0 1 0 0 0 0 0 0
-    0x000800000, // 0 1 0 0 0 0 0 0 0
-    0x001000000, // 0 0 0 0 0 0 0 0 1
-    0x002000000, // 0 0 0 0 0 0 0 1 0
-    0x004000000, // 0 0 0 0 0 0 1 0 0
-    0x008000000, // 0 0 0 0 0 1 0 0 0
-    0x010000000, // 0 0 0 0 1 0 0 0 0
-    0x020000000, // 0 0 0 1 0 0 0 0 0
-    0x040000000, // 0 0 1 0 0 0 0 0 0
-    0x080000000, // 0 1 0 0 0 0 0 0 0
-    0x100000000,
-    0x200000000,
-];
-
 // these path variables describe the location of a limb in an array
 // e.g. LAST_LIMB_PATH[5] produces 2^{5-1},
 // which is decomposed into 1 0 0 0 0, and the decompositions turned into an array M
@@ -607,7 +569,7 @@ unconstrained fn __divmod(numerator: Field, denominator: Field) -> (Field, Field
  *        we know the quotient will fit into a 14 bit range check which will save us some fractional gates
  **/
 fn divmod_31(numerator: Field) -> (Field, Field) {
-    //@Safety: we check the bit lengths of qf and rf and their relation to the numerator with assertions later
+    // Safety: we check the bit lengths of qf and rf and their relation to the numerator with assertions later
     let (quotient, remainder) = unsafe { __divmod(numerator, 31) };
 
     let qf = quotient as Field;
@@ -642,7 +604,7 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
 pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Field; OutputFields] {
     // TODO we offset by 1 explain why (0 byte length produces 0 - 1 which = invalid array index. we just add 1 and increase array length by 1 to compensate)
     let path = LAST_LIMB_PATH[last_limb_index + 1]; // 2
-    //@Safety: check the comments below
+    // Safety: check the comments below
     let path_valid_bits = unsafe { decompose(path) };
     let mut path_valid_sum: Field = 0;
     let mut path_valid_output: [Field; OutputFields] = [0; OutputFields];
@@ -663,7 +625,7 @@ pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Fie
  * @details cost 46 gates
  **/
 pub fn slice_field(f: Field, num_bytes: Field) -> (Field, Field) {
-    //@Safety: we check the bit lengths of the chunks with assertions later
+    // Safety: we check the bit lengths of the chunks with assertions later
     let chunks = unsafe { __slice_field(f, num_bytes) };
     chunks[0].assert_max_bit_size::<8>(); // 1.25 gates
     chunks[1].assert_max_bit_size::<16>(); // 1.5 gates
@@ -868,7 +830,7 @@ mod test {
         // let start_byte = 26;
         let num_bytes = 0;
         let start_byte: u32 = 0;
-        //@Safety: this is a test
+        // Safety: this is a test
         let mut expected_slices: [Field; 3] =
             unsafe { build_slices_for_test(text, start_byte, num_bytes) };
         let result_slices: [Field; 3] =
@@ -901,19 +863,18 @@ mod test {
             let num_bytes = byte_sizes[i];
             for j in 0..18 {
                 let start_byte: u32 = byte_positions[j];
+                // Safety: this is a test
                 let mut expected_slices: [Field; 3] =
-                //@Safety: this is a test
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
-                //@Safety: this is a test
-                    unsafe { slice_fields(slices, start_byte as Field, num_bytes as Field) };
+                    slice_fields(slices, start_byte as Field, num_bytes as Field);
                 assert(result_slices == expected_slices);
             }
 
             for j in 0..18 {
                 let start_byte: u32 = text.len() - num_bytes - byte_positions[j];
                 let mut expected_slices: [Field; 3] =
-                //@Safety: this is a test
+                // Safety: this is a test
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
                     slice_fields(slices, start_byte as Field, num_bytes as Field);

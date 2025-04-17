@@ -33,7 +33,7 @@ impl TokenFlags {
 
     pub(crate) fn from_field(f: Field) -> Self {
         // 10 gates
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let r = unsafe { TokenFlags::__from_field(f) };
 
         // checks that the flags are binary

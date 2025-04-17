@@ -1,5 +1,4 @@
 global PLO: Field = 0x2833E84879B9709143E1F593F0000001;
-global PHI: Field = 0x30644E72E131A029B85045B68181585D;
 
 global PLO_200_felt: Field = 0x29B85045B68181585D2833E84879B9709143E1F593F0000001;
 global PHI_54_felt: Field = 0x30644E72E131A0;
@@ -10,7 +9,6 @@ struct Slice200 {
     lohi: u64, // 7 bytes
     lolo: u32, // 4 bytes
 }
-global PHI_54: u64 = 0x30644E72E131A0;
 global PLO_200: Slice200 = Slice200 {
     hihi: 0x29B85045B68181,
     hilo: 0x585D2833E84879,
@@ -64,7 +62,7 @@ unconstrained fn __slice_200_bits_from_field(f: Field) -> (Field, Field, bool) {
 }
 
 pub fn slice_200_bits_from_field(f: Field) -> Field {
-    //@Safety: check the comments below
+    // Safety: check the comments below
     let (lo, hi, borrow) = unsafe { __slice_200_bits_from_field(f) };
     // checks that lo and hi are the correct slices of f
     assert(hi * TWO_POW_200 + lo == f);

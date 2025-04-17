@@ -1,5 +1,5 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
-use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
+use crate::enums::Layer::ARRAY_LAYER;
 use crate::enums::Token::STRING_TOKEN;
 use crate::json::JSON;
 use crate::json::JSONValue;
@@ -8,9 +8,6 @@ use crate::json_tables::{
     ESCAPE_SEQUENCE_END_CHARS, ESCAPE_SEQUENCE_REPLACEMENT, ESCAPE_SEQUENCE_START_CHARS,
 };
 
-unconstrained fn to_u8(f: Field) -> u8 {
-    f as u8
-}
 fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<u8, N> {
     let string = input.storage();
     let mut result: [u8; N] = [0; N];
@@ -30,9 +27,8 @@ fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<
             + (1 - is_escape_sequence) * character as Field;
 
         written_byte = written_byte * (1 - skip) + cached_byte * skip;
-        //@Safety: we assert that the casting is done correctly
-        let written_byte_u8 = unsafe { to_u8(written_byte) };
-        assert(written_byte_u8 as Field == written_byte);
+        written_byte.assert_max_bit_size::<8>();
+        let written_byte_u8 = written_byte as u8;
 
         result[result_ptr] = written_byte_u8;
         result_ptr += (1 - is_escape_sequence);
@@ -42,9 +38,8 @@ fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<
     }
 
     let written_byte: Field = character as Field * (1 - skip) + cached_byte * skip;
-    //@Safety: we assert that the casting is done correctly
-    let written_byte_u8 = unsafe { to_u8(written_byte) };
-    assert(written_byte_u8 as Field == written_byte);
+    written_byte.assert_max_bit_size::<8>();
+    let written_byte_u8 = written_byte as u8;
     result[result_ptr] = written_byte_u8;
     result_ptr += 1;
 
