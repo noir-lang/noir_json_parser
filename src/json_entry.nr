@@ -119,7 +119,9 @@ impl JSONEntry {
     }
 
     // 11.75 gates
-    pub(crate) fn extract_entry_type_id_and_parent_index_from_field(f: Field) -> (Field, Field, Field) {
+    pub(crate) fn extract_entry_type_id_and_parent_index_from_field(
+        f: Field,
+    ) -> (Field, Field, Field) {
         //@Safety: we check all the outputs are in the correct range and we can construct the input from the outputs of the decomposition
         let (id, parent_index, mid, entry_type) =
             unsafe { JSONEntry::__extract_entry_type_id_and_parent_index_from_field(f) };

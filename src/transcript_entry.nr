@@ -55,7 +55,7 @@ impl RawTranscriptEntry {
     pub(crate) fn new() -> Self {
         RawTranscriptEntry { encoded_ascii: 0, index: 0, length: 0 }
     }
-    
+
     pub(crate) fn to_field(self) -> Field {
         self.encoded_ascii + self.index * 0x10000 + self.length * (0x100000000)
     }
@@ -125,7 +125,7 @@ impl ScanData {
         scan_token = scan_token + error * 0x100000000;
         ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence }
     }
-    
+
     pub(crate) fn from_field(f: Field) -> Self {
         //@Safety: check the comments below
         let result = unsafe { ScanData::__from_field(f) };
@@ -195,7 +195,7 @@ impl TranscriptEntry {
         token
     }
     // 5.25 gates
-    pub(crate)fn from_field(felt: Field) -> Self {
+    pub(crate) fn from_field(felt: Field) -> Self {
         //@Safety: check the comments below
         let result = unsafe { TranscriptEntry::__from_field(felt) };
         // checks that length is in range

@@ -1,8 +1,8 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::STRING_TOKEN;
-use crate::json::JSONValue;
 use crate::json::JSON;
+use crate::json::JSONValue;
 use crate::json_entry::JSONEntry;
 use crate::json_tables::{
     ESCAPE_SEQUENCE_END_CHARS, ESCAPE_SEQUENCE_REPLACEMENT, ESCAPE_SEQUENCE_START_CHARS,
@@ -354,7 +354,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_value_unchecked` for where the key length may be less than KeyBytes
      **/
-    pub(crate)  fn get_value_unchecked_var<let KeyBytes: u32, let StringBytes: u32>(
+    pub(crate) fn get_value_unchecked_var<let KeyBytes: u32, let StringBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> JSONValue<StringBytes> {

@@ -1,8 +1,8 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::END_OBJECT_TOKEN;
-use crate::json::JSONValue;
 use crate::json::JSON;
+use crate::json::JSONValue;
 use crate::json_entry::JSONEntry;
 
 /**
@@ -60,7 +60,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_object` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_object_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<Self> {
+    pub(crate) fn get_object_var<let KeyBytes: u32>(
+        self,
+        key: BoundedVec<u8, KeyBytes>,
+    ) -> Option<Self> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl_var(key);
@@ -85,7 +88,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_object_unchecked` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_object_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Self {
+    pub(crate) fn get_object_unchecked_var<let KeyBytes: u32>(
+        self,
+        key: BoundedVec<u8, KeyBytes>,
+    ) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
@@ -192,19 +198,22 @@ fn test_object() {
     let not_real = B.get_object("bartholomew tony Harrison IV".as_bytes());
     assert(not_real.is_some() == false);
 
-    let C = B.get_object_unchecked_var(
-        BoundedVec::from_parts_unchecked("bartholomew tony Harrison III".as_bytes(), 29),
-    );
+    let C = B.get_object_unchecked_var(BoundedVec::from_parts_unchecked(
+        "bartholomew tony Harrison III".as_bytes(),
+        29,
+    ));
     assert(JSONEntry::from(C.json_entries_packed[C.root_index_in_transcript]).num_children == 1);
 
-    let C = B.get_object_var(
-        BoundedVec::from_parts_unchecked("bartholomew tony Harrison III".as_bytes(), 28),
-    );
+    let C = B.get_object_var(BoundedVec::from_parts_unchecked(
+        "bartholomew tony Harrison III".as_bytes(),
+        28,
+    ));
     assert(C.is_some() == false);
 
-    let C = B.get_object_var(
-        BoundedVec::from_parts_unchecked("bartholomew tony Harrison IIIekurfgaeoiurh".as_bytes(), 29),
-    );
+    let C = B.get_object_var(BoundedVec::from_parts_unchecked(
+        "bartholomew tony Harrison IIIekurfgaeoiurh".as_bytes(),
+        29,
+    ));
     assert(C.is_some() == true);
 
     let second = first.get_object_from_array_unchecked(4);

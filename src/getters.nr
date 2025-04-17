@@ -29,7 +29,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
      * @description returns an Option<JSONEntry> which will be null if the entry does not exist
      **/
-    pub(crate) fn get_json_entry<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> (bool, JSONEntry) {
+    pub(crate) fn get_json_entry<let KeyBytes: u32>(
+        self,
+        key: [u8; KeyBytes],
+    ) -> (bool, JSONEntry) {
         // let key_index = self.find_key_in_map(keyhash);
         // assert(self.key_hashes[key_index] == keyhash);
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
@@ -43,7 +46,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
      * @note will revert if the key does not exist
      **/
-    pub(crate) fn get_json_entry_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> JSONEntry {
+    pub(crate) fn get_json_entry_unchecked<let KeyBytes: u32>(
+        self,
+        key: [u8; KeyBytes],
+    ) -> JSONEntry {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
@@ -423,7 +429,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     pub(crate) unconstrained fn __get_keys_at_root<let MaxNumKeys: u32>(
         self,
     ) -> BoundedVec<Field, MaxNumKeys> {
-
         let root_object: JSONEntry =
             JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
 
@@ -437,11 +442,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             }
         }
         assert_eq(result_ptr as Field, root_object.num_children);
-        
+
         BoundedVec::from_parts_unchecked(result, result_ptr as u32)
     }
 
-    pub(crate)fn get_keys_at_root<let MaxNumKeys: u32, let MaxKeyBytes: u32>(
+    pub(crate) fn get_keys_at_root<let MaxNumKeys: u32, let MaxKeyBytes: u32>(
         self,
     ) -> BoundedVec<BoundedVec<u8, MaxKeyBytes>, MaxNumKeys> {
         let root_object: JSONEntry =
@@ -458,7 +463,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let mut fake_entry = JSONEntry::new();
             fake_entry.json_pointer = key.json_index;
             fake_entry.json_length = key.json_length;
-            result.set_unchecked(i, BoundedVec::from_parts_unchecked(self.extract_string_entry(fake_entry), key.json_length as u32));
+            result.set_unchecked(
+                i,
+                BoundedVec::from_parts_unchecked(
+                    self.extract_string_entry(fake_entry),
+                    key.json_length as u32,
+                ),
+            );
         }
         result.len = key_indices.len();
         result

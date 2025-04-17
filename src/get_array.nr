@@ -1,8 +1,8 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::END_ARRAY_TOKEN;
-use crate::json::JSONValue;
 use crate::json::JSON;
+use crate::json::JSONValue;
 use crate::json_entry::JSONEntry;
 
 /**
@@ -68,7 +68,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_array` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_array_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<Self> {
+    pub(crate) fn get_array_var<let KeyBytes: u32>(
+        self,
+        key: BoundedVec<u8, KeyBytes>,
+    ) -> Option<Self> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
@@ -94,7 +97,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_array_unchecked` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_array_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Self {
+    pub(crate) fn get_array_unchecked_var<let KeyBytes: u32>(
+        self,
+        key: BoundedVec<u8, KeyBytes>,
+    ) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
