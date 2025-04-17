@@ -1,12 +1,12 @@
-mod _table_generation;
+pub(crate) mod _table_generation;
 mod enums;
 mod json;
 mod json_tables;
 mod keymap;
 mod json_entry;
 mod transcript_entry;
-mod _string_tools;
-mod _comparison_tools;
+pub(crate) mod _string_tools;
+pub(crate) mod _comparison_tools;
 mod token_flags;
 mod getters;
 mod keyhash;

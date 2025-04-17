@@ -1,11 +1,11 @@
-struct TokenFlags {
-    create_json_entry: Field,
-    is_end_of_object_or_array: Field,
-    is_start_of_object_or_array: Field,
-    new_context: Field,
-    is_key_token: Field,
-    is_value_token: Field,
-    preserve_num_entries: Field,
+pub(crate) struct TokenFlags {
+    pub(crate) create_json_entry: Field,
+    pub(crate) is_end_of_object_or_array: Field,
+    pub(crate) is_start_of_object_or_array: Field,
+    pub(crate) new_context: Field,
+    pub(crate) is_key_token: Field,
+    pub(crate) is_value_token: Field,
+    pub(crate) preserve_num_entries: Field,
 }
 
 impl TokenFlags {
@@ -31,7 +31,7 @@ impl TokenFlags {
         }
     }
 
-    fn from_field(f: Field) -> Self {
+    pub(crate) fn from_field(f: Field) -> Self {
         // 10 gates
         //@Safety: check the comments below
         let r = unsafe { TokenFlags::__from_field(f) };
@@ -57,7 +57,7 @@ impl TokenFlags {
     }
 
     // 4 gates
-    fn to_field(self) -> Field {
+    pub(crate) fn to_field(self) -> Field {
         self.preserve_num_entries
             + self.is_value_token * 0x100
             + self.is_key_token * 0x10000
@@ -67,7 +67,7 @@ impl TokenFlags {
             + self.create_json_entry * 0x1000000000000
     }
 
-    fn default() -> Self {
+    pub(crate) fn default() -> Self {
         TokenFlags {
             create_json_entry: 0,
             is_end_of_object_or_array: 0,

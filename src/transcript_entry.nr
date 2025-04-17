@@ -1,13 +1,13 @@
 use crate::json_tables::ASCII_TO_TOKEN_TABLE;
 
-struct ValidationFlags {
-    push_layer: Field,
-    push_layer_type_of_root: Field,
-    pop_layer: Field,
+pub(crate) struct ValidationFlags {
+    pub(crate) push_layer: Field,
+    pub(crate) push_layer_type_of_root: Field,
+    pub(crate) pop_layer: Field,
 }
 
 impl ValidationFlags {
-    fn to_field(self) -> Field {
+    pub(crate) fn to_field(self) -> Field {
         self.push_layer + self.push_layer_type_of_root * 0x100 + self.pop_layer * 0x10000
     }
 
@@ -32,7 +32,7 @@ impl ValidationFlags {
     }
 
     // 3 gates
-    fn from_field(f: Field) -> Self {
+    pub(crate) fn from_field(f: Field) -> Self {
         //@Safety: check the comments below
         let r = unsafe { ValidationFlags::__from_field(f) };
         // checks pop_layer is a valid boolean
@@ -45,17 +45,18 @@ impl ValidationFlags {
     }
 }
 
-struct RawTranscriptEntry {
-    encoded_ascii: Field,
-    index: Field,
-    length: Field,
+pub(crate) struct RawTranscriptEntry {
+    pub(crate) encoded_ascii: Field,
+    pub(crate) index: Field,
+    pub(crate) length: Field,
 }
 
 impl RawTranscriptEntry {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         RawTranscriptEntry { encoded_ascii: 0, index: 0, length: 0 }
     }
-    fn to_field(self) -> Field {
+    
+    pub(crate) fn to_field(self) -> Field {
         self.encoded_ascii + self.index * 0x10000 + self.length * (0x100000000)
     }
 
@@ -70,7 +71,7 @@ impl RawTranscriptEntry {
     // 1.25 gates for range checks
     // 2 gates to get u16s
     // 5.25 gates total
-    fn from_field(felt: Field) -> Self {
+    pub(crate) fn from_field(felt: Field) -> Self {
         //@Safety: check the comments below
         let result = unsafe { RawTranscriptEntry::__from_field(felt) };
         result.length.assert_max_bit_size::<16>();
@@ -97,17 +98,17 @@ impl RawTranscriptEntry {
     }
 }
 
-struct TranscriptEntry {
-    token: Field,
-    index: Field,
-    length: Field,
+pub(crate) struct TranscriptEntry {
+    pub(crate) token: Field,
+    pub(crate) index: Field,
+    pub(crate) length: Field,
 }
 
-struct ScanData {
-    scan_token: Field,
-    push_transcript: Field,
-    increase_length: Field,
-    is_potential_escape_sequence: Field,
+pub(crate) struct ScanData {
+    pub(crate) scan_token: Field,
+    pub(crate) push_transcript: Field,
+    pub(crate) increase_length: Field,
+    pub(crate) is_potential_escape_sequence: Field,
 }
 
 impl ScanData {
@@ -124,7 +125,8 @@ impl ScanData {
         scan_token = scan_token + error * 0x100000000;
         ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence }
     }
-    fn from_field(f: Field) -> Self {
+    
+    pub(crate) fn from_field(f: Field) -> Self {
         //@Safety: check the comments below
         let result = unsafe { ScanData::__from_field(f) };
         // checks increase_length is a valid boolean
@@ -148,13 +150,13 @@ impl ScanData {
     }
 }
 
-struct PostProcessScanData {
-    token: Field,
-    new_grammar: Field,
-    scan_token: Field,
+pub(crate) struct PostProcessScanData {
+    pub(crate) token: Field,
+    pub(crate) new_grammar: Field,
+    pub(crate) scan_token: Field,
 }
 impl PostProcessScanData {
-    fn from_field(f: Field) -> Self {
+    pub(crate) fn from_field(f: Field) -> Self {
         let bytes: [u8; 3] = f.to_be_bytes();
         let token = bytes[2] as Field;
         let new_grammar = bytes[1] as Field;
@@ -163,10 +165,10 @@ impl PostProcessScanData {
     }
 }
 impl TranscriptEntry {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         TranscriptEntry { token: 0, index: 0, length: 0 }
     }
-    fn to_field(self) -> Field {
+    pub(crate) fn to_field(self) -> Field {
         self.token + self.index * 0x100 + self.length * (0x1000000)
     }
     unconstrained fn __from_field(felt: Field) -> Self {
@@ -193,7 +195,7 @@ impl TranscriptEntry {
         token
     }
     // 5.25 gates
-    fn from_field(felt: Field) -> Self {
+    pub(crate)fn from_field(felt: Field) -> Self {
         //@Safety: check the comments below
         let result = unsafe { TranscriptEntry::__from_field(felt) };
         // checks that length is in range

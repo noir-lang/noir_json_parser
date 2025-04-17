@@ -1,7 +1,7 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::LITERAL_TOKEN;
-use crate::getters::JSONValue;
+use crate::json::JSONValue;
 use crate::json::JSON;
 use crate::json_entry::JSONEntry;
 
@@ -14,27 +14,27 @@ global LITERAL_OFFSET_SHIFT: [Field; 6] =
  *        As such we can't directly convert to a bool and cover all possible cases
  **/
 pub struct JSONLiteral {
-    value: Field,
+    pub(crate) value: Field,
 }
 
 impl JSONLiteral {
-    fn new(is_true: bool, is_false: bool, is_null: bool) -> Self {
+    pub(crate) fn new(is_true: bool, is_false: bool, is_null: bool) -> Self {
         assert(
             is_false as Field + is_null as Field + is_true as Field == 1,
             "parse literal: invalid entry",
         );
         JSONLiteral { value: is_true as Field * 2 + is_null as Field }
     }
-    fn is_true(self) -> bool {
+    pub(crate) fn is_true(self) -> bool {
         self.value == 2
     }
-    fn is_null(self) -> bool {
+    pub(crate) fn is_null(self) -> bool {
         self.value == 1
     }
-    fn is_false(self) -> bool {
+    pub(crate) fn is_false(self) -> bool {
         self.value == 0
     }
-    fn to_bool(self) -> bool {
+    pub(crate) fn to_bool(self) -> bool {
         self.value == 2
     }
 }
@@ -84,9 +84,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
             self.extract_string_entry(entry);
 
-        Option {
-            _is_some: exists,
-            _value: extract_literal_from_array(parsed_string, entry.json_length),
+        if exists {
+            Option::some(extract_literal_from_array(parsed_string, entry.json_length))
+        } else {
+            Option::none()
         }
     }
 
@@ -125,9 +126,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
             self.extract_string_entry(entry);
 
-        Option {
-            _is_some: exists,
-            _value: extract_literal_from_array(parsed_string, entry.json_length),
+        if exists {
+            Option::some(extract_literal_from_array(parsed_string, entry.json_length))
+        } else {
+            Option::none()
         }
     }
 
@@ -178,7 +180,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             self.extract_string_entry(entry);
         let result = extract_literal_from_array(parsed_string, entry.json_length);
 
-        Option { _is_some: valid, _value: result }
+        if valid {
+            Option::some(result)
+        } else {
+            Option::none()
+        }
     }
 
     /**

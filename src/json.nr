@@ -21,8 +21,8 @@ use crate::transcript_entry::{
  * @brief records a value in a json blob
  **/
 pub struct JSONValue<let MaxLength: u32> {
-    value: BoundedVec<u8, MaxLength>, // raw bytes that constitute the json value entry
-    value_type: Field, // either STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN
+    pub(crate) value: BoundedVec<u8, MaxLength>, // raw bytes that constitute the json value entry
+    pub(crate) value_type: Field, // either STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN
 }
 
 impl<let MaxLength: u32> JSONValue<MaxLength> {
@@ -43,18 +43,18 @@ impl<let MaxLength: u32> JSONValue<MaxLength> {
  * @note text that describes just a single JSON value is not yet fully supported. Only use this library for processing objects or arrays for now
  **/
 pub struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> {
-    json: [u8; NumBytes], // the raw json bytes
-    json_packed: [Field; NumPackedFields], // raw bytes, but packed into 31-byte Field elements
-    raw_transcript: [Field; MaxNumTokens], // transcript of json tokens after basic processing
-    transcript: [Field; MaxNumTokens], // complete transcript of json tokens
-    transcript_length: u32, // how big is the transcript?
-    key_data: [Field; MaxNumValues], // description of each key, packed into a Field element
-    key_hashes: [Field; MaxNumValues], // a sorted list of key hashes
-    unsorted_json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
-    json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
-    layer_type_of_root: Field, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
-    root_id: Field, // the unique identifier of the root (if an object or array)
-    root_index_in_transcript: Field, // location in json_entries_packed of the root
+    pub(crate) json: [u8; NumBytes], // the raw json bytes
+    pub(crate) json_packed: [Field; NumPackedFields], // raw bytes, but packed into 31-byte Field elements
+    pub(crate) raw_transcript: [Field; MaxNumTokens], // transcript of json tokens after basic processing
+    pub(crate) transcript: [Field; MaxNumTokens], // complete transcript of json tokens
+    pub(crate) transcript_length: u32, // how big is the transcript?
+    pub(crate) key_data: [Field; MaxNumValues], // description of each key, packed into a Field element
+    pub(crate) key_hashes: [Field; MaxNumValues], // a sorted list of key hashes
+    pub(crate) unsorted_json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
+    pub(crate) json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
+    pub(crate) layer_type_of_root: Field, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
+    pub(crate) root_id: Field, // the unique identifier of the root (if an object or array)
+    pub(crate) root_index_in_transcript: Field, // location in json_entries_packed of the root
 }
 
 /**
@@ -260,14 +260,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             tokens[i] = token;
             // 13 gates
             let TokenFlags {
-    create_json_entry,
-    is_end_of_object_or_array,
-    is_start_of_object_or_array,
-    new_context,
-    is_key_token: update_key,
-    is_value_token,
-    preserve_num_entries,} =
-                TokenFlags::from_field(TOKEN_FLAGS_TABLE[token + context * (NUM_TOKENS as Field)]);
+        create_json_entry,
+        is_end_of_object_or_array,
+        is_start_of_object_or_array,
+        new_context,
+        is_key_token: update_key,
+        is_value_token,
+        preserve_num_entries,
+    } = TokenFlags::from_field(TOKEN_FLAGS_TABLE[token + context * (NUM_TOKENS as Field)]);
 
             // 2 gates
             let diff = (index + length * 0x10000) - current_key_index_and_length;
@@ -665,7 +665,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         json
     }
 
-    fn parse_json_from_string<let StringBytes: u32>(s: str<StringBytes>) -> Self {
+    pub fn parse_json_from_string<let StringBytes: u32>(s: str<StringBytes>) -> Self {
         JSON::parse_json(s.as_bytes())
     }
 }
@@ -690,9 +690,9 @@ fn test_numbers() {
     let c = json.get_number_unchecked("c".as_bytes());
     let d = json.get_number_unchecked("d".as_bytes());
     let e = json.get_number_unchecked("e".as_bytes());
-    let f = json.get_number_unchecked_var(BoundedVec { storage: "ftrololol".as_bytes(), len: 1 });
+    let f = json.get_number_unchecked_var(BoundedVec::from_parts_unchecked("ftrololol".as_bytes(), 1));
     let g = json.get_number("g".as_bytes()).unwrap();
-    let h = json.get_number_var(BoundedVec { storage: "h".as_bytes(), len: 1 }).unwrap();
+    let h = json.get_number_var(BoundedVec::from_parts_unchecked("h".as_bytes(), 1)).unwrap();
     let i = json.get_number_unchecked("i".as_bytes());
     let j = json.get_number_unchecked("j".as_bytes());
     let k = json.get_number_unchecked("k".as_bytes());
@@ -747,8 +747,8 @@ fn test_escaped_strings() {
     let text = "{   \"name\": \"\\\"Ade\\nel Solangi\\\"\", \"testA\": false, \"testB\": true, \"testC\": null }                                                                   ";
     let mut json: JSON<148, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
     let result: BoundedVec<u8, 19> = json.get_string_unchecked("name".as_bytes());
-    assert(result.storage == BoundedVec::from_array("\"Ade\nel Solangi\"".as_bytes()).storage);
-    assert(result.len == 16);
+    assert(result.storage() == BoundedVec::from_array("\"Ade\nel Solangi\"".as_bytes()).storage());
+    assert(result.len() == 16);
 }
 
 #[test]
@@ -757,11 +757,11 @@ fn test_parse_json() {
     let mut json: JSON<68, 7, 30, 30, 2> = JSON::parse_json_from_string(text);
 
     let result = json.get_string_unchecked("baz".as_bytes());
-    assert(result.storage == "hello".as_bytes());
+    assert(result.storage() == "hello".as_bytes());
 
     let result: Option<BoundedVec<u8, 5>> = json.get_string("baz".as_bytes());
     assert(result.is_some());
-    assert(result.unwrap().storage == "hello".as_bytes());
+    assert(result.unwrap().storage() == "hello".as_bytes());
 
     let result: Option<BoundedVec<u8, 1>> = json.get_string("wibble".as_bytes());
     assert(result.is_some() == false);
@@ -778,7 +778,7 @@ fn test_parse_json() {
 
     let mut nested_json = json.get_object("bar".as_bytes()).unwrap();
     let result: Option<u64> = nested_json.get_number_var(
-        BoundedVec { storage: "foounusedkeybyteslolol".as_bytes(), len: 3 },
+        BoundedVec::from_parts_unchecked("foounusedkeybyteslolol".as_bytes(), 3),
     );
     assert(result.is_some() == true);
     assert(result.unwrap() == 9876);
@@ -811,10 +811,10 @@ fn test_arrays() {
     let text = "{   \"name\": \"Adeel Solangi\", \"age\": 62, \"portfolio\": { \"vibe_ratings\": [1,2],\"elemental_lorem\": false }}                                                 ";
     let mut json: JSON<153, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
 
-    assert(json.key_exists(BoundedVec { storage: "foo".as_bytes(), len: 3 }) == false);
-    assert(json.key_exists(BoundedVec { storage: "name".as_bytes(), len: 4 }));
-    assert(json.key_exists(BoundedVec { storage: "age".as_bytes(), len: 3 }));
-    assert(json.key_exists(BoundedVec { storage: "portfolio".as_bytes(), len: 9 }));
+    assert(json.key_exists(BoundedVec::from_parts_unchecked("foo".as_bytes(), 3)) == false);
+    assert(json.key_exists(BoundedVec::from_parts_unchecked("name".as_bytes(), 4)));
+    assert(json.key_exists(BoundedVec::from_parts_unchecked("age".as_bytes(), 3)));
+    assert(json.key_exists(BoundedVec::from_parts_unchecked("portfolio".as_bytes(), 9)));
 }
 
 #[test(should_fail_with = "build_transcript: MaxNumTokens limit exceeded!")]

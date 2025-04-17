@@ -1,7 +1,7 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::STRING_TOKEN;
-use crate::getters::JSONValue;
+use crate::json::JSONValue;
 use crate::json::JSON;
 use crate::json_entry::JSONEntry;
 use crate::json_tables::{
@@ -12,7 +12,7 @@ unconstrained fn to_u8(f: Field) -> u8 {
     f as u8
 }
 fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<u8, N> {
-    let string = input.storage;
+    let string = input.storage();
     let mut result: [u8; N] = [0; N];
     let mut result_ptr = 0;
     let mut character = string[0];
@@ -49,8 +49,8 @@ fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<
     result_ptr += 1;
 
     let num_removed_chars = N as Field - result_ptr;
-    let new_length = input.len as Field - num_removed_chars;
-    BoundedVec { storage: result, len: new_length as u32 }
+    let new_length = input.len() as Field - num_removed_chars;
+    BoundedVec::from_parts_unchecked(result, new_length as u32)
 }
 
 #[test]
@@ -104,7 +104,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description returns an Option<BoundedVec> which will be null if the key does not exist
      * @note the `StringBytes` parameter defines the maximum allowable length of the returned string
      **/
-    fn get_string<let KeyBytes: u32, let StringBytes: u32>(
+    pub(crate) fn get_string<let KeyBytes: u32, let StringBytes: u32>(
         self,
         key: [u8; KeyBytes],
     ) -> Option<BoundedVec<u8, StringBytes>> {
@@ -116,9 +116,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
 
         let parsed_string: BoundedVec<u8, StringBytes> = process_escape_sequences(
-            BoundedVec { storage: parsed_string, len: entry.json_length as u32 },
+            BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32),
         );
-        Option { _is_some: exists, _value: parsed_string }
+
+        if exists {
+            Option::some(parsed_string)
+        } else {
+            Option::none()
+        }
     }
 
     /**
@@ -126,7 +131,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description will revert if the string does not exist
      * @note the `StringBytes` parameter defines the maximum allowable length of the returned string
      **/
-    fn get_string_unchecked<let KeyBytes: u32, let StringBytes: u32>(
+    pub(crate) fn get_string_unchecked<let KeyBytes: u32, let StringBytes: u32>(
         self,
         key: [u8; KeyBytes],
     ) -> BoundedVec<u8, StringBytes> {
@@ -135,15 +140,17 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             entry.entry_type == STRING_TOKEN,
             "get_string_unchecked: entry exists but is not a string!",
         );
-        let parsed_string =
-            BoundedVec { storage: self.extract_string_entry(entry), len: entry.json_length as u32 };
+        let parsed_string = BoundedVec::from_parts_unchecked(
+            self.extract_string_entry(entry),
+            entry.json_length as u32,
+        );
         process_escape_sequences(parsed_string)
     }
 
     /**
      * @brief same as `get_string` for where the key length may be less than KeyBytes
      **/
-    fn get_string_var<let KeyBytes: u32, let StringBytes: u32>(
+    pub(crate) fn get_string_var<let KeyBytes: u32, let StringBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> Option<BoundedVec<u8, StringBytes>> {
@@ -154,15 +161,20 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
         let parsed_string: BoundedVec<u8, StringBytes> = process_escape_sequences(
-            BoundedVec { storage: parsed_string, len: entry.json_length as u32 },
+            BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32),
         );
-        Option { _is_some: exists, _value: parsed_string }
+
+        if exists {
+            Option::some(parsed_string)
+        } else {
+            Option::none()
+        }
     }
 
     /**
      * @brief same as `get_string_unchecked` for where the key length may be less than KeyBytes
      **/
-    fn get_string_unchecked_var<let KeyBytes: u32, let StringBytes: u32>(
+    pub(crate) fn get_string_unchecked_var<let KeyBytes: u32, let StringBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> BoundedVec<u8, StringBytes> {
@@ -171,8 +183,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             entry.entry_type == STRING_TOKEN,
             "get_string_unchecked: entry exists but is not a string!",
         );
-        let parsed_string =
-            BoundedVec { storage: self.extract_string_entry(entry), len: entry.json_length as u32 };
+        let parsed_string = BoundedVec::from_parts_unchecked(
+            self.extract_string_entry(entry),
+            entry.json_length as u32,
+        );
         process_escape_sequences(parsed_string)
     }
 
@@ -180,7 +194,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract a string given by the position of the target in the source array
      * @description returns an Option<BoundedVec> which will be null if the string does not exist
      **/
-    fn get_string_from_array<let StringBytes: u32>(
+    pub(crate) fn get_string_from_array<let StringBytes: u32>(
         self,
         array_index: Field,
     ) -> Option<BoundedVec<u8, StringBytes>> {
@@ -204,16 +218,21 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
         let parsed_string: BoundedVec<u8, StringBytes> = process_escape_sequences(
-            BoundedVec { storage: parsed_string, len: entry.json_length as u32 },
+            BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32),
         );
-        Option { _is_some: valid, _value: parsed_string }
+
+        if valid {
+            Option::some(parsed_string)
+        } else {
+            Option::none()
+        }
     }
 
     /**
      * @brief if the root JSON is an array, extract a string given by the position of the target in the source array
      * @description will revert if the string does not exist
      **/
-    fn get_string_from_array_unchecked<let StringBytes: u32>(
+    pub(crate) fn get_string_from_array_unchecked<let StringBytes: u32>(
         self,
         array_index: Field,
     ) -> BoundedVec<u8, StringBytes> {
@@ -237,15 +256,16 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
-        process_escape_sequences(
-            BoundedVec { storage: parsed_string, len: entry.json_length as u32 },
-        )
+        process_escape_sequences(BoundedVec::from_parts_unchecked(
+            parsed_string,
+            entry.json_length as u32,
+        ))
     }
 
     /**
      * @brief if the root JSON is an object, get a nested string out of the JSON, which may be several keys deep
      **/
-    fn get_string_from_path<let KeyBytes: u32, let StringBytes: u32, let PathDepth: u32>(
+    pub(crate) fn get_string_from_path<let KeyBytes: u32, let StringBytes: u32, let PathDepth: u32>(
         self,
         keys: [BoundedVec<u8, KeyBytes>; PathDepth],
     ) -> Option<BoundedVec<u8, StringBytes>> {
@@ -254,13 +274,16 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         for i in 0..PathDepth - 1 {
             let child = self.get_object_var(keys[i]);
 
-            target = child._value;
-            valid = valid & child._is_some;
+            target = child.unwrap_unchecked();
+            valid = valid & child.is_some();
         }
 
         let mut final = target.get_string_var(keys[PathDepth - 1]);
-        final._is_some = final._is_some & valid;
-        final
+        if final.is_some() & valid {
+            final
+        } else {
+            Option::none()
+        }
     }
 
     /**
@@ -268,7 +291,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description returns an Option<JSONValue> which will be null if the key does not exist
      * @note the `StringBytes` parameter defines the maximum allowable length of the returned value
      **/
-    fn get_value<let KeyBytes: u32, let StringBytes: u32>(
+    pub(crate) fn get_value<let KeyBytes: u32, let StringBytes: u32>(
         self,
         key: [u8; KeyBytes],
     ) -> Option<JSONValue<StringBytes>> {
@@ -276,10 +299,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
 
         let parsed_string: BoundedVec<u8, StringBytes> =
-            BoundedVec { storage: parsed_string, len: entry.json_length as u32 };
-        Option {
-            _is_some: exists,
-            _value: JSONValue { value: parsed_string, value_type: entry.entry_type },
+            BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32);
+
+        if exists {
+            Option::some(
+                JSONValue { value: parsed_string, value_type: entry.entry_type },
+            )
+        } else {
+            Option::none()
         }
     }
 
@@ -288,16 +315,16 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description will revert if the string does not exist
      * @note the `StringBytes` parameter defines the maximum allowable length of the returned value
      **/
-    fn get_value_unchecked<let KeyBytes: u32, let StringBytes: u32>(
+    pub(crate) fn get_value_unchecked<let KeyBytes: u32, let StringBytes: u32>(
         self,
         key: [u8; KeyBytes],
     ) -> JSONValue<StringBytes> {
         let entry = self.get_json_entry_unchecked(key);
         JSONValue {
-            value: BoundedVec {
-                len: entry.json_length as u32,
-                storage: self.extract_string_entry(entry),
-            },
+            value: BoundedVec::from_parts_unchecked(
+                self.extract_string_entry(entry),
+                entry.json_length as u32,
+            ),
             value_type: entry.entry_type,
         }
     }
@@ -305,7 +332,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_value` for where the key length may be less than KeyBytes
      **/
-    fn get_value_var<let KeyBytes: u32, let StringBytes: u32>(
+    pub(crate) fn get_value_var<let KeyBytes: u32, let StringBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> Option<JSONValue<StringBytes>> {
@@ -313,26 +340,30 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
 
         let parsed_string: BoundedVec<u8, StringBytes> =
-            BoundedVec { storage: parsed_string, len: entry.json_length as u32 };
-        Option {
-            _is_some: exists,
-            _value: JSONValue { value: parsed_string, value_type: entry.entry_type },
+            BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32);
+
+        if exists {
+            Option::some(
+                JSONValue { value: parsed_string, value_type: entry.entry_type },
+            )
+        } else {
+            Option::none()
         }
     }
 
     /**
      * @brief same as `get_value_unchecked` for where the key length may be less than KeyBytes
      **/
-    fn get_value_unchecked_var<let KeyBytes: u32, let StringBytes: u32>(
+    pub(crate)  fn get_value_unchecked_var<let KeyBytes: u32, let StringBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> JSONValue<StringBytes> {
         let entry = self.get_json_entry_unchecked_var(key);
         JSONValue {
-            value: BoundedVec {
-                len: entry.json_length as u32,
-                storage: self.extract_string_entry(entry),
-            },
+            value: BoundedVec::from_parts_unchecked(
+                self.extract_string_entry(entry),
+                entry.json_length as u32,
+            ),
             value_type: entry.entry_type,
         }
     }
@@ -341,7 +372,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract a value given by the position of the target in the source array
      * @description returns an Option<BoundedVec> which will be null if the value does not exist
      **/
-    fn get_value_from_array<let StringBytes: u32>(
+    pub(crate) fn get_value_from_array<let StringBytes: u32>(
         self,
         array_index: Field,
     ) -> Option<JSONValue<StringBytes>> {
@@ -364,12 +395,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
-        Option {
-            _is_some: valid,
-            _value: JSONValue {
-                value: BoundedVec { len: entry.json_length as u32, storage: parsed_string },
-                value_type: entry.entry_type,
-            },
+
+        if valid {
+            Option::some(
+                JSONValue {
+                    value: BoundedVec::from_parts_unchecked(
+                        parsed_string,
+                        entry.json_length as u32,
+                    ),
+                    value_type: entry.entry_type,
+                },
+            )
+        } else {
+            Option::none()
         }
     }
 
@@ -377,7 +415,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract a value given by the position of the target in the source array
      * @description will revert if the value does not exist
      **/
-    fn get_value_from_array_unchecked<let StringBytes: u32>(
+    pub(crate) fn get_value_from_array_unchecked<let StringBytes: u32>(
         self,
         array_index: Field,
     ) -> JSONValue<StringBytes> {
@@ -402,7 +440,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
         JSONValue {
-            value: BoundedVec { len: entry.json_length as u32, storage: parsed_string },
+            value: BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32),
             value_type: entry.entry_type,
         }
     }
@@ -410,7 +448,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief if the root JSON is an object, get a nested value out of the JSON, which may be several keys deep
      **/
-    fn get_value_from_path<let KeyBytes: u32, let StringBytes: u32, let PathDepth: u32>(
+    pub(crate) fn get_value_from_path<let KeyBytes: u32, let StringBytes: u32, let PathDepth: u32>(
         self,
         keys: [BoundedVec<u8, KeyBytes>; PathDepth],
     ) -> Option<JSONValue<StringBytes>> {
@@ -419,13 +457,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         for i in 0..PathDepth - 1 {
             let child = self.get_object_var(keys[i]);
 
-            target = child._value;
-            valid = valid & child._is_some;
+            target = child.unwrap_unchecked();
+            valid = valid & child.is_some();
         }
 
         let mut final = target.get_value_var(keys[PathDepth - 1]);
-        final._is_some = final._is_some & valid;
-
-        final
+        if final.is_some() & valid {
+            final
+        } else {
+            Option::none()
+        }
     }
 }

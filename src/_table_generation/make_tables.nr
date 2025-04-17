@@ -1,14 +1,14 @@
 //! Contains methods used to generate tables in `json_tables.nr`. These table generation methods shouldn't be used inside of actual circuits.
 
-mod CaptureMode {
-    global GRAMMAR_CAPTURE: Field = 0;
-    global STRING_CAPTURE: Field = 1;
-    global NUMERIC_CAPTURE: Field = 2;
-    global LITERAL_CAPTURE: Field = 3;
-    global ERROR_CAPTURE: Field = 4;
+pub(crate) mod CaptureMode {
+    pub(crate) global GRAMMAR_CAPTURE: Field = 0;
+    pub(crate) global STRING_CAPTURE: Field = 1;
+    pub(crate) global NUMERIC_CAPTURE: Field = 2;
+    pub(crate) global LITERAL_CAPTURE: Field = 3;
+    pub(crate) global ERROR_CAPTURE: Field = 4;
 }
-use crate::_table_generation::make_tables::CaptureMode::STRING_CAPTURE;
-use crate::_table_generation::make_tables_subtables::{
+use CaptureMode::STRING_CAPTURE;
+use super::make_tables_subtables::{
     GRAMMAR_CAPTURE_ERROR_FLAG, GRAMMAR_CAPTURE_INCREASE_LENGTH, GRAMMAR_CAPTURE_PUSH_TRANSCRIPT,
     GRAMMAR_CAPTURE_TABLE, GRAMMAR_CAPTURE_TOKEN, LITERAL_CAPTURE_ERROR_FLAG,
     LITERAL_CAPTURE_INCREASE_LENGTH, LITERAL_CAPTURE_PUSH_TRANSCRIPT, LITERAL_CAPTURE_TABLE,
