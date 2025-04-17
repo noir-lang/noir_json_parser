@@ -9,7 +9,6 @@ use crate::keyhash::FieldHasher;
 
 use dep::noir_sort;
 
-use dep::std::hash::poseidon2;
 pub(crate) struct KeyIndexData {
     pub(crate) json_index: Field,
     pub(crate) json_length: Field,

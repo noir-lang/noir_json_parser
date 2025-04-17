@@ -17,7 +17,7 @@ impl<let KeyFields: u32> FieldHasher<KeyFields> {
         key_length: Field,
     ) -> Field {
         let key_fields: [Field; KeyFields] = slice_fields(packed_fields, body_index, key_length);
-        let hashed = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFields as u32);
+        let hashed = poseidon::poseidon2::Poseidon2::hash(key_fields, KeyFields as u32);
         slice_200_bits_from_field(hashed)
     }
 }
@@ -59,7 +59,7 @@ impl<let KeyFields: u32> ByteHasher<KeyFields> {
             key_fields[j] = limb;
         }
 
-        let hashed_full = dep::std::hash::poseidon2::Poseidon2::hash(key_fields, KeyFields as u32);
+        let hashed_full = poseidon::poseidon2::Poseidon2::hash(key_fields, KeyFields as u32);
 
         let mut r = slice_200_bits_from_field(hashed_full);
         r
