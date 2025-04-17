@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/noir-lang/noir_json_parser/compare/v0.4.0...v0.5.0) (2025-04-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* fix a bunch of visibility issues ([#38](https://github.com/noir-lang/noir_json_parser/issues/38))
+
+### Miscellaneous Chores
+
+* Fix a bunch of visibility issues ([#38](https://github.com/noir-lang/noir_json_parser/issues/38)) ([e45c9b9](https://github.com/noir-lang/noir_json_parser/commit/e45c9b9ba2419ac5310408939baed36def342db1))
+
 ## [0.4.0](https://github.com/noir-lang/noir_json_parser/compare/v0.3.0...v0.4.0) (2025-02-13)
 
 
