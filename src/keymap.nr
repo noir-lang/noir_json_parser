@@ -1,7 +1,6 @@
 use crate::_comparison_tools::lt::assert_lte_240_bit;
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::_comparison_tools::lt::lte_field_240_bit;
-use crate::_string_tools::slice_packed_field::slice_fields;
 use crate::json::JSON;
 use crate::json_entry::{JSONEntry, JSONEntryPacked};
 use crate::json_tables::TOKEN_ENDS_OBJECT_OR_ARRAY;
@@ -9,7 +8,6 @@ use crate::keyhash::FieldHasher;
 
 use dep::noir_sort;
 
-use dep::std::hash::poseidon2;
 pub(crate) struct KeyIndexData {
     pub(crate) json_index: Field,
     pub(crate) json_length: Field,
@@ -35,7 +33,7 @@ impl KeyIndexData {
     }
 
     pub(crate) fn from_field(packed: Field) -> Self {
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let result = unsafe { KeyIndexData::__from_field(packed) };
         // checks that array_index is in range
         result.array_index.assert_max_bit_size::<16>();
@@ -152,7 +150,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     pub(crate) fn set_root_entry(&mut self) {
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let root_index = unsafe { self.__find_root_entry() };
 
         let packed_entry = self.json_entries_packed[root_index];

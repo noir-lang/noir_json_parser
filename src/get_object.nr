@@ -2,7 +2,6 @@ use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::END_OBJECT_TOKEN;
 use crate::json::JSON;
-use crate::json::JSONValue;
 use crate::json_entry::JSONEntry;
 
 /**

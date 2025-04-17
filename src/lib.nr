@@ -16,10 +16,8 @@ mod get_literal;
 mod get_object;
 mod get_array;
 
-use _string_tools::slice_packed_field::slice_fields;
 use get_literal::JSONLiteral;
 use json::{JSON, JSONValue};
-use json_entry::{JSONEntry, JSONEntryPacked};
 
 pub trait JSONParserTrait {
     fn parse_json_from_string<let StringBytes: u32>(s: str<StringBytes>) -> Self;

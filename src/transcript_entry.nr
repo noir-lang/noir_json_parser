@@ -33,7 +33,7 @@ impl ValidationFlags {
 
     // 3 gates
     pub(crate) fn from_field(f: Field) -> Self {
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let r = unsafe { ValidationFlags::__from_field(f) };
         // checks pop_layer is a valid boolean
         assert(r.pop_layer * r.pop_layer == r.pop_layer);
@@ -72,7 +72,7 @@ impl RawTranscriptEntry {
     // 2 gates to get u16s
     // 5.25 gates total
     pub(crate) fn from_field(felt: Field) -> Self {
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let result = unsafe { RawTranscriptEntry::__from_field(felt) };
         result.length.assert_max_bit_size::<16>();
         result.index.assert_max_bit_size::<16>();
@@ -89,7 +89,7 @@ impl RawTranscriptEntry {
         (ascii, remainder)
     }
     fn extract_ascii(f: Field) -> (Field, Field) {
-        //@Safety: ascci length is checked. remainder size is checked. the relation to the input is asserted as well.
+        // Safety: ascci length is checked. remainder size is checked. the relation to the input is asserted as well.
         let (ascii, remainder) = unsafe { RawTranscriptEntry::__extract_ascii(f) };
         ascii.assert_max_bit_size::<14>();
         remainder.assert_max_bit_size::<32>();
@@ -127,7 +127,7 @@ impl ScanData {
     }
 
     pub(crate) fn from_field(f: Field) -> Self {
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let result = unsafe { ScanData::__from_field(f) };
         // checks increase_length is a valid boolean
         assert(result.increase_length * result.increase_length == result.increase_length);
@@ -184,7 +184,7 @@ impl TranscriptEntry {
     }
     // 4 gates
     fn get_token(f: Field) -> Field {
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let (token, remainder) = unsafe { TranscriptEntry::__get_token(f) };
         // checks that remainder is in range
         remainder.assert_max_bit_size::<32>();
@@ -196,7 +196,7 @@ impl TranscriptEntry {
     }
     // 5.25 gates
     pub(crate) fn from_field(felt: Field) -> Self {
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let result = unsafe { TranscriptEntry::__from_field(felt) };
         // checks that length is in range
         result.length.assert_max_bit_size::<16>();
@@ -210,7 +210,7 @@ impl TranscriptEntry {
     }
 
     fn get_token_and_index_length_combined(f: Field) -> (Field, Field) {
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let (token, remainder) = unsafe { TranscriptEntry::__get_token(f) };
         // checks that remainder is in range
         remainder.assert_max_bit_size::<32>();
@@ -223,7 +223,7 @@ impl TranscriptEntry {
 
     // 5.75 gates
     fn from_raw(raw_encoded: Field) -> Field {
-        //@Safety: check the comments below
+        // Safety: check the comments below
         let (ascii, remainder) = unsafe { RawTranscriptEntry::__extract_ascii(raw_encoded) };
         // checks that remainder is in range
         remainder.assert_max_bit_size::<32>();
