@@ -1,12 +1,12 @@
 /**
  * @brief contains data we need to keep track when, in `create_json_entries`, we enter or exist from an object or array
  **/
-struct JSONContextStackEntry {
-    num_entries: Field,
-    context: Field,
-    current_key_index_and_length: Field,
-    json_index: Field,
-    current_identity: Field,
+pub(crate) struct JSONContextStackEntry {
+    pub(crate) num_entries: Field,
+    pub(crate) context: Field,
+    pub(crate) current_key_index_and_length: Field,
+    pub(crate) json_index: Field,
+    pub(crate) current_identity: Field,
 }
 impl JSONContextStackEntry {
     unconstrained fn __from_field(f: Field) -> Self {
@@ -32,7 +32,7 @@ impl JSONContextStackEntry {
      *        (each query will be 3.5 gates as we read and write from/to unknown locations)
      * @note method cost = 9.5 gates
      **/
-    fn from_field(f: Field) -> Self {
+    pub(crate) fn from_field(f: Field) -> Self {
         //@Safety: the set of assertions done below will ensure the result is in the correct domain, and the computed result matches the input f
         let result = unsafe { JSONContextStackEntry::__from_field(f) };
 
@@ -50,7 +50,7 @@ impl JSONContextStackEntry {
      *        (each query will be 3.5 gates as we read and write from/to unknown locations)
      * @note method cost = 2 gates
      **/
-    fn to_field(self) -> Field {
+    pub(crate) fn to_field(self) -> Field {
         self.current_identity
             + self.json_index * 0x10000
             + self.current_key_index_and_length * 0x100000000
@@ -62,18 +62,18 @@ impl JSONContextStackEntry {
 /**
  * @brief describes a single array, object or value within our JSON
  **/
-struct JSONEntry {
-    entry_type: Field, // is this an OBJECT_TOKEN, ARRAY_TOKEN, STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN?
-    id: Field, // if this is an object or array, describes the unique identifier assigned to this item
-    parent_index: Field, // if parent is an object or array, describes the unique identifier assigned to our parent
-    array_pointer: Field, // if parent is an array, where in the array are we?
-    child_pointer: Field, // if this is an object or array, points to the location in `json_entries_packed` of this item's first child
-    num_children: Field, // if this is an object or array, how many child elements do we contain?
-    json_pointer: Field, // points to the json that describes the first byte of this entry
-    json_length: Field, // how many bytes in the json describes this item? (only for strings, numbers or literals)
+pub(crate) struct JSONEntry {
+    pub(crate) entry_type: Field, // is this an OBJECT_TOKEN, ARRAY_TOKEN, STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN?
+    pub(crate) id: Field, // if this is an object or array, describes the unique identifier assigned to this item
+    pub(crate) parent_index: Field, // if parent is an object or array, describes the unique identifier assigned to our parent
+    pub(crate) array_pointer: Field, // if parent is an array, where in the array are we?
+    pub(crate) child_pointer: Field, // if this is an object or array, points to the location in `json_entries_packed` of this item's first child
+    pub(crate) num_children: Field, // if this is an object or array, how many child elements do we contain?
+    pub(crate) json_pointer: Field, // points to the json that describes the first byte of this entry
+    pub(crate) json_length: Field, // how many bytes in the json describes this item? (only for strings, numbers or literals)
 }
 impl JSONEntry {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         JSONEntry {
             array_pointer: 0,
             entry_type: 0,
@@ -94,7 +94,7 @@ impl JSONEntry {
         (low, mid, hi)
     }
 
-    fn add_child_pointer_into_field(f: Field, child_pointer: Field) -> Field {
+    pub(crate) fn add_child_pointer_into_field(f: Field, child_pointer: Field) -> Field {
         f + child_pointer * 0x100000000000000000000
     }
     unconstrained fn __extract_entry_type_and_id_from_field(f: Field) -> (Field, Field, Field) {
@@ -119,7 +119,9 @@ impl JSONEntry {
     }
 
     // 11.75 gates
-    fn extract_entry_type_id_and_parent_index_from_field(f: Field) -> (Field, Field, Field) {
+    pub(crate) fn extract_entry_type_id_and_parent_index_from_field(
+        f: Field,
+    ) -> (Field, Field, Field) {
         //@Safety: we check all the outputs are in the correct range and we can construct the input from the outputs of the decomposition
         let (id, parent_index, mid, entry_type) =
             unsafe { JSONEntry::__extract_entry_type_id_and_parent_index_from_field(f) };
@@ -180,7 +182,7 @@ impl JSONEntry {
         }
     }
 
-    fn to_field(self) -> Field {
+    pub(crate) fn to_field(self) -> Field {
         self.id
             + self.parent_index * 0x10000
             + self.array_pointer * 0x10000000000000000 // 2 bytes
@@ -241,8 +243,8 @@ impl std::cmp::Eq for JSONEntry {
  * @brief describes a JSONEntry object's data, but packed into a single field element.
  * @description We do this to minimize the number of array lookups we perform
  **/
-struct JSONEntryPacked {
-    value: Field,
+pub(crate) struct JSONEntryPacked {
+    pub(crate) value: Field,
 }
 
 impl std::cmp::Eq for JSONEntryPacked {

@@ -6,11 +6,11 @@ use crate::_string_tools::slice_packed_field::slice_fields;
  *        when the bytes are represented as packed 31 byte Field elements
  * @note we wrap `get_keyhash` in a struct so that the KeyFields parameter can be defined ahead of time
  **/
-struct FieldHasher<let KeyFields: u32> {}
+pub(crate) struct FieldHasher<let KeyFields: u32> {}
 
 impl<let KeyFields: u32> FieldHasher<KeyFields> {
 
-    fn get_keyhash<let NumPackedFields: u32>(
+    pub(crate) fn get_keyhash<let NumPackedFields: u32>(
         _: Self,
         packed_fields: [Field; NumPackedFields],
         body_index: Field,
@@ -28,11 +28,11 @@ impl<let KeyFields: u32> FieldHasher<KeyFields> {
  * @note we wrap `get_keyhash` in a struct so that the KeyFields parameter can be defined ahead of time
  * @note produces identical hash outputs when compared w. FieldHasher
  **/
-struct ByteHasher<let KeyFields: u32> {}
+pub(crate) struct ByteHasher<let KeyFields: u32> {}
 
 impl<let KeyFields: u32> ByteHasher<KeyFields> {
 
-    fn get_keyhash_var<let N: u32>(
+    pub(crate) fn get_keyhash_var<let N: u32>(
         _: Self,
         body_text: [u8; N],
         body_index: u32,
@@ -65,4 +65,3 @@ impl<let KeyFields: u32> ByteHasher<KeyFields> {
         r
     }
 }
-

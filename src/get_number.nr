@@ -1,8 +1,8 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::NUMERIC_TOKEN;
-use crate::getters::JSONValue;
 use crate::json::JSON;
+use crate::json::JSONValue;
 use crate::json_entry::JSONEntry;
 use crate::json_tables::ASCII_TO_NUMBER;
 
@@ -62,9 +62,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
 
-        Option {
-            _is_some: exists,
-            _value: extract_number_from_array(parsed_string, entry.json_length),
+        if exists {
+            Option::some(extract_number_from_array(parsed_string, entry.json_length))
+        } else {
+            Option::none()
         }
     }
 
@@ -94,9 +95,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
 
-        Option {
-            _is_some: exists,
-            _value: extract_number_from_array(parsed_string, entry.json_length),
+        if exists {
+            Option::some(extract_number_from_array(parsed_string, entry.json_length))
+        } else {
+            Option::none()
         }
     }
 
@@ -140,7 +142,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
         let result = extract_number_from_array(parsed_string, entry.json_length);
 
-        Option { _is_some: valid, _value: result }
+        if valid {
+            Option::some(result)
+        } else {
+            Option::none()
+        }
     }
 
     /**

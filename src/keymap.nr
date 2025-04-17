@@ -10,15 +10,15 @@ use crate::keyhash::FieldHasher;
 use dep::noir_sort;
 
 use dep::std::hash::poseidon2;
-struct KeyIndexData {
-    json_index: Field,
-    json_length: Field,
-    parent_id: Field,
-    array_index: Field,
+pub(crate) struct KeyIndexData {
+    pub(crate) json_index: Field,
+    pub(crate) json_length: Field,
+    pub(crate) parent_id: Field,
+    pub(crate) array_index: Field,
 }
 
 impl KeyIndexData {
-    fn to_field(self) -> Field {
+    pub(crate) fn to_field(self) -> Field {
         self.parent_id
             + self.json_index as Field * 0x10000
             + self.json_length as Field * 0x100000000
@@ -34,7 +34,7 @@ impl KeyIndexData {
         KeyIndexData { json_index, json_length, parent_id, array_index }
     }
 
-    fn from_field(packed: Field) -> Self {
+    pub(crate) fn from_field(packed: Field) -> Self {
         //@Safety: check the comments below
         let result = unsafe { KeyIndexData::__from_field(packed) };
         // checks that array_index is in range
@@ -139,7 +139,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.set_root_entry();
     }
 
-    unconstrained fn __find_root_entry(self) -> Field {
+    pub(crate) unconstrained fn __find_root_entry(self) -> Field {
         let mut found_index = 0;
         for i in 0..MaxNumValues {
             let entry: JSONEntry = self.json_entries_packed[i].into();
@@ -151,7 +151,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         found_index
     }
 
-    fn set_root_entry(&mut self) {
+    pub(crate) fn set_root_entry(&mut self) {
         //@Safety: check the comments below
         let root_index = unsafe { self.__find_root_entry() };
 
