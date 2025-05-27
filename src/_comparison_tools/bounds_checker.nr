@@ -91,7 +91,7 @@ fn test_get_validity_flags() {
 
 #[test(should_fail)]
 fn test_get_validity_flags_fail() {
-    let _ = get_validity_flags(33);
+    let _: [Field; 33] = get_validity_flags(33);
 }
 
 #[test(should_fail)]
