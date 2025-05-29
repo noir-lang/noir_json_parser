@@ -421,7 +421,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             raw_transcript[transcript_ptr] = new_entry;
             length = length * (1 - push_transcript) + increase_length;
-            transcript_ptr += (push_transcript as bool) as u32;
+            transcript_ptr += (push_transcript != 0) as u32;
 
             previous_was_potential_escape_sequence = is_potential_escape_sequence;
 
@@ -564,7 +564,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 "capture_missing_tokens: MaxNumTokens limit exceeded!",
             );
             updated_transcript[transcript_ptr] = new_transcript;
-            transcript_ptr += update as bool as u32;
+            transcript_ptr += (update != 0) as u32;
         }
         updated_transcript
     }
