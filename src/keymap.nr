@@ -95,12 +95,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let id = ids[i];
             let entry_type = entry_types[i];
             // 2 gates
-            let update = TOKEN_ENDS_OBJECT_OR_ARRAY[entry_type];
+            let update = TOKEN_ENDS_OBJECT_OR_ARRAY[entry_type as u32];
             // NOTE THIS RELIES ON MaxNumValues ACTUALLY DESCRIBING NUMMaxNumValues + 1
             // 1 gate
             let index = (id - (MaxNumValues as Field - 1)) * update + (MaxNumValues as Field - 1);
             // 3.5 gates
-            identity_to_json_map[index] = i as Field;
+            identity_to_json_map[index as u32] = i as Field;
         }
 
         // 13.5 gates per iteration
@@ -115,10 +115,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let new_parent = lt_field_16_bit(parent_identity_pre, parent_identity_post) as Field;
             // let new_parent = (parent_identity_post as u32 > parent_identity_pre as u32) as Field;
             // 3.5 gates
-            let index_of_parent = identity_to_json_map[parent_identity_post];
+            let index_of_parent = identity_to_json_map[parent_identity_post as u32];
             // 1 gate + 3.5 gates
             let updated = JSONEntry::add_child_pointer_into_field(
-                sorted_entries[index_of_parent].value,
+                sorted_entries[index_of_parent as u32].value,
                 i as Field,
             );
 
@@ -126,7 +126,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 1 gate
             let index = (index_of_parent * new_parent);
             // 3.5 gates
-            sorted_entries[index] = JSONEntryPacked { value: updated };
+            sorted_entries[index as u32] = JSONEntryPacked { value: updated };
 
             parent_identity_pre = parent_identity_post;
         }
@@ -153,7 +153,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: check the comments below
         let root_index = unsafe { self.__find_root_entry() };
 
-        let packed_entry = self.json_entries_packed[root_index];
+        let packed_entry = self.json_entries_packed[root_index as u32];
         let entry: JSONEntry = packed_entry.into();
 
         // checks that the entry is not empty

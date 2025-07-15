@@ -230,7 +230,7 @@ impl TranscriptEntry {
         // checks that the input is a valid combination of the outputs of the decomposition
         assert(ascii + remainder * 0x10000 == raw_encoded);
         // this lookup enforces an implicit 10 bit range check on ascii
-        let token = ASCII_TO_TOKEN_TABLE[ascii];
+        let token = ASCII_TO_TOKEN_TABLE[ascii as u32];
         token + remainder * 0x100
     }
 }

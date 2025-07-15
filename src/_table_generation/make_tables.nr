@@ -183,17 +183,17 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
         result
     });
 
-    object_layer_flags[NO_TOKEN] = no_token_outcomes;
-    object_layer_flags[BEGIN_OBJECT_TOKEN] = object_layer_begin_object_token_outcomes;
-    object_layer_flags[END_OBJECT_TOKEN] = object_layer_end_object_outcomes;
-    object_layer_flags[BEGIN_ARRAY_TOKEN] = error_token_outcomes;
-    object_layer_flags[END_ARRAY_TOKEN] = object_layer_value_token_outcomes;
-    object_layer_flags[KEY_SEPARATOR_TOKEN] = object_layer_key_separator_token_outcomes;
-    object_layer_flags[VALUE_SEPARATOR_TOKEN] = object_layer_value_separator_token_outcomes;
-    object_layer_flags[STRING_TOKEN] = object_layer_value_token_outcomes;
-    object_layer_flags[NUMERIC_TOKEN] = object_layer_value_token_outcomes;
-    object_layer_flags[LITERAL_TOKEN] = object_layer_value_token_outcomes;
-    object_layer_flags[KEY_TOKEN] = object_layer_key_token_outcomes;
+    object_layer_flags[NO_TOKEN as u32] = no_token_outcomes;
+    object_layer_flags[BEGIN_OBJECT_TOKEN as u32] = object_layer_begin_object_token_outcomes;
+    object_layer_flags[END_OBJECT_TOKEN as u32] = object_layer_end_object_outcomes;
+    object_layer_flags[BEGIN_ARRAY_TOKEN as u32] = error_token_outcomes;
+    object_layer_flags[END_ARRAY_TOKEN as u32] = object_layer_value_token_outcomes;
+    object_layer_flags[KEY_SEPARATOR_TOKEN as u32] = object_layer_key_separator_token_outcomes;
+    object_layer_flags[VALUE_SEPARATOR_TOKEN as u32] = object_layer_value_separator_token_outcomes;
+    object_layer_flags[STRING_TOKEN as u32] = object_layer_value_token_outcomes;
+    object_layer_flags[NUMERIC_TOKEN as u32] = object_layer_value_token_outcomes;
+    object_layer_flags[LITERAL_TOKEN as u32] = object_layer_value_token_outcomes;
+    object_layer_flags[KEY_TOKEN as u32] = object_layer_key_token_outcomes;
 
     let array_layer_begin_array_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
@@ -272,17 +272,17 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
         result
     });
 
-    array_layer_flags[NO_TOKEN] = no_token_outcomes;
-    array_layer_flags[BEGIN_OBJECT_TOKEN] = error_token_outcomes;
-    array_layer_flags[END_OBJECT_TOKEN] = array_layer_end_object_outcomes;
-    array_layer_flags[BEGIN_ARRAY_TOKEN] = array_layer_begin_array_token_outcomes;
-    array_layer_flags[END_ARRAY_TOKEN] = array_layer_end_array_outcomes;
-    array_layer_flags[KEY_SEPARATOR_TOKEN] = error_token_outcomes;
-    array_layer_flags[VALUE_SEPARATOR_TOKEN] = array_layer_value_separator_token_outcomes;
-    array_layer_flags[STRING_TOKEN] = array_layer_value_token_outcomes;
-    array_layer_flags[NUMERIC_TOKEN] = array_layer_value_token_outcomes;
-    array_layer_flags[LITERAL_TOKEN] = array_layer_value_token_outcomes;
-    array_layer_flags[KEY_TOKEN] = error_token_outcomes;
+    array_layer_flags[NO_TOKEN as u32] = no_token_outcomes;
+    array_layer_flags[BEGIN_OBJECT_TOKEN as u32] = error_token_outcomes;
+    array_layer_flags[END_OBJECT_TOKEN as u32] = array_layer_end_object_outcomes;
+    array_layer_flags[BEGIN_ARRAY_TOKEN as u32] = array_layer_begin_array_token_outcomes;
+    array_layer_flags[END_ARRAY_TOKEN as u32] = array_layer_end_array_outcomes;
+    array_layer_flags[KEY_SEPARATOR_TOKEN as u32] = error_token_outcomes;
+    array_layer_flags[VALUE_SEPARATOR_TOKEN as u32] = array_layer_value_separator_token_outcomes;
+    array_layer_flags[STRING_TOKEN as u32] = array_layer_value_token_outcomes;
+    array_layer_flags[NUMERIC_TOKEN as u32] = array_layer_value_token_outcomes;
+    array_layer_flags[LITERAL_TOKEN as u32] = array_layer_value_token_outcomes;
+    array_layer_flags[KEY_TOKEN as u32] = error_token_outcomes;
 
     let single_value_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
@@ -292,28 +292,29 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
         }
         result
     });
-    single_value_layer_flags[NO_TOKEN] = no_token_outcomes;
-    single_value_layer_flags[BEGIN_OBJECT_TOKEN] = error_token_outcomes;
-    single_value_layer_flags[END_OBJECT_TOKEN] = single_value_layer_value_token_outcomes;
-    single_value_layer_flags[BEGIN_ARRAY_TOKEN] = error_token_outcomes;
-    single_value_layer_flags[END_ARRAY_TOKEN] = single_value_layer_value_token_outcomes;
-    single_value_layer_flags[KEY_SEPARATOR_TOKEN] = object_layer_key_separator_token_outcomes;
-    single_value_layer_flags[VALUE_SEPARATOR_TOKEN] = error_token_outcomes;
-    single_value_layer_flags[STRING_TOKEN] = single_value_layer_value_token_outcomes;
-    single_value_layer_flags[NUMERIC_TOKEN] = single_value_layer_value_token_outcomes;
-    single_value_layer_flags[LITERAL_TOKEN] = single_value_layer_value_token_outcomes;
-    single_value_layer_flags[KEY_TOKEN] = no_token_outcomes;
+    single_value_layer_flags[NO_TOKEN as u32] = no_token_outcomes;
+    single_value_layer_flags[BEGIN_OBJECT_TOKEN as u32] = error_token_outcomes;
+    single_value_layer_flags[END_OBJECT_TOKEN as u32] = single_value_layer_value_token_outcomes;
+    single_value_layer_flags[BEGIN_ARRAY_TOKEN as u32] = error_token_outcomes;
+    single_value_layer_flags[END_ARRAY_TOKEN as u32] = single_value_layer_value_token_outcomes;
+    single_value_layer_flags[KEY_SEPARATOR_TOKEN as u32] =
+        object_layer_key_separator_token_outcomes;
+    single_value_layer_flags[VALUE_SEPARATOR_TOKEN as u32] = error_token_outcomes;
+    single_value_layer_flags[STRING_TOKEN as u32] = single_value_layer_value_token_outcomes;
+    single_value_layer_flags[NUMERIC_TOKEN as u32] = single_value_layer_value_token_outcomes;
+    single_value_layer_flags[LITERAL_TOKEN as u32] = single_value_layer_value_token_outcomes;
+    single_value_layer_flags[KEY_TOKEN as u32] = no_token_outcomes;
 
     let mut flattened_flags: [Field; NUM_TOKENS * NUM_TOKENS * 3] =
         [0; NUM_TOKENS * NUM_TOKENS * 3];
     let NN = (NUM_TOKENS * NUM_TOKENS) as Field;
     for j in 0..NUM_TOKENS as u32 {
         for k in 0..NUM_TOKENS as u32 {
-            flattened_flags[OBJECT_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field] =
+            flattened_flags[(OBJECT_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field) as u32] =
                 object_layer_flags[j][k];
-            flattened_flags[ARRAY_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field] =
+            flattened_flags[(ARRAY_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field) as u32] =
                 array_layer_flags[j][k];
-            flattened_flags[SINGLE_VALUE_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field] =
+            flattened_flags[(SINGLE_VALUE_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field) as u32] =
                 single_value_layer_flags[j][k];
         }
     }
@@ -380,7 +381,7 @@ unconstrained fn make_process_raw_transcript_table() -> [Field; 1024] {
     for i in 0..4 {
         for j in 0..128 {
             let token = CAPTURE_TOKEN[i][j];
-            let token_is_numeric_or_literal = TOKEN_IS_NUMERIC_OR_LITERAL[token];
+            let token_is_numeric_or_literal = TOKEN_IS_NUMERIC_OR_LITERAL[token as u32];
             let new_grammar = GRAMMAR_CAPTURE_PUSH_TRANSCRIPT[j] as Field;
             let scan_token = GRAMMAR_CAPTURE_TOKEN[j];
             let new_grammar = ((new_grammar == 1) & (token_is_numeric_or_literal == 1)) as Field;
@@ -489,17 +490,17 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         preserve_num_entries: 1,
     };
 
-    flags[NO_TOKEN] = no_token_flags;
-    flags[BEGIN_OBJECT_TOKEN] = begin_object_flags;
-    flags[END_OBJECT_TOKEN] = end_object_flags;
-    flags[BEGIN_ARRAY_TOKEN] = begin_array_flags;
-    flags[END_ARRAY_TOKEN] = end_array_flags;
-    flags[KEY_SEPARATOR_TOKEN] = no_token_flags;
-    flags[VALUE_SEPARATOR_TOKEN] = no_token_flags;
-    flags[STRING_TOKEN] = string_flags;
-    flags[NUMERIC_TOKEN] = numeric_flags;
-    flags[LITERAL_TOKEN] = literal_flags;
-    flags[KEY_TOKEN] = key_token_flags;
+    flags[NO_TOKEN as u32] = no_token_flags;
+    flags[BEGIN_OBJECT_TOKEN as u32] = begin_object_flags;
+    flags[END_OBJECT_TOKEN as u32] = end_object_flags;
+    flags[BEGIN_ARRAY_TOKEN as u32] = begin_array_flags;
+    flags[END_ARRAY_TOKEN as u32] = end_array_flags;
+    flags[KEY_SEPARATOR_TOKEN as u32] = no_token_flags;
+    flags[VALUE_SEPARATOR_TOKEN as u32] = no_token_flags;
+    flags[STRING_TOKEN as u32] = string_flags;
+    flags[NUMERIC_TOKEN as u32] = numeric_flags;
+    flags[LITERAL_TOKEN as u32] = literal_flags;
+    flags[KEY_TOKEN as u32] = key_token_flags;
 
     no_token_flags.new_context = ARRAY_LAYER;
     key_token_flags.new_context = ARRAY_LAYER;

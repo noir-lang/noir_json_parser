@@ -56,7 +56,7 @@ fn extract_literal_from_array(
         let value = arr[i] as Field;
         parsed_literal += value;
     }
-    parsed_literal /= LITERAL_OFFSET_SHIFT[json_length];
+    parsed_literal /= LITERAL_OFFSET_SHIFT[json_length as u32];
     let is_false = parsed_literal == false_field;
     let is_null = parsed_literal == null_field;
     let is_true = parsed_literal == true_field;
@@ -163,12 +163,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[self.root_index_in_transcript].into();
+            self.json_entries_packed[self.root_index_in_transcript as u32].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
+        let entry: JSONEntry = self.json_entries_packed[entry_index as u32].into();
 
         assert(
             (entry.entry_type - LITERAL_TOKEN) * valid as Field == 0,
@@ -197,13 +197,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[self.root_index_in_transcript].into();
+            self.json_entries_packed[self.root_index_in_transcript as u32].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
 
-        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
+        let entry: JSONEntry = self.json_entries_packed[entry_index as u32].into();
 
         assert(
             entry.entry_type == LITERAL_TOKEN,

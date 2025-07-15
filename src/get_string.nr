@@ -17,9 +17,10 @@ fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<
     let mut cached_byte: Field = 0;
     for i in 1..N {
         let next_character = string[i];
-        let escape_sequence_start_candidate = ESCAPE_SEQUENCE_START_CHARS[character];
-        let escape_sequence_end_candidate = ESCAPE_SEQUENCE_END_CHARS[next_character];
-        let escape_sequence_replacement_candidate = ESCAPE_SEQUENCE_REPLACEMENT[next_character];
+        let escape_sequence_start_candidate = ESCAPE_SEQUENCE_START_CHARS[character as u32];
+        let escape_sequence_end_candidate = ESCAPE_SEQUENCE_END_CHARS[next_character as u32];
+        let escape_sequence_replacement_candidate =
+            ESCAPE_SEQUENCE_REPLACEMENT[next_character as u32];
         let mut is_escape_sequence =
             (escape_sequence_start_candidate & escape_sequence_end_candidate) as Field;
         is_escape_sequence = is_escape_sequence * (1 - skip);
@@ -31,7 +32,7 @@ fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<
         let written_byte_u8 = written_byte as u8;
 
         result[result_ptr] = written_byte_u8;
-        result_ptr += (1 - is_escape_sequence);
+        result_ptr += (1 - is_escape_sequence) as u32;
         cached_byte = written_byte;
         skip = is_escape_sequence;
         character = next_character;
@@ -43,8 +44,8 @@ fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<
     result[result_ptr] = written_byte_u8;
     result_ptr += 1;
 
-    let num_removed_chars = N as Field - result_ptr;
-    let new_length = input.len() as Field - num_removed_chars;
+    let num_removed_chars = N - result_ptr;
+    let new_length = input.len() - num_removed_chars;
     BoundedVec::from_parts_unchecked(result, new_length as u32)
 }
 
@@ -199,12 +200,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[self.root_index_in_transcript].into();
+            self.json_entries_packed[self.root_index_in_transcript as u32].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
+        let entry: JSONEntry = self.json_entries_packed[entry_index as u32].into();
 
         assert(
             (entry.entry_type - STRING_TOKEN) * valid as Field == 0,
@@ -237,13 +238,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[self.root_index_in_transcript].into();
+            self.json_entries_packed[self.root_index_in_transcript as u32].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
 
-        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
+        let entry: JSONEntry = self.json_entries_packed[entry_index as u32].into();
 
         assert(
             entry.entry_type == STRING_TOKEN,
@@ -377,12 +378,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[self.root_index_in_transcript].into();
+            self.json_entries_packed[self.root_index_in_transcript as u32].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
-        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
+        let entry: JSONEntry = self.json_entries_packed[entry_index as u32].into();
 
         assert(
             (entry.entry_type - STRING_TOKEN) * valid as Field == 0,
@@ -420,13 +421,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[self.root_index_in_transcript].into();
+            self.json_entries_packed[self.root_index_in_transcript as u32].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
 
-        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
+        let entry: JSONEntry = self.json_entries_packed[entry_index as u32].into();
 
         assert(
             entry.entry_type == STRING_TOKEN,

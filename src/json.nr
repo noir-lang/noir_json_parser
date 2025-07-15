@@ -126,7 +126,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             let next_is_key = (next.token == KEY_SEPARATOR_TOKEN) as Field;
 
-            let valid_token = TOKEN_IS_STRING[current.token];
+            let valid_token = TOKEN_IS_STRING[current.token as u32];
             assert(
                 (valid_token * next_is_key) + (1 - next_is_key) == 1,
                 "Cannot find key/value straddling KEY_DELIMITER_TOKEN",
@@ -177,7 +177,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // todo is this correct?
         parent_layer_stack[0] = is_object as Field * OBJECT_LAYER + is_array as Field * ARRAY_LAYER;
         assert(
-            TOKEN_IS_ARRAY_OBJECT_OR_VALUE[previous_token] == 1,
+            TOKEN_IS_ARRAY_OBJECT_OR_VALUE[previous_token as u32] == 1,
             "first json token does not describe an object, array or key",
         );
 
@@ -193,10 +193,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             // 5 gates
             let ValidationFlags { push_layer, push_layer_type_of_root, pop_layer } =
-                ValidationFlags::from_field(TOKEN_VALIDATION_TABLE[index]);
+                ValidationFlags::from_field(TOKEN_VALIDATION_TABLE[index as u32]);
 
             // 3.5 gates
-            parent_layer_stack[depth] = current_layer;
+            parent_layer_stack[depth as u32] = current_layer;
 
             // 1 gate
             // we encode an error flag into `push_layer` by making its value such that `depth` will exceed the size of `parent_layer_stack`
@@ -204,7 +204,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             std::as_witness(depth);
 
             // 6.5 gates
-            let parent_layer = parent_layer_stack[depth];
+            let parent_layer = parent_layer_stack[depth as u32];
             let mut updated_layer = (1 - pop_layer - push_layer);
             std::as_witness(updated_layer);
             updated_layer = updated_layer * current_layer + push_layer_type_of_root;
@@ -259,14 +259,16 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             tokens[i] = token;
             // 13 gates
             let TokenFlags {
-    create_json_entry,
-    is_end_of_object_or_array,
-    is_start_of_object_or_array,
-    new_context,
-    is_key_token: update_key,
-    is_value_token,
-    preserve_num_entries,} =
-                TokenFlags::from_field(TOKEN_FLAGS_TABLE[token + context * (NUM_TOKENS as Field)]);
+                create_json_entry,
+                is_end_of_object_or_array,
+                is_start_of_object_or_array,
+                new_context,
+                is_key_token: update_key,
+                is_value_token,
+                preserve_num_entries,
+            } = TokenFlags::from_field(
+                TOKEN_FLAGS_TABLE[(token + context * (NUM_TOKENS as Field)) as u32],
+            );
 
             // 2 gates
             let diff = (index + length * 0x10000) - current_key_index_and_length;
@@ -288,7 +290,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 1 gate
             let depth_index: Field = (depth - 1);
             // 3.5 gates
-            let previous_stack_entry_packed = parent_context_stack[depth_index];
+            let previous_stack_entry_packed = parent_context_stack[depth_index as u32];
 
             // 9.5 gates
             let previous_stack_entry =
@@ -364,13 +366,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             std::as_witness(new_key_data);
 
             // 3.5 gates
-            self.key_data[entry_ptr] = new_key_data * create_json_entry;
+            self.key_data[entry_ptr as u32] = new_key_data * create_json_entry;
 
             // 3.5 gates
-            parent_context_stack[depth] = new_context_stack_entry;
+            parent_context_stack[depth as u32] = new_context_stack_entry;
 
             // 4.5 gates
-            self.json_entries_packed[entry_ptr] =
+            self.json_entries_packed[entry_ptr as u32] =
                 JSONEntryPacked { value: new_entry * create_json_entry };
 
             // 1 gate
@@ -409,8 +411,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             let encoded_ascii =
                 previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
-            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
-                ScanData::from_field(JSON_CAPTURE_TABLE[encoded_ascii]);
+            let ScanData {
+                scan_token,
+                push_transcript,
+                increase_length,
+                is_potential_escape_sequence,
+            } = ScanData::from_field(JSON_CAPTURE_TABLE[encoded_ascii as u32]);
             let mut push_transcript = push_transcript;
             let mut scan_token = scan_token;
             let mut increase_length = increase_length;
@@ -483,13 +489,17 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             std::as_witness(encoded_ascii);
 
             // 2 gates
-            let capture_flags = JSON_CAPTURE_TABLE[encoded_ascii];
+            let capture_flags = JSON_CAPTURE_TABLE[encoded_ascii as u32];
             // 5 gates
-            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
-                ScanData::from_field(capture_flags);
+            let ScanData {
+                scan_token,
+                push_transcript,
+                increase_length,
+                is_potential_escape_sequence,
+            } = ScanData::from_field(capture_flags);
 
             // 2 gates
-            let raw = raw_transcript[transcript_ptr];
+            let raw = raw_transcript[transcript_ptr as u32];
 
             // 1 gate
             let diff = raw
@@ -545,7 +555,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 RawTranscriptEntry::from_field(self.raw_transcript[i]);
 
             let PostProcessScanData { token, new_grammar, scan_token } =
-                PostProcessScanData::from_field(PROCESS_RAW_TRANSCRIPT_TABLE[encoded_ascii]);
+                PostProcessScanData::from_field(PROCESS_RAW_TRANSCRIPT_TABLE[encoded_ascii as u32]);
 
             let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
             updated_transcript[transcript_ptr] = entry;
@@ -588,13 +598,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 RawTranscriptEntry::from_field(self.raw_transcript[i]);
             // 6.75 gates
             let PostProcessScanData { token, new_grammar, scan_token } =
-                PostProcessScanData::from_field(PROCESS_RAW_TRANSCRIPT_TABLE[encoded_ascii]);
+                PostProcessScanData::from_field(PROCESS_RAW_TRANSCRIPT_TABLE[encoded_ascii as u32]);
             // 2 gates
             let index_valid: Field = range_valid[i];
             // 1 gate
             let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
             // 2 gates
-            let diff = updated_transcript[transcript_ptr] - entry;
+            let diff = updated_transcript[transcript_ptr as u32] - entry;
             std::as_witness(diff);
             assert(diff * index_valid == 0);
             // 1 gate
@@ -610,7 +620,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 1 gate
             let new_transcript = TranscriptEntry::to_field(new_entry);
             // 4 gates
-            let diff = updated_transcript[transcript_ptr] - new_transcript;
+            let diff = updated_transcript[transcript_ptr as u32] - new_transcript;
             std::as_witness(diff);
             assert(diff * update == 0);
             // 1 gate
