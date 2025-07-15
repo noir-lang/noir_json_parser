@@ -34,7 +34,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl(key);
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index as u32].into();
         (exists, entry)
     }
 
@@ -57,8 +57,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
         let key_index = unsafe { self.find_key_in_map(keyhash) };
 
-        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
+        assert(
+            self.key_hashes[key_index as u32] == keyhash,
+            "get_json_entry_unchecked: key not found",
+        );
+        let entry: JSONEntry = self.json_entries_packed[key_index as u32].into();
 
         entry
     }
@@ -75,7 +78,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl_var(key);
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index as u32].into();
         (exists, entry)
     }
 
@@ -97,8 +100,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
         let key_index = unsafe { self.find_key_in_map(keyhash) };
 
-        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
+        assert(
+            self.key_hashes[key_index as u32] == keyhash,
+            "get_json_entry_unchecked: key not found",
+        );
+        let entry: JSONEntry = self.json_entries_packed[key_index as u32].into();
 
         entry
     }
@@ -121,8 +127,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
         let key_index = unsafe { self.find_key_in_map(keyhash) };
 
-        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
+        assert(
+            self.key_hashes[key_index as u32] == keyhash,
+            "get_json_entry_unchecked: key not found",
+        );
+        let entry: JSONEntry = self.json_entries_packed[key_index as u32].into();
 
         (entry, key_index)
     }
@@ -144,8 +153,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
         let key_index = unsafe { self.find_key_in_map(keyhash) };
 
-        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
+        assert(
+            self.key_hashes[key_index as u32] == keyhash,
+            "get_json_entry_unchecked: key not found",
+        );
+        let entry: JSONEntry = self.json_entries_packed[key_index as u32].into();
 
         (entry, key_index)
     }
@@ -341,8 +353,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let exclusion_test = found + target_gt_largest_entry + target_lt_smallest_entry;
         assert(exclusion_test * exclusion_test == exclusion_test);
 
-        let mut lhs = self.key_hashes[search_result.lhs_index];
-        let mut rhs = self.key_hashes[search_result.rhs_index];
+        let mut lhs = self.key_hashes[search_result.lhs_index as u32];
+        let mut rhs = self.key_hashes[search_result.rhs_index as u32];
 
         // case where hash < self.key_hashes[0]
         // 0 < hash < hashes[0]
@@ -401,8 +413,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let exclusion_test = found + target_gt_largest_entry + target_lt_smallest_entry;
         assert(exclusion_test * exclusion_test == exclusion_test);
 
-        let mut lhs = self.key_hashes[search_result.lhs_index];
-        let mut rhs = self.key_hashes[search_result.rhs_index];
+        let mut lhs = self.key_hashes[search_result.lhs_index as u32];
+        let mut rhs = self.key_hashes[search_result.rhs_index as u32];
 
         // case where hash < self.key_hashes[0]
         // 0 < hash < hashes[0]
@@ -425,8 +437,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     pub(crate) unconstrained fn __get_keys_at_root<let MaxNumKeys: u32>(
         self,
     ) -> BoundedVec<Field, MaxNumKeys> {
-        let root_object: JSONEntry =
-            JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
+        let root_object: JSONEntry = JSONEntry::from(
+            self.json_entries_packed[self.root_index_in_transcript as u32],
+        );
 
         let mut result_ptr = 0;
         let mut result: [Field; MaxNumKeys] = [0; MaxNumKeys];
@@ -445,8 +458,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     pub(crate) fn get_keys_at_root<let MaxNumKeys: u32, let MaxKeyBytes: u32>(
         self,
     ) -> BoundedVec<BoundedVec<u8, MaxKeyBytes>, MaxNumKeys> {
-        let root_object: JSONEntry =
-            JSONEntry::from(self.json_entries_packed[self.root_index_in_transcript]);
+        let root_object: JSONEntry = JSONEntry::from(
+            self.json_entries_packed[self.root_index_in_transcript as u32],
+        );
         // Safety: the length of the index is constrained later.
         let key_indices: BoundedVec<Field, MaxNumKeys> = unsafe { self.__get_keys_at_root() };
 
@@ -454,7 +468,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         let mut result: [BoundedVec<u8, MaxKeyBytes>; MaxNumKeys] = [BoundedVec::new(); MaxNumKeys];
         for i in 0..MaxNumKeys {
-            let key = KeyIndexData::from_field(self.key_data[key_indices.get_unchecked(i)]);
+            let key = KeyIndexData::from_field(self.key_data[key_indices.get_unchecked(i) as u32]);
             // just a workaround to the interface for `extract_string_entry`
             let mut fake_entry = JSONEntry::new();
             fake_entry.json_pointer = key.json_index;

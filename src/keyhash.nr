@@ -52,8 +52,8 @@ impl<let KeyFields: u32> ByteHasher<KeyFields> {
                 let valid = (key_idx < key_length) as Field;
                 limb *= 0x100;
                 let byte_index = (body_index as Field + key_idx as Field) * valid;
-                let byte = body_text[byte_index] as Field;
-                limb += byte * valid;
+                let byte = body_text[byte_index as u32];
+                limb += byte as Field * valid;
                 key_idx += 1;
             }
             key_fields[j] = limb;
