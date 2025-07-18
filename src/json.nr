@@ -259,14 +259,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             tokens[i] = token;
             // 13 gates
             let TokenFlags {
-        create_json_entry,
-        is_end_of_object_or_array,
-        is_start_of_object_or_array,
-        new_context,
-        is_key_token: update_key,
-        is_value_token,
-        preserve_num_entries,
-    } = TokenFlags::from_field(
+    create_json_entry,
+    is_end_of_object_or_array,
+    is_start_of_object_or_array,
+    new_context,
+    is_key_token: update_key,
+    is_value_token,
+    preserve_num_entries,} = TokenFlags::from_field(
                 TOKEN_FLAGS_TABLE[(token + context * (NUM_TOKENS as Field)) as u32],
             );
 
