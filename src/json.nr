@@ -259,14 +259,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             tokens[i] = token;
             // 13 gates
             let TokenFlags {
-                create_json_entry,
-                is_end_of_object_or_array,
-                is_start_of_object_or_array,
-                new_context,
-                is_key_token: update_key,
-                is_value_token,
-                preserve_num_entries,
-            } = TokenFlags::from_field(
+        create_json_entry,
+        is_end_of_object_or_array,
+        is_start_of_object_or_array,
+        new_context,
+        is_key_token: update_key,
+        is_value_token,
+        preserve_num_entries,
+    } = TokenFlags::from_field(
                 TOKEN_FLAGS_TABLE[(token + context * (NUM_TOKENS as Field)) as u32],
             );
 
@@ -411,12 +411,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             let encoded_ascii =
                 previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
-            let ScanData {
-                scan_token,
-                push_transcript,
-                increase_length,
-                is_potential_escape_sequence,
-            } = ScanData::from_field(JSON_CAPTURE_TABLE[encoded_ascii as u32]);
+            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
+                ScanData::from_field(JSON_CAPTURE_TABLE[encoded_ascii as u32]);
             let mut push_transcript = push_transcript;
             let mut scan_token = scan_token;
             let mut increase_length = increase_length;
@@ -491,12 +487,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 2 gates
             let capture_flags = JSON_CAPTURE_TABLE[encoded_ascii as u32];
             // 5 gates
-            let ScanData {
-                scan_token,
-                push_transcript,
-                increase_length,
-                is_potential_escape_sequence,
-            } = ScanData::from_field(capture_flags);
+            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
+                ScanData::from_field(capture_flags);
 
             // 2 gates
             let raw = raw_transcript[transcript_ptr as u32];
