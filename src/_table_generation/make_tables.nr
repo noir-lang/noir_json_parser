@@ -28,7 +28,7 @@ use CaptureMode::STRING_CAPTURE;
 
 global CAPTURE_TABLE: [[Field; 128]; 4] =
     [GRAMMAR_CAPTURE_TABLE, STRING_CAPTURE_TABLE, NUMERIC_CAPTURE_TABLE, LITERAL_CAPTURE_TABLE];
-global CAPTURE_TOKEN: [[Field; 128]; 4] =
+global CAPTURE_TOKEN: [[u32; 128]; 4] =
     [GRAMMAR_CAPTURE_TOKEN, STRING_CAPTURE_TOKEN, NUMERIC_CAPTURE_TOKEN, LITERAL_CAPTURE_TOKEN];
 global CAPTURE_PUSH_TRANSCRIPT: [[bool; 128]; 4] = [
     GRAMMAR_CAPTURE_PUSH_TRANSCRIPT,
@@ -60,7 +60,7 @@ unconstrained fn make_capture_table_full() -> [[Field; 128]; 4] {
             let error = CAPTURE_ERROR_FLAG[i][j] as Field;
 
             let full = table
-                + token * 0x100
+                + token as Field * 0x100
                 + push_transcript * 0x10000
                 + increase_length * 0x1000000
                 + error * 0x100000000;
@@ -76,7 +76,7 @@ unconstrained fn make_ascii_to_token_table() -> [Field; 1024] {
     for i in 0..4 {
         for j in 0..128 {
             let token = CAPTURE_TOKEN[i][j];
-            result[i * 256 + j] = token;
+            result[i * 256 + j] = token as Field;
         }
         for j in 0..128 {
             result[i * 256 + j + 128] = 0;
@@ -94,9 +94,9 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     let error_flags =
         ValidationFlags { push_layer: 0x1000000, push_layer_type_of_root: 0, pop_layer: 0 };
     let begin_new_object_flags =
-        ValidationFlags { push_layer: 1, push_layer_type_of_root: OBJECT_LAYER, pop_layer: 0 };
+        ValidationFlags { push_layer: 1, push_layer_type_of_root: OBJECT_LAYER as Field, pop_layer: 0 };
     let begin_new_array_flags =
-        ValidationFlags { push_layer: 1, push_layer_type_of_root: ARRAY_LAYER, pop_layer: 0 };
+        ValidationFlags { push_layer: 1, push_layer_type_of_root: ARRAY_LAYER as Field, pop_layer: 0 };
     let end_object_or_array_flags: ValidationFlags =
         ValidationFlags { push_layer: 0, push_layer_type_of_root: 0, pop_layer: 1 };
 
@@ -105,10 +105,10 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     let error_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|_| error_flags.to_field());
     let object_layer_begin_object_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == KEY_TOKEN) {
+        if (token == KEY_TOKEN as Field) {
             result = no_change.to_field();
         }
-        if (token == END_OBJECT_TOKEN) {
+        if (token == END_OBJECT_TOKEN as Field) {
             result = end_object_or_array_flags.to_field();
         }
         result
@@ -116,7 +116,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let object_layer_key_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = no_change.to_field();
-        if (token != KEY_SEPARATOR_TOKEN) {
+        if (token != KEY_SEPARATOR_TOKEN as Field) {
             result = error_flags.to_field();
         }
         result
@@ -124,13 +124,13 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let object_layer_key_separator_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == STRING_TOKEN) | (token == LITERAL_TOKEN) | (token == NUMERIC_TOKEN) {
+        if (token == STRING_TOKEN as Field) | (token == LITERAL_TOKEN as Field) | (token == NUMERIC_TOKEN as Field) {
             result = no_change.to_field();
         }
-        if (token == BEGIN_ARRAY_TOKEN) {
+        if (token == BEGIN_ARRAY_TOKEN as Field) {
             result = begin_new_array_flags.to_field();
         }
-        if (token == BEGIN_OBJECT_TOKEN) {
+        if (token == BEGIN_OBJECT_TOKEN as Field) {
             result = begin_new_object_flags.to_field();
         }
         result
@@ -138,10 +138,10 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let object_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == VALUE_SEPARATOR_TOKEN) {
+        if (token == VALUE_SEPARATOR_TOKEN as Field) {
             result = no_change.to_field();
         }
-        if (token == END_OBJECT_TOKEN) {
+        if (token == END_OBJECT_TOKEN as Field) {
             result = end_object_or_array_flags.to_field();
         }
         result
@@ -149,14 +149,14 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let object_layer_end_object_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == VALUE_SEPARATOR_TOKEN) {
+        if (token == VALUE_SEPARATOR_TOKEN as Field) {
             result = no_change.to_field();
         }
-        if (token == END_OBJECT_TOKEN) {
+        if (token == END_OBJECT_TOKEN as Field) {
             result = end_object_or_array_flags.to_field();
         }
         // we can reach the end of the JSON via this path
-        if (token == NO_TOKEN) {
+        if (token == NO_TOKEN as Field) {
             result = no_change.to_field();
         }
         result
@@ -164,7 +164,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let object_layer_value_separator_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == KEY_TOKEN) {
+        if (token == KEY_TOKEN as Field) {
             result = no_change.to_field();
         }
         result
@@ -177,7 +177,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let no_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == NO_TOKEN) {
+        if (token == NO_TOKEN as Field) {
             result = no_change.to_field();
         }
         result
@@ -197,16 +197,16 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let array_layer_begin_array_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == STRING_TOKEN) | (token == LITERAL_TOKEN) | (token == NUMERIC_TOKEN) {
+        if (token == STRING_TOKEN as Field) | (token == LITERAL_TOKEN as Field) | (token == NUMERIC_TOKEN as Field) {
             result = no_change.to_field();
         }
-        if (token == BEGIN_OBJECT_TOKEN) {
+        if (token == BEGIN_OBJECT_TOKEN as Field) {
             result = begin_new_object_flags.to_field();
         }
-        if (token == BEGIN_ARRAY_TOKEN) {
+        if (token == BEGIN_ARRAY_TOKEN as Field) {
             result = begin_new_array_flags.to_field();
         }
-        if (token == END_ARRAY_TOKEN) {
+        if (token == END_ARRAY_TOKEN as Field) {
             result = end_object_or_array_flags.to_field();
         }
         result
@@ -214,10 +214,10 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let array_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == VALUE_SEPARATOR_TOKEN) {
+        if (token == VALUE_SEPARATOR_TOKEN as Field) {
             result = no_change.to_field();
         }
-        if (token == END_ARRAY_TOKEN) {
+        if (token == END_ARRAY_TOKEN as Field) {
             result = end_object_or_array_flags.to_field();
         }
         result
@@ -225,13 +225,13 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let array_layer_value_separator_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == STRING_TOKEN) | (token == LITERAL_TOKEN) | (token == NUMERIC_TOKEN) {
+        if (token == STRING_TOKEN as Field) | (token == LITERAL_TOKEN as Field) | (token == NUMERIC_TOKEN as Field) {
             result = no_change.to_field();
         }
-        if (token == BEGIN_OBJECT_TOKEN) {
+        if (token == BEGIN_OBJECT_TOKEN as Field) {
             result = begin_new_object_flags.to_field();
         }
-        if (token == BEGIN_ARRAY_TOKEN) {
+        if (token == BEGIN_ARRAY_TOKEN as Field) {
             result = begin_new_array_flags.to_field();
         }
         result
@@ -239,34 +239,34 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let array_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == VALUE_SEPARATOR_TOKEN) {
+        if (token == VALUE_SEPARATOR_TOKEN as Field) {
             result = no_change.to_field();
         }
-        if (token == END_ARRAY_TOKEN) {
+        if (token == END_ARRAY_TOKEN as Field) {
             result = end_object_or_array_flags.to_field();
         }
         result
     });
     let array_layer_end_array_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == VALUE_SEPARATOR_TOKEN) {
+        if (token == VALUE_SEPARATOR_TOKEN as Field) {
             result = no_change.to_field();
         }
-        if (token == END_ARRAY_TOKEN) {
+        if (token == END_ARRAY_TOKEN as Field) {
             result = end_object_or_array_flags.to_field();
         }
         // we can reach the end of the JSON via this path
-        if (token == NO_TOKEN) {
+        if (token == NO_TOKEN as Field) {
             result = no_change.to_field();
         }
         result
     });
     let array_layer_end_object_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
-        if (token == VALUE_SEPARATOR_TOKEN) {
+        if (token == VALUE_SEPARATOR_TOKEN as Field) {
             result = no_change.to_field();
         }
-        if (token == END_ARRAY_TOKEN) {
+        if (token == END_ARRAY_TOKEN as Field) {
             result = end_object_or_array_flags.to_field();
         }
         result
@@ -287,7 +287,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     let single_value_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
         // we have reached the end of json
-        if (token == NO_TOKEN) {
+        if (token == NO_TOKEN as Field) {
             result = no_change.to_field();
         }
         result
@@ -306,14 +306,14 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let mut flattened_flags: [Field; NUM_TOKENS * NUM_TOKENS * 3] =
         [0; NUM_TOKENS * NUM_TOKENS * 3];
-    let NN = (NUM_TOKENS * NUM_TOKENS) as Field;
+    let NN = (NUM_TOKENS * NUM_TOKENS);
     for j in 0..NUM_TOKENS as u32 {
         for k in 0..NUM_TOKENS as u32 {
-            flattened_flags[OBJECT_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field] =
+            flattened_flags[OBJECT_LAYER * NN + j * NUM_TOKENS + k] =
                 object_layer_flags[j][k];
-            flattened_flags[ARRAY_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field] =
+            flattened_flags[ARRAY_LAYER * NN + j * NUM_TOKENS + k] =
                 array_layer_flags[j][k];
-            flattened_flags[SINGLE_VALUE_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field] =
+            flattened_flags[SINGLE_VALUE_LAYER * NN + j * NUM_TOKENS + k] =
                 single_value_layer_flags[j][k];
         }
     }
@@ -384,7 +384,7 @@ unconstrained fn make_process_raw_transcript_table() -> [Field; 1024] {
             let new_grammar = GRAMMAR_CAPTURE_PUSH_TRANSCRIPT[j] as Field;
             let scan_token = GRAMMAR_CAPTURE_TOKEN[j];
             let new_grammar = ((new_grammar == 1) & (token_is_numeric_or_literal == 1)) as Field;
-            result[i * 256 + j] = token + new_grammar * 0x100 + scan_token * 0x10000;
+            result[i * 256 + j] = token as Field + new_grammar * 0x100 + scan_token as Field * 0x10000;
         }
         for j in 128..256 {
             result[i * 256 + j] = 0;

@@ -535,7 +535,7 @@ pub(crate) global LITERAL_CAPTURE_TABLE: [Field; 128] = [
     /*DEL*/ ERROR_CAPTURE,
 ];
 
-pub(crate) global GRAMMAR_CAPTURE_TOKEN: [Field; 128] = [
+pub(crate) global GRAMMAR_CAPTURE_TOKEN: [u32; 128] = [
     /* NULL */ NO_TOKEN,
     /* SOH */ NO_TOKEN,
     /* TXT */ NO_TOKEN,
@@ -961,7 +961,7 @@ pub(crate) global GRAMMAR_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-pub(crate) global STRING_CAPTURE_TOKEN: [Field; 128] = [
+pub(crate) global STRING_CAPTURE_TOKEN: [u32; 128] = [
     /* NULL */ NO_TOKEN,
     /* SOH */ NO_TOKEN,
     /* TXT */ NO_TOKEN,
@@ -1387,7 +1387,7 @@ pub(crate) global STRING_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-pub(crate) global NUMERIC_CAPTURE_TOKEN: [Field; 128] = [
+pub(crate) global NUMERIC_CAPTURE_TOKEN: [u32; 128] = [
     /* NULL */ NO_TOKEN,
     /* SOH */ NO_TOKEN,
     /* TXT */ NO_TOKEN,
@@ -1813,7 +1813,7 @@ pub(crate) global NUMERIC_CAPTURE_INCREASE_LENGTH: [bool; 128] = [
     /*DEL*/ false,
 ];
 
-pub(crate) global LITERAL_CAPTURE_TOKEN: [Field; 128] = [
+pub(crate) global LITERAL_CAPTURE_TOKEN: [u32; 128] = [
     /* NULL */ NO_TOKEN,
     /* SOH */ NO_TOKEN,
     /* TXT */ NO_TOKEN,

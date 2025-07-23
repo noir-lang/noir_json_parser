@@ -56,7 +56,8 @@ fn extract_literal_from_array(
         let value = arr[i] as Field;
         parsed_literal += value;
     }
-    parsed_literal /= LITERAL_OFFSET_SHIFT[json_length];
+    json_length.assert_max_bit_size::<32>();
+    parsed_literal /= LITERAL_OFFSET_SHIFT[json_length as u32];
     let is_false = parsed_literal == false_field;
     let is_null = parsed_literal == null_field;
     let is_true = parsed_literal == true_field;
@@ -77,7 +78,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         let (exists, entry) = self.get_json_entry(key);
         assert(
-            (entry.entry_type - LITERAL_TOKEN) * exists as Field == 0,
+            (entry.entry_type - LITERAL_TOKEN) * exists as u32 == 0,
             "get_literal: entry exists but is not a literal!",
         );
         let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
@@ -119,7 +120,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         let (exists, entry) = self.get_json_entry_var(key);
         assert(
-            (entry.entry_type - LITERAL_TOKEN) * exists as Field == 0,
+            (entry.entry_type - LITERAL_TOKEN) * exists as u32 == 0,
             "get_literal_var: entry exists but is not a literal!",
         );
         let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
@@ -167,11 +168,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
-
-        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
+        entry_index.assert_max_bit_size::<32>();
+        let entry: JSONEntry = self.json_entries_packed[entry_index as u32].into();
 
         assert(
-            (entry.entry_type - LITERAL_TOKEN) * valid as Field == 0,
+            (entry.entry_type - LITERAL_TOKEN) * valid as u32 == 0,
             "get_literal_from_array: entry exists but is not a literal!",
         );
 
@@ -202,8 +203,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
-
-        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
+        entry_index.assert_max_bit_size::<32>();
+        let entry: JSONEntry = self.json_entries_packed[entry_index as u32].into();
 
         assert(
             entry.entry_type == LITERAL_TOKEN,

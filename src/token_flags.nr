@@ -2,7 +2,7 @@ pub(crate) struct TokenFlags {
     pub(crate) create_json_entry: Field,
     pub(crate) is_end_of_object_or_array: Field,
     pub(crate) is_start_of_object_or_array: Field,
-    pub(crate) new_context: Field,
+    pub(crate) new_context: u32,
     pub(crate) is_key_token: Field,
     pub(crate) is_value_token: Field,
     pub(crate) preserve_num_entries: Field,
@@ -15,7 +15,7 @@ impl TokenFlags {
         let create_json_entry = bytes[0] as Field;
         let is_end_of_object_or_array = bytes[1] as Field;
         let is_start_of_object_or_array = bytes[2] as Field;
-        let new_context = bytes[3] as Field;
+        let new_context: Field = bytes[3] as Field;
         let is_key_token = bytes[4] as Field;
         let is_value_token = bytes[5] as Field;
         let preserve_num_entries = bytes[6] as Field;

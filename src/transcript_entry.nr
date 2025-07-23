@@ -99,7 +99,7 @@ impl RawTranscriptEntry {
 }
 
 pub(crate) struct TranscriptEntry {
-    pub(crate) token: Field,
+    pub(crate) token: u32,
     pub(crate) index: Field,
     pub(crate) length: Field,
 }

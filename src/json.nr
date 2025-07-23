@@ -21,7 +21,7 @@ use crate::transcript_entry::{
  **/
 pub struct JSONValue<let MaxLength: u32> {
     pub(crate) value: BoundedVec<u8, MaxLength>, // raw bytes that constitute the json value entry
-    pub(crate) value_type: Field, // either STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN
+    pub(crate) value_type: u32, // either STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN
 }
 
 impl<let MaxLength: u32> JSONValue<MaxLength> {
@@ -51,9 +51,9 @@ pub struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u
     pub(crate) key_hashes: [Field; MaxNumValues], // a sorted list of key hashes
     pub(crate) unsorted_json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
     pub(crate) json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
-    pub(crate) layer_type_of_root: Field, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
+    pub(crate) layer_type_of_root: u32, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
     pub(crate) root_id: Field, // the unique identifier of the root (if an object or array)
-    pub(crate) root_index_in_transcript: Field, // location in json_entries_packed of the root
+    pub(crate) root_index_in_transcript: u32, // location in json_entries_packed of the root
 }
 
 /**
@@ -162,7 +162,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      *       This will then update `depth` to a value that exceeds the size of `parent_layer_stack` (32),
      *       which will trigger an out-of-bounds array access, which creates unsatisfiable constraints
      **/
-    fn validate_tokens(self, tokens: [Field; MaxNumTokens]) {
+    fn validate_tokens(self, tokens: [u32; MaxNumTokens]) {
         let mut current_layer = self.layer_type_of_root;
         let mut parent_layer_stack: [Field; 32] = [0; 32];
         let mut depth = 0;

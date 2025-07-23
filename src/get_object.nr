@@ -19,7 +19,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let (exists, key_index) = self.key_exists_impl(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         assert(
-            (entry.entry_type - END_OBJECT_TOKEN) * exists as Field == 0,
+            (entry.entry_type - END_OBJECT_TOKEN) * exists as u32 == 0,
             "get_object: entry exists but is not an object!",
         );
 
@@ -68,7 +68,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let (exists, key_index) = self.key_exists_impl_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         assert(
-            (entry.entry_type - END_OBJECT_TOKEN) * exists as Field == 0,
+            (entry.entry_type - END_OBJECT_TOKEN) * exists as u32 == 0,
             "get_object: entry exists but is not an object!",
         );
 
@@ -122,11 +122,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
+        entry_index.assert_max_bit_size::<32>();
 
-        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
+        let entry: JSONEntry = self.json_entries_packed[entry_index as u32].into();
 
         assert(
-            (entry.entry_type - END_OBJECT_TOKEN) * valid as Field == 0,
+            (entry.entry_type - END_OBJECT_TOKEN) * valid as u32 == 0,
             "get_object_from_array: entry exists but is not an object!",
         );
 
@@ -134,7 +135,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         r.layer_type_of_root = entry.parent_index;
         r.root_id = entry.id;
         r.layer_type_of_root = OBJECT_LAYER;
-        r.root_index_in_transcript = entry_index;
+        r.root_index_in_transcript = entry_index as u32;
 
         if valid {
             Option::some(r)
@@ -159,8 +160,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
-
-        let entry: JSONEntry = self.json_entries_packed[entry_index].into();
+        entry_index.assert_max_bit_size::<32>();
+        let entry: JSONEntry = self.json_entries_packed[entry_index as u32].into();
         assert(
             entry.entry_type == END_OBJECT_TOKEN,
             "get_object_from_array_unchecked: entry exists but is not an object!",
@@ -170,7 +171,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         r.layer_type_of_root = entry.parent_index;
         r.root_id = entry.id;
         r.layer_type_of_root = OBJECT_LAYER;
-        r.root_index_in_transcript = entry_index;
+        r.root_index_in_transcript = entry_index as u32;
         r
     }
 }

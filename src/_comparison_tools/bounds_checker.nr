@@ -136,7 +136,7 @@ fn test_get_validity_flags_bad_index_fail_f() {
     // 4 * Y = -2 * X
     let fake_value_b = (-fake_value_a * fake_index_a) / fake_index_b;
 
-    bad_flags[fake_index_a] = fake_value_a;
-    bad_flags[fake_index_b] = fake_value_b;
+    bad_flags[fake_index_a] = fake_value_a as Field;
+    bad_flags[fake_index_b] = fake_value_b as Field;
     let _ = get_validity_flags_inner(0, bad_flags);
 }
