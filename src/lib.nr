@@ -16,6 +16,7 @@ mod get_literal;
 mod get_object;
 mod get_array;
 mod utils;
+mod benchmarks;
 
 use json::JSON;
 
