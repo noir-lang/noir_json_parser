@@ -1,5 +1,6 @@
 use crate::_string_tools::slice_field::slice_200_bits_from_field;
 use crate::_string_tools::slice_packed_field::slice_fields;
+use crate::utils::cast_num_to_u32;
 
 /**
  * @brief utility struct that computes a 200-bit Poseidon hash of some bytes,
@@ -52,8 +53,8 @@ impl<let KeyFields: u32> ByteHasher<KeyFields> {
                 let valid = (key_idx < key_length) as Field;
                 limb *= 0x100;
                 let byte_index = (body_index as Field + key_idx as Field) * valid;
-                let byte = body_text[byte_index] as Field;
-                limb += byte * valid;
+                let byte = body_text[cast_num_to_u32(byte_index)];
+                limb += byte as Field * valid;
                 key_idx += 1;
             }
             key_fields[j] = limb;

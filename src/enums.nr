@@ -3,23 +3,23 @@ pub(crate) mod ScanMode {
 }
 
 pub(crate) mod Token {
-    pub(crate) global NO_TOKEN: Field = 0;
-    pub(crate) global BEGIN_OBJECT_TOKEN: Field = 1;
-    pub(crate) global END_OBJECT_TOKEN: Field = 2;
-    pub(crate) global BEGIN_ARRAY_TOKEN: Field = 3;
-    pub(crate) global END_ARRAY_TOKEN: Field = 4;
-    pub(crate) global KEY_SEPARATOR_TOKEN: Field = 5;
-    pub(crate) global VALUE_SEPARATOR_TOKEN: Field = 6;
-    pub(crate) global STRING_TOKEN: Field = 7;
-    pub(crate) global NUMERIC_TOKEN: Field = 8;
-    pub(crate) global LITERAL_TOKEN: Field = 9;
-    pub(crate) global KEY_TOKEN: Field = 10;
+    pub(crate) global NO_TOKEN: u32 = 0;
+    pub(crate) global BEGIN_OBJECT_TOKEN: u32 = 1;
+    pub(crate) global END_OBJECT_TOKEN: u32 = 2;
+    pub(crate) global BEGIN_ARRAY_TOKEN: u32 = 3;
+    pub(crate) global END_ARRAY_TOKEN: u32 = 4;
+    pub(crate) global KEY_SEPARATOR_TOKEN: u32 = 5;
+    pub(crate) global VALUE_SEPARATOR_TOKEN: u32 = 6;
+    pub(crate) global STRING_TOKEN: u32 = 7;
+    pub(crate) global NUMERIC_TOKEN: u32 = 8;
+    pub(crate) global LITERAL_TOKEN: u32 = 9;
+    pub(crate) global KEY_TOKEN: u32 = 10;
     pub(crate) global NUM_TOKENS: u32 = 11;
     pub(crate) global NUM_TOKENS_MUL_2: u32 = 22;
 }
 
 pub(crate) mod Layer {
-    pub(crate) global OBJECT_LAYER: Field = 0;
-    pub(crate) global ARRAY_LAYER: Field = 1;
-    pub(crate) global SINGLE_VALUE_LAYER: Field = 2;
+    pub(crate) global OBJECT_LAYER: u32 = 0;
+    pub(crate) global ARRAY_LAYER: u32 = 1;
+    pub(crate) global SINGLE_VALUE_LAYER: u32 = 2;
 }
