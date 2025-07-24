@@ -15,7 +15,7 @@ use crate::token_flags::TokenFlags;
 use crate::transcript_entry::{
     PostProcessScanData, RawTranscriptEntry, ScanData, TranscriptEntry, ValidationFlags,
 };
-use super::utils::cast_num_to_u32;
+use crate::utils::cast_num_to_u32;
 
 /**
  * @brief records a value in a json blob
