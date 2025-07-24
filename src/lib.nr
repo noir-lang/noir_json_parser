@@ -15,6 +15,7 @@ mod get_number;
 mod get_literal;
 mod get_object;
 mod get_array;
+mod benchmarks;
 
 use get_literal::JSONLiteral;
 use json::{JSON, JSONValue};
