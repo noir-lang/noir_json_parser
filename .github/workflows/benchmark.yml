@@ -66,14 +66,6 @@ jobs:
           max-items-in-chart: 50
           skip-fetch-gh-pages: true
 
-      - name: Add gates diff to sticky comment
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          # delete the comment in case changes no longer impact circuit sizes
-          delete: ${{ !steps.gates_diff.outputs.markdown }}
-          message: ${{ steps.gates_diff.outputs.markdown }}
-
       # Delete the export files
       - name: Delete export files
         run: rm -rf export
@@ -100,11 +92,4 @@ jobs:
           fail-on-alert: false 
           max-items-in-chart: 50
           skip-fetch-gh-pages: true
-
-      - name: Add brillig diff to sticky comment
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          # delete the comment in case changes no longer impact circuit sizes
-          delete: ${{ !steps.brillig_diff.outputs.markdown }}
-          message: ${{ steps.brillig_diff.outputs.markdown }}
+          
