@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753464100226,
+  "lastUpdate": 1753464108009,
   "repoUrl": "https://github.com/noir-lang/noir_json_parser",
   "entries": {
     "ACIR Opcodes": [
@@ -250,6 +250,132 @@ window.BENCHMARK_DATA = {
             "name": "parse_json_from_string_JSON512b_Bench.json/main",
             "value": 62063,
             "unit": "circuit_size"
+          }
+        ]
+      }
+    ],
+    "Brillig Bytecode Size": [
+      {
+        "commit": {
+          "author": {
+            "email": "26174818+jialinli98@users.noreply.github.com",
+            "name": "Jialin Li",
+            "username": "jialinli98"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9344b7ebcc4a988bc6f99f73897c8d4ed293acb0",
+          "message": "chore: add benchmarks (#55)",
+          "timestamp": "2025-07-25T18:09:15+01:00",
+          "tree_id": "3066084ed123b6f4723990fd072d916cdfc8f254",
+          "url": "https://github.com/noir-lang/noir_json_parser/commit/9344b7ebcc4a988bc6f99f73897c8d4ed293acb0"
+        },
+        "date": 1753464107993,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "get_array_JSON16kb_Bench",
+            "value": 18479,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_array_JSON512b_Bench",
+            "value": 2607,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_keys_at_root_JSON16kb_Bench",
+            "value": 43544,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_keys_at_root_JSON512b_Bench",
+            "value": 27671,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_literal_JSON16kb_Bench",
+            "value": 22154,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_literal_JSON512b_Bench",
+            "value": 6281,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_number_JSON16kb_Bench",
+            "value": 22463,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_number_JSON512b_Bench",
+            "value": 6590,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_object_JSON16kb_Bench",
+            "value": 18479,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_object_JSON512b_Bench",
+            "value": 2607,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_string_JSON16kb_Bench",
+            "value": 24310,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_string_JSON512b_Bench",
+            "value": 8438,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_value_JSON16kb_Bench",
+            "value": 23373,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_value_JSON512b_Bench",
+            "value": 7500,
+            "unit": "opcodes"
+          },
+          {
+            "name": "key_exists_JSON16kb_Bench",
+            "value": 18139,
+            "unit": "opcodes"
+          },
+          {
+            "name": "key_exists_JSON512b_Bench",
+            "value": 2267,
+            "unit": "opcodes"
+          },
+          {
+            "name": "parse_json_JSON16kb_Bench",
+            "value": 16447,
+            "unit": "opcodes"
+          },
+          {
+            "name": "parse_json_JSON512b_Bench",
+            "value": 16438,
+            "unit": "opcodes"
+          },
+          {
+            "name": "parse_json_from_string_JSON16kb_Bench",
+            "value": 16447,
+            "unit": "opcodes"
+          },
+          {
+            "name": "parse_json_from_string_JSON512b_Bench",
+            "value": 16438,
+            "unit": "opcodes"
           }
         ]
       }
