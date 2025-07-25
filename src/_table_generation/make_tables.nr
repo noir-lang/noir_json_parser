@@ -28,7 +28,7 @@ use CaptureMode::STRING_CAPTURE;
 
 global CAPTURE_TABLE: [[Field; 128]; 4] =
     [GRAMMAR_CAPTURE_TABLE, STRING_CAPTURE_TABLE, NUMERIC_CAPTURE_TABLE, LITERAL_CAPTURE_TABLE];
-global CAPTURE_TOKEN: [[Field; 128]; 4] =
+global CAPTURE_TOKEN: [[u32; 128]; 4] =
     [GRAMMAR_CAPTURE_TOKEN, STRING_CAPTURE_TOKEN, NUMERIC_CAPTURE_TOKEN, LITERAL_CAPTURE_TOKEN];
 global CAPTURE_PUSH_TRANSCRIPT: [[bool; 128]; 4] = [
     GRAMMAR_CAPTURE_PUSH_TRANSCRIPT,
@@ -60,7 +60,7 @@ unconstrained fn make_capture_table_full() -> [[Field; 128]; 4] {
             let error = CAPTURE_ERROR_FLAG[i][j] as Field;
 
             let full = table
-                + token * 0x100
+                + token as Field * 0x100
                 + push_transcript * 0x10000
                 + increase_length * 0x1000000
                 + error * 0x100000000;
@@ -76,7 +76,7 @@ unconstrained fn make_ascii_to_token_table() -> [Field; 1024] {
     for i in 0..4 {
         for j in 0..128 {
             let token = CAPTURE_TOKEN[i][j];
-            result[i * 256 + j] = token;
+            result[i * 256 + j] = token as Field;
         }
         for j in 0..128 {
             result[i * 256 + j + 128] = 0;
@@ -93,14 +93,20 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     let no_change = ValidationFlags { push_layer: 0, push_layer_type_of_root: 0, pop_layer: 0 };
     let error_flags =
         ValidationFlags { push_layer: 0x1000000, push_layer_type_of_root: 0, pop_layer: 0 };
-    let begin_new_object_flags =
-        ValidationFlags { push_layer: 1, push_layer_type_of_root: OBJECT_LAYER, pop_layer: 0 };
-    let begin_new_array_flags =
-        ValidationFlags { push_layer: 1, push_layer_type_of_root: ARRAY_LAYER, pop_layer: 0 };
+    let begin_new_object_flags = ValidationFlags {
+        push_layer: 1,
+        push_layer_type_of_root: OBJECT_LAYER as Field,
+        pop_layer: 0,
+    };
+    let begin_new_array_flags = ValidationFlags {
+        push_layer: 1,
+        push_layer_type_of_root: ARRAY_LAYER as Field,
+        pop_layer: 0,
+    };
     let end_object_or_array_flags: ValidationFlags =
         ValidationFlags { push_layer: 0, push_layer_type_of_root: 0, pop_layer: 1 };
 
-    let token_ids: [Field; NUM_TOKENS] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let token_ids: [u32; NUM_TOKENS] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
     let error_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|_| error_flags.to_field());
     let object_layer_begin_object_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
@@ -195,7 +201,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     object_layer_flags[LITERAL_TOKEN] = object_layer_value_token_outcomes;
     object_layer_flags[KEY_TOKEN] = object_layer_key_token_outcomes;
 
-    let array_layer_begin_array_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
+    let array_layer_begin_array_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token: u32| {
         let mut result = error_flags.to_field();
         if (token == STRING_TOKEN) | (token == LITERAL_TOKEN) | (token == NUMERIC_TOKEN) {
             result = no_change.to_field();
@@ -306,14 +312,12 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let mut flattened_flags: [Field; NUM_TOKENS * NUM_TOKENS * 3] =
         [0; NUM_TOKENS * NUM_TOKENS * 3];
-    let NN = (NUM_TOKENS * NUM_TOKENS) as Field;
+    let NN = (NUM_TOKENS * NUM_TOKENS);
     for j in 0..NUM_TOKENS as u32 {
         for k in 0..NUM_TOKENS as u32 {
-            flattened_flags[OBJECT_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field] =
-                object_layer_flags[j][k];
-            flattened_flags[ARRAY_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field] =
-                array_layer_flags[j][k];
-            flattened_flags[SINGLE_VALUE_LAYER * NN + j as Field * (NUM_TOKENS as Field) + k as Field] =
+            flattened_flags[OBJECT_LAYER * NN + j * NUM_TOKENS + k] = object_layer_flags[j][k];
+            flattened_flags[ARRAY_LAYER * NN + j * NUM_TOKENS + k] = array_layer_flags[j][k];
+            flattened_flags[SINGLE_VALUE_LAYER * NN + j * NUM_TOKENS + k] =
                 single_value_layer_flags[j][k];
         }
     }
@@ -384,7 +388,8 @@ unconstrained fn make_process_raw_transcript_table() -> [Field; 1024] {
             let new_grammar = GRAMMAR_CAPTURE_PUSH_TRANSCRIPT[j] as Field;
             let scan_token = GRAMMAR_CAPTURE_TOKEN[j];
             let new_grammar = ((new_grammar == 1) & (token_is_numeric_or_literal == 1)) as Field;
-            result[i * 256 + j] = token + new_grammar * 0x100 + scan_token * 0x10000;
+            result[i * 256 + j] =
+                token as Field + new_grammar * 0x100 + scan_token as Field * 0x10000;
         }
         for j in 128..256 {
             result[i * 256 + j] = 0;
@@ -405,7 +410,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         create_json_entry: 0,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 0,
-        new_context: OBJECT_LAYER,
+        new_context: OBJECT_LAYER as Field,
         is_key_token: 0,
         is_value_token: 0,
         preserve_num_entries: 1,
@@ -414,7 +419,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         create_json_entry: 0,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 0,
-        new_context: OBJECT_LAYER,
+        new_context: OBJECT_LAYER as Field,
         is_key_token: 1,
         is_value_token: 0,
         preserve_num_entries: 1,
@@ -423,7 +428,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         create_json_entry: 0,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 1,
-        new_context: OBJECT_LAYER,
+        new_context: OBJECT_LAYER as Field,
         is_key_token: 0,
         is_value_token: 0,
         preserve_num_entries: 0,
@@ -433,7 +438,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         create_json_entry: 0,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 1,
-        new_context: ARRAY_LAYER,
+        new_context: ARRAY_LAYER as Field,
         is_key_token: 0,
         is_value_token: 0,
         preserve_num_entries: 0,
@@ -463,7 +468,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         create_json_entry: 1,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 0,
-        new_context: OBJECT_LAYER,
+        new_context: OBJECT_LAYER as Field,
         is_key_token: 0,
         is_value_token: 1,
         preserve_num_entries: 1,
@@ -473,7 +478,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         create_json_entry: 1,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 0,
-        new_context: OBJECT_LAYER,
+        new_context: OBJECT_LAYER as Field,
         is_key_token: 0,
         is_value_token: 1,
         preserve_num_entries: 1,
@@ -483,7 +488,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         create_json_entry: 1,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 0,
-        new_context: OBJECT_LAYER,
+        new_context: OBJECT_LAYER as Field,
         is_key_token: 0,
         is_value_token: 1,
         preserve_num_entries: 1,
@@ -501,11 +506,11 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     flags[LITERAL_TOKEN] = literal_flags;
     flags[KEY_TOKEN] = key_token_flags;
 
-    no_token_flags.new_context = ARRAY_LAYER;
-    key_token_flags.new_context = ARRAY_LAYER;
-    string_flags.new_context = ARRAY_LAYER;
-    numeric_flags.new_context = ARRAY_LAYER;
-    literal_flags.new_context = ARRAY_LAYER;
+    no_token_flags.new_context = ARRAY_LAYER as Field;
+    key_token_flags.new_context = ARRAY_LAYER as Field;
+    string_flags.new_context = ARRAY_LAYER as Field;
+    numeric_flags.new_context = ARRAY_LAYER as Field;
+    literal_flags.new_context = ARRAY_LAYER as Field;
 
     flags[NUM_TOKENS + (NO_TOKEN as u32)] = no_token_flags;
     flags[NUM_TOKENS + (BEGIN_OBJECT_TOKEN as u32)] = begin_object_flags;

@@ -1,4 +1,5 @@
 use crate::json_tables::ASCII_TO_TOKEN_TABLE;
+use crate::utils::cast_num_to_u32;
 
 pub(crate) struct ValidationFlags {
     pub(crate) push_layer: Field,
@@ -230,7 +231,7 @@ impl TranscriptEntry {
         // checks that the input is a valid combination of the outputs of the decomposition
         assert(ascii + remainder * 0x10000 == raw_encoded);
         // this lookup enforces an implicit 10 bit range check on ascii
-        let token = ASCII_TO_TOKEN_TABLE[ascii];
+        let token = ASCII_TO_TOKEN_TABLE[cast_num_to_u32(ascii)];
         token + remainder * 0x100
     }
 }

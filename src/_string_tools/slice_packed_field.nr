@@ -1,3 +1,5 @@
+use crate::utils::cast_num_to_u32;
+
 /**
  * @file methods to extract data efficiently from Field elements that represent 31 bytes of packed data
  **/
@@ -463,7 +465,7 @@ global PATH_LOOKUP: [[bool; 5]; 32] = [
  * some of the chunks will describe the bytes [0, ..., num_bytes - 1]
  * some of the chunks will describe the bytes [num_bytes, ..., 31]
  **/
-unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
+unconstrained fn __slice_field(f: Field, num_bytes: u32) -> [Field; 5] {
     let head_path = PATH_LOOKUP[num_bytes];
     let bytes: [u8; 32] = f.to_be_bytes();
     let bytes = bytes.map(|b: u8| b as Field);
@@ -558,17 +560,17 @@ unconstrained fn __slice_field(f: Field, num_bytes: Field) -> [Field; 5] {
     chunks
 }
 
-unconstrained fn __divmod(numerator: Field, denominator: Field) -> (Field, Field) {
-    let quotient = numerator as u32 / denominator as u32;
-    let remainder = numerator as u32 % denominator as u32;
-    (quotient as Field, remainder as Field)
+unconstrained fn __divmod(numerator: u16, denominator: u16) -> (u16, u16) {
+    let quotient = numerator / denominator;
+    let remainder = numerator % denominator;
+    (quotient, remainder)
 }
 
 /**
  * @brief cheeky divmod method for dividing a u16 by 31
  *        we know the quotient will fit into a 14 bit range check which will save us some fractional gates
  **/
-fn divmod_31(numerator: Field) -> (Field, Field) {
+fn divmod_31(numerator: u16) -> (u16, u16) {
     // Safety: we check the bit lengths of qf and rf and their relation to the numerator with assertions later
     let (quotient, remainder) = unsafe { __divmod(numerator, 31) };
 
@@ -582,7 +584,7 @@ fn divmod_31(numerator: Field) -> (Field, Field) {
 
     // n / d = q
     // d * q + r = n
-    assert(qf * 31 as Field + rf == numerator as Field);
+    assert(qf * 31 + rf == numerator as Field);
     (quotient, remainder)
 }
 
@@ -603,7 +605,7 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
 // 5 gates?
 pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Field; OutputFields] {
     // TODO we offset by 1 explain why (0 byte length produces 0 - 1 which = invalid array index. we just add 1 and increase array length by 1 to compensate)
-    let path = LAST_LIMB_PATH[last_limb_index + 1]; // 2
+    let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; // 2
     // Safety: check the comments below
     let path_valid_bits = unsafe { decompose(path) };
     let mut path_valid_sum: Field = 0;
@@ -624,7 +626,7 @@ pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Fie
  *        where `head = f.slice(0, num_bytes)`, `tail = f.slice(num_bytes, 31)`
  * @details cost 46 gates
  **/
-pub fn slice_field(f: Field, num_bytes: Field) -> (Field, Field) {
+pub fn slice_field(f: Field, num_bytes: u32) -> (Field, Field) {
     // Safety: we check the bit lengths of the chunks with assertions later
     let chunks = unsafe { __slice_field(f, num_bytes) };
     chunks[0].assert_max_bit_size::<8>(); // 1.25 gates
@@ -676,62 +678,68 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     start_byte: Field,
     num_bytes: Field,
 ) -> [Field; OutputFields] {
+    start_byte.assert_max_bit_size::<16>();
+    num_bytes.assert_max_bit_size::<16>();
     // 3.5
-    let (start_index, start_mod_31) = divmod_31(start_byte);
+    let (start_index, start_mod_31) = divmod_31(start_byte as u16);
     let num_underflow_bytes = start_mod_31;
     // 3.5, 7
-    let (num_bytes_div_31, num_bytes_mod_31) = divmod_31(num_bytes);
+    let (num_bytes_div_31, num_bytes_mod_31) = divmod_31(num_bytes as u16);
 
     // 2, 9
-    let num_bytes_mod_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_mod_31];
+    let num_bytes_mod_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_mod_31 as u32];
     // 2, 11
-    let num_bytes_div_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_div_31];
+    let num_bytes_div_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_div_31 as u32];
 
     // 1, 12
-    let lookup = (-num_bytes_div_31_is_0 * num_bytes) - start_mod_31 + 62;
+    let lookup = (-num_bytes_div_31_is_0 * num_bytes) - start_mod_31 as Field + 62;
     std::as_witness(lookup);
     // 3, 15
-    let bytes_fit_into_limb = INTEGER_UP_TO_62_IS_GREATER_THAN_31[lookup] * num_bytes_div_31_is_0;
+    let bytes_fit_into_limb =
+        INTEGER_UP_TO_62_IS_GREATER_THAN_31[cast_num_to_u32(lookup)] * num_bytes_div_31_is_0;
     std::as_witness(bytes_fit_into_limb);
 
     // 2, 17
-    let num_unused_bytes_in_start_limb =
-        (num_bytes + start_mod_31 - 31) * bytes_fit_into_limb + (31 - start_mod_31);
+    let num_unused_bytes_in_start_limb = (num_bytes + start_mod_31 as Field - 31)
+        * bytes_fit_into_limb
+        + (31 - start_mod_31 as Field);
     std::as_witness(num_unused_bytes_in_start_limb);
     let num_remaining_bytes = num_bytes - num_unused_bytes_in_start_limb;
 
     // 4.5, 21.5
-    let mut (num_whole_limbs, num_overflow_bytes) = divmod_31(num_remaining_bytes);
+    num_remaining_bytes.assert_max_bit_size::<16>();
+    let mut (num_whole_limbs, num_overflow_bytes) = divmod_31(num_remaining_bytes as u16);
     // 44, 65.5
-    let (_, tail) = slice_field(data[start_index], num_underflow_bytes);
+    let (_, tail) = slice_field(data[start_index as u32], num_underflow_bytes as u32);
 
     let mut previous = tail;
 
     let mut result = [0; OutputFields];
 
     // 4, 69.5
-    let extra_head_section = INTEGER_UP_TO_62_IS_GREATER_THAN_31[num_overflow_bytes - start_mod_31
-        + 31]
+    let extra_head_section = INTEGER_UP_TO_62_IS_GREATER_THAN_31[(
+        31 + num_overflow_bytes - start_mod_31
+    ) as u32]
         * (1 - bytes_fit_into_limb);
 
     // 1, 70.5
-    let index_of_output_limb: Field = (num_bytes_div_31 - num_bytes_mod_31_is_0);
+    let index_of_output_limb: Field = (num_bytes_div_31 as Field - num_bytes_mod_31_is_0);
     // 5, 75.5
     let path_valid_output: [Field; OutputFields] = get_last_limb_path(index_of_output_limb);
 
     // 2, 77.5
-    let tail_shift = BYTE_SHIFT[num_unused_bytes_in_start_limb];
+    let tail_shift = BYTE_SHIFT[cast_num_to_u32(num_unused_bytes_in_start_limb)];
 
     // 51, 128.5
     for i in 0..(OutputFields - 1) {
         // 0
         let slice_valid = path_valid_output[i];
         // 1
-        let data_index = (start_index + 1 + i as Field);
+        let data_index = (start_index as u32 + 1 + i);
         // 2, 3
         let input_slice = data[data_index];
         // 44, 47
-        let (head, tail) = slice_field(input_slice, num_underflow_bytes);
+        let (head, tail) = slice_field(input_slice, num_underflow_bytes as u32);
         // 1, 48
         let combined = previous * tail_shift + head;
         // 1, 49
@@ -741,7 +749,8 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     }
 
     // 2, 130.5
-    let slice_size = (num_bytes + start_mod_31) * bytes_fit_into_limb + num_overflow_bytes;
+    let slice_size =
+        (num_bytes + start_mod_31 as Field) * bytes_fit_into_limb + num_overflow_bytes as Field;
 
     // 1, 131.5
     let use_previous_for_last_limb: Field = extra_head_section + bytes_fit_into_limb;
@@ -749,18 +758,18 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     // 1, 132.5
     let mut index_of_overflow_limb = start_index + num_whole_limbs + 1;
     // 2, 134.5
-    let last_limb_from_data = data[index_of_overflow_limb];
+    let last_limb_from_data = data[index_of_overflow_limb as u32];
     // 2, 136.5
     let slice_source =
         (previous - last_limb_from_data) * use_previous_for_last_limb + last_limb_from_data;
 
     // 44, 180.5
-    let (head, _) = slice_field(slice_source, slice_size);
+    let (head, _) = slice_field(slice_source, cast_num_to_u32(slice_size));
 
     // 3, 183.5
-    let previous_shift = BYTE_SHIFT[31 - num_overflow_bytes]; // could save 1 gate by making different shift table
+    let previous_shift = BYTE_SHIFT[31 - num_overflow_bytes as u32]; // could save 1 gate by making different shift table
     // 2, 185.5
-    let last_limb_shift = BYTE_SHIFT[num_bytes_mod_31];
+    let last_limb_shift = BYTE_SHIFT[num_bytes_mod_31 as u32];
     // 1, 186.5
     let mut last_limb = (previous * previous_shift);
     std::as_witness(last_limb);
@@ -891,7 +900,7 @@ mod test {
 
         for i in 0..32 {
             println(f"i = {i}");
-            let num_bytes = i as Field;
+            let num_bytes = i;
             let (head, tail) = slice_field(input, num_bytes);
             let mut expected_head: Field = 0;
             let mut expected_tail: Field = 0;
@@ -901,7 +910,7 @@ mod test {
             }
             for j in 0..(31 - num_bytes as u32) {
                 expected_tail *= 0x100;
-                expected_tail += input_bytes[j as Field + num_bytes + 1] as Field;
+                expected_tail += input_bytes[j + num_bytes + 1] as Field;
             }
             assert(expected_head == head);
             assert(expected_tail == tail);

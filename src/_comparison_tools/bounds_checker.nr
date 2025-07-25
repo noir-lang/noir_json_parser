@@ -25,14 +25,14 @@ in this case, i == M
  * @description this method is cheaper than querying `i < boundary` for `u16` and `u32` types
  *              cost = 3 gates + 2 gates per iteration 
  **/
-pub fn get_validity_flags<let N: u32>(boundary: u32) -> [Field; N] {
+pub fn get_validity_flags<let N: u32>(boundary: u32) -> [u32; N] {
     // Safety: The constraining is happening inside get_validity_flags_inner
-    let flags: [Field; N] = unsafe { __get_validity_flags(boundary) };
+    let flags: [u32; N] = unsafe { __get_validity_flags(boundary) };
     get_validity_flags_inner(boundary, flags)
 }
 
-unconstrained fn __get_validity_flags<let N: u32>(boundary: u32) -> [Field; N] {
-    let mut result: [Field; N] = [0; N];
+unconstrained fn __get_validity_flags<let N: u32>(boundary: u32) -> [u32; N] {
+    let mut result: [u32; N] = [0; N];
     for i in 0..N {
         if i < boundary {
             result[i] = 1;
@@ -54,7 +54,7 @@ unconstrained fn __get_validity_flags<let N: u32>(boundary: u32) -> [Field; N] {
  *                 aligns with what is expected from testing `i < boundary`
  *  N.B. this method will revert if `boundary > N`
  **/
-fn get_validity_flags_inner<let N: u32>(boundary: u32, flags: [Field; N]) -> [Field; N] {
+fn get_validity_flags_inner<let N: u32>(boundary: u32, flags: [u32; N]) -> [u32; N] {
     let initial_flag = flags[0];
     let final_flag = flags[N - 1];
 
@@ -70,56 +70,56 @@ fn get_validity_flags_inner<let N: u32>(boundary: u32, flags: [Field; N]) -> [Fi
         assert(new_flag == old_flag * new_flag);
 
         // old = a, new = b
-        let idx = (old_flag * (1 - new_flag)) * (i as Field);
+        let idx = (old_flag * (1 - new_flag)) * (i);
         transition_index = transition_index + idx;
-        std::as_witness(transition_index);
+        std::as_witness(transition_index as Field);
     }
 
-    assert(transition_index == boundary as Field);
+    assert(transition_index == boundary);
     flags
 }
 
 #[test]
 fn test_get_validity_flags() {
     for i in 0..32 {
-        let flags: [Field; 32] = get_validity_flags(i);
+        let flags: [u32; 32] = get_validity_flags(i);
         for j in 0..32 {
-            assert(flags[j] == (j < i) as Field);
+            assert(flags[j] == (j < i) as u32);
         }
     }
 }
 
 #[test(should_fail)]
 fn test_get_validity_flags_fail() {
-    let _: [Field; 33] = get_validity_flags(33);
+    let _: [u32; 33] = get_validity_flags(33);
 }
 
 #[test(should_fail)]
 fn test_get_validity_flags_bad_index_fail_a() {
-    let bad_flags: [Field; 10] = [1, 1, 1, 0, 0, 0, 1, 0, 0, 0];
+    let bad_flags: [u32; 10] = [1, 1, 1, 0, 0, 0, 1, 0, 0, 0];
     let _ = get_validity_flags_inner(3, bad_flags);
 }
 #[test(should_fail)]
 fn test_get_validity_flags_bad_index_fail_b() {
-    let bad_flags: [Field; 10] = [1, 1, 1, 1, 0, 0, 0, 0, 0, 0];
+    let bad_flags: [u32; 10] = [1, 1, 1, 1, 0, 0, 0, 0, 0, 0];
     let _ = get_validity_flags_inner(3, bad_flags);
 }
 
 #[test(should_fail)]
 fn test_get_validity_flags_bad_index_fail_c() {
-    let bad_flags: [Field; 10] = [1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
+    let bad_flags: [u32; 10] = [1, 1, 0, 0, 0, 0, 0, 0, 0, 0];
     let _ = get_validity_flags_inner(3, bad_flags);
 }
 
 #[test]
 fn test_get_validity_flags_good_index_d() {
-    let bad_flags: [Field; 10] = [1, 1, 1, 0, 0, 0, 0, 0, 0, 0];
+    let bad_flags: [u32; 10] = [1, 1, 1, 0, 0, 0, 0, 0, 0, 0];
     let _ = get_validity_flags_inner(3, bad_flags);
 }
 
 #[test(should_fail)]
 fn test_get_validity_flags_bad_index_fail_e() {
-    let bad_flags: [Field; 10] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+    let bad_flags: [u32; 10] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
     let _ = get_validity_flags_inner(11, bad_flags);
 }
 
@@ -127,7 +127,7 @@ fn test_get_validity_flags_bad_index_fail_e() {
 // nevertheless test will fail because our transition test (old * new = new) will fail
 #[test(should_fail)]
 fn test_get_validity_flags_bad_index_fail_f() {
-    let mut bad_flags: [Field; 10] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let mut bad_flags: [u32; 10] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
     let fake_index_a = 2;
     let fake_value_a = 100;
