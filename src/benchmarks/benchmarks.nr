@@ -1,78 +1,79 @@
+use crate::{JSON16kb, JSON512b, json::JSON};
 
-use crate::{json::JSON, JSON512b, JSON1kb, JSON2kb, JSON4kb, JSON8kb, JSON16kb};
-
-//#[export]
-//fn test_capture_missing_tokens(j: &mut JSON512b){
-    //JSON::capture_missing_tokens(j)
-//}
-
-/**
-#[export]
-fn test_parse_json_from_string(s: str<1024>) -> JSON512b{
-    let json = JSON::parse_json_from_string(s);
-    json
-}
-**/
 comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
     let module_name = m.name();
     let parse_json_from_string = f"parse_json_from_string_{module_name}".quoted_contents();
-    let validate_on_curve_bench_name = f"validate_on_curve_{module_name}".quoted_contents();
-   
+    let parse_json = f"parse_json_{module_name}".quoted_contents();
+    let get_array = f"get_array_{module_name}".quoted_contents();
+    let get_object = f"get_object_{module_name}".quoted_contents();
+    let get_literal = f"get_literal_{module_name}".quoted_contents();
+    let get_number = f"get_number_{module_name}".quoted_contents();
+    let get_string = f"get_string_{module_name}".quoted_contents();
+    let get_value = f"get_value_{module_name}".quoted_contents();
+    let key_exists = f"key_exists_{module_name}".quoted_contents();
+    let get_keys_at_root = f"get_keys_at_root_{module_name}".quoted_contents();
     let JSON = quote { crate::json::JSON };
-    // let ScalarField = quote { crate::ScalarField };
-
+    let JSONLiteral = quote { crate::get_literal::JSONLiteral };
+    let JSONValue = quote { crate::json::JSONValue<1024> };
     let typ = params.as_type();
 
     quote {
-        /**
-        #[export]
-        fn $eq_bench_name(a: $typ, b: $typ) -> bool {
-            a==b
-        }
-        #[export]
-        fn $validate_on_curve_bench_name(a: $typ) {
-            $BigCurve::validate_on_curve(a);
-        }
-
-        #[export]
-        fn $mul_bench_name(a: $typ, b: $ScalarField<64>) -> $typ {
-            $BigCurve::mul(a, b)
-        }
-
-        #[export]
-        fn $hash_to_curve_bench_name(a: [u8; 10]) -> $typ {
-            $BigCurve::hash_to_curve(a)
-        }
-
-        #[export]
-        fn $evaluate_linear_expression_bench_name(a: [$typ; 3], b: [$ScalarField<64>; 3], c: [$typ; 2]) -> $typ {
-            $BigCurve::evaluate_linear_expression(a, b, c)
-        }**/
-
         #[export]
         fn $parse_json_from_string(s: str<1024>) -> $typ{
-            let json = $JSON::parse_json_from_string(s);
-            json
-}
+            $JSON::parse_json_from_string(s)
+        }
 
-    }
-}
+        #[export]
+        fn $parse_json(s: [u8; 1024]) -> $typ{
+            $JSON::parse_json(s)
+        }
 
+        #[export]
+        fn $get_array(s: $typ, key: [u8; 1024]) -> Option<$typ>{
+            $JSON::get_array(s,key)
+        }
+
+        #[export]
+        fn $get_object(s: $typ, key: [u8; 1024]) -> Option<$typ>{
+            $JSON::get_object(s,key)
+        }
+
+        #[export]
+        fn $get_literal(s: $typ, key: [u8; 1024]) -> Option<$JSONLiteral>{
+            $JSON::get_literal(s,key)
+        }
+
+        #[export]
+        fn $get_number(s: $typ, key: [u8; 1024]) -> Option<u64>{
+            $JSON::get_number(s,key)
+        }
+
+        #[export]
+        fn $get_string(s: $typ, key: [u8; 1024]) -> Option<BoundedVec<u8, 1024>>{
+            $JSON::get_string(s,key)
+        }
+
+        #[export]
+        fn $get_value(s: $typ, key: [u8; 1024]) -> Option<$JSONValue>{
+            $JSON::get_value(s,key)
+        }
+
+        #[export]
+        fn $key_exists(s: $typ, key: BoundedVec<u8, 1024>) -> bool{
+            $JSON::key_exists(s, key)
+        }
+        
+        #[export]
+        fn $get_keys_at_root(s: $typ) -> BoundedVec<BoundedVec<u8, 1024>, 1024>{
+            $JSON::get_keys_at_root(s)
+        }
+
+        
+}
+}
 
 #[make_bench(quote { JSON512b })]
 mod JSON512b_Bench {}
-
-#[make_bench(quote { JSON1kb })]
-mod JSON1kb_Bench {}
-
-#[make_bench(quote { JSON2kb })]
-mod JSON2kb_Bench {}
-
-#[make_bench(quote { JSON4kb })]
-mod JSON4kb_Bench {}
-
-#[make_bench(quote { JSON8kb })]
-mod JSON8kb_Bench {}
 
 #[make_bench(quote { JSON16kb })]
 mod JSON16kb_Bench {}
