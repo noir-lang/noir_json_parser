@@ -1,4 +1,4 @@
-pub fn cast_num_to_u32<E>(f: E) -> u32
+pub(crate) fn cast_num_to_u32<E>(f: E) -> u32
 where
     E: Into<Field>,
 {
