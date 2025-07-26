@@ -8,9 +8,6 @@ Features:
 - flexible interface can process arbitrary JSON schemas
 - O(1) algorithms to query whether keys exist
 
-> **if using bb backend, megaplonk (`bb prove_mega_honk`) will give best performance as json-parser uses a megaplonk-friendly hash function Poseidon2**
-> (see [bb documentation](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/cpp/src/barretenberg/bb/readme.md#installation) for install/upgrade details)
-
 ## Noir version compatibility
 
 This library is tested with all Noir stable releases from v0.37.0.
@@ -102,36 +99,6 @@ Numbers must currently fit within a u64 for `get_number` and associated methods 
 In addition, numbers with decimal points currently are not supported, as well as numbers that use scientific notation (e.g. a json blob with `3e5` will create a failing proof)
 
 For numbers larger than 64 bits, the method `get_value` will work, which will return the ascii raw bytes of the value.
-
-# Cost
-
-How much does this thing cost to use? Details below:
-
-There is an up-front processing cost, as well as a per-query cost.
-
-| json type | cost to parse (in megaplonk gates) |
-| --------- | ---------------------------------- |
-| 512b      | 42k                                |
-| 1kb       | 71k                                |
-| 2kb       | 128k                               |
-| 4kb       | 160k                               |
-| 8kb       | 307k                               |
-| 16kb      | 574k                               |
-
-| query type | query cost (in megaplonk gates) |
-|-|-|
-| `get_value` | 364 |
-| `get_number` | 454 |
-| `get_literal` | 416 |
-| `get_string` | 435 |
-| `get_object` | 165 |
-| `get_array` | 165 |
-| `get_value_unchecked` | 327 |
-| `get_number_unchecked` | 415 |
-| `get_literal_unchecked` | 346 |
-| `get_string_unchecked` | 547 |
-| `get_object_unchecked` | 143 |
-| `get_array_unchecked` | 143 |
 
 # Advanced Usage
 
