@@ -73,7 +73,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract a literal value given by `key`
      * @description returns an Option<JSONLiteral> which will be null if the literal does not exist
      **/
-    fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
+    pub(crate) fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, entry) = self.get_json_entry(key);

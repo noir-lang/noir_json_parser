@@ -315,7 +315,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief returns a bool that describes whether a given key exists at the root of the JSON
      **/
-    fn key_exists<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> bool {
+    pub(crate) fn key_exists<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> bool {
         self.key_exists_impl_var(key).0
     }
 

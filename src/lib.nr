@@ -18,7 +18,6 @@ mod get_array;
 mod utils;
 mod benchmarks;
 
-
 use json::JSON;
 
 pub type JSON512b = JSON<512, 20, 64, 33, 2>;

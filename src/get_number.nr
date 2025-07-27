@@ -54,7 +54,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract a numeric value given by `key`
      * @description returns an Option<u64> which will be null if the key does not exist
      **/
-    fn get_number<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<u64> {
+    pub(crate) fn get_number<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<u64> {
         let (exists, entry) = self.get_json_entry(key);
         assert(
             (entry.entry_type - NUMERIC_TOKEN as Field) * exists as Field == 0,
