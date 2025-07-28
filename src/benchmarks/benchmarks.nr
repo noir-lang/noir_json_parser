@@ -24,11 +24,6 @@ comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
         }
 
         #[export]
-        fn $parse_json(s: [u8; 1024]) -> $typ{
-            $JSON::parse_json(s)
-        }
-
-        #[export]
         fn $get_array(s: $typ, key: [u8; 1024]) -> Option<$typ>{
             $JSON::get_array(s,key)
         }
