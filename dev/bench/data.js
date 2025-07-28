@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753736529042,
+  "lastUpdate": 1753736530875,
   "repoUrl": "https://github.com/noir-lang/noir_json_parser",
   "entries": {
     "ACIR Opcodes": [
@@ -363,6 +363,120 @@ window.BENCHMARK_DATA = {
           {
             "name": "parse_json_from_string_JSON512b_Bench.json/main",
             "value": 62063,
+            "unit": "circuit_size"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "26174818+jialinli98@users.noreply.github.com",
+            "name": "Jialin Li",
+            "username": "jialinli98"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dc8ad05fd63ef7518bf3adf3e5b61a87feb143b8",
+          "message": "chore: remove trait and resolve warnings (#49)\n\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
+          "timestamp": "2025-07-28T13:52:20-07:00",
+          "tree_id": "74c122e4647498ebb99a24d006ca116dba6abf9f",
+          "url": "https://github.com/noir-lang/noir_json_parser/commit/dc8ad05fd63ef7518bf3adf3e5b61a87feb143b8"
+        },
+        "date": 1753736530859,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "get_array_JSON16kb_Bench.json/main",
+            "value": 54966,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_array_JSON512b_Bench.json/main",
+            "value": 5846,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_keys_at_root_JSON16kb_Bench.json/main",
+            "value": 6167393,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_keys_at_root_JSON512b_Bench.json/main",
+            "value": 6141599,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_literal_JSON16kb_Bench.json/main",
+            "value": 32180,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_literal_JSON512b_Bench.json/main",
+            "value": 6386,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_number_JSON16kb_Bench.json/main",
+            "value": 32609,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_number_JSON512b_Bench.json/main",
+            "value": 6880,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_object_JSON16kb_Bench.json/main",
+            "value": 54966,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_object_JSON512b_Bench.json/main",
+            "value": 5846,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_string_JSON16kb_Bench.json/main",
+            "value": 254793,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_string_JSON512b_Bench.json/main",
+            "value": 229961,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_value_JSON16kb_Bench.json/main",
+            "value": 37305,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_value_JSON512b_Bench.json/main",
+            "value": 11511,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "key_exists_JSON16kb_Bench.json/main",
+            "value": 31275,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "key_exists_JSON512b_Bench.json/main",
+            "value": 9450,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "parse_json_from_string_JSON16kb_Bench.json/main",
+            "value": 1243803,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "parse_json_from_string_JSON512b_Bench.json/main",
+            "value": 63403,
             "unit": "circuit_size"
           }
         ]
