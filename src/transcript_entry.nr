@@ -116,14 +116,12 @@ impl ScanData {
     unconstrained fn __from_field(f: Field) -> Self {
         let bytes: [u8; 6] = f.to_le_bytes();
 
-        let mut scan_token = bytes[0] as Field;
+        let scan_token = bytes[0] as Field;
         let push_transcript = bytes[1] as Field;
         let increase_length = bytes[2] as Field;
         let is_potential_escape_sequence = bytes[3] as Field;
         let error = bytes[4] as Field * 0x100 + bytes[5] as Field;
         assert(error == 0, "ScanData: Invalid token");
-        // TODO document this
-        scan_token = scan_token + error * 0x100000000;
         ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence }
     }
 

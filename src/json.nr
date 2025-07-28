@@ -419,6 +419,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             let encoded_ascii =
                 previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
+            println(f"previous_was_potential_escape_sequence: {previous_was_potential_escape_sequence}, scan_mode: {scan_mode}, ascii: {ascii}");
             let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
                 ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
             let mut push_transcript = push_transcript;
@@ -428,7 +429,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let new_entry = RawTranscriptEntry::to_field(
                 RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
             );
-
+            println(f"scan_token: {scan_token}, length: {length}, push_transcript: {push_transcript}, increase_length: {increase_length}, is_potential_escape_sequence: {is_potential_escape_sequence}");
             raw_transcript[transcript_ptr] = new_entry;
             length = length * (1 - push_transcript) + increase_length;
             transcript_ptr += (push_transcript != 0) as u32;
@@ -447,6 +448,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         // ensure an error isn't hiding in the last scanned token
         scan_mode.assert_max_bit_size::<2>();
+        println(f"raw_transcript: {raw_transcript}");
         raw_transcript
     }
 
@@ -476,7 +478,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     fn build_transcript(self) -> Self {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: Field = 0;
-        let mut scan_mode = GRAMMAR_SCAN;
+        let mut scan_mode = GRAMMAR_SCAN as Field;
         let mut length: Field = 0;
 
         // Safety: check the comments below
@@ -488,7 +490,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let ascii = self.json[i];
 
             // 1 gate
-            let encoded_ascii =
+            let encoded_ascii: Field =
                 previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
             std::as_witness(encoded_ascii);
 
@@ -978,4 +980,23 @@ fn test_finishing_with_numeric_scan_fails() {
 fn key_is_not_a_key() {
     let json_string = "{1\n:0}";
     let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
+}
+
+
+#[test]
+fn test_arrays2() {
+    let text: str<15> = "{\"name\": \"A\\d\"}";
+    let mut json: JSON<15, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test]
+fn test_arrays3() {
+    let text: str<12> = "{\"name\": 43}";
+    let mut json: JSON<12, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test]
+fn test_arrays4() {
+    let text: str<17> = "{\"name\":\"jo¥hn\"}";
+    let mut json: JSON<17, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
 }

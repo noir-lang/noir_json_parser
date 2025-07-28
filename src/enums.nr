@@ -1,5 +1,8 @@
 pub(crate) mod ScanMode {
-    pub(crate) global GRAMMAR_SCAN: Field = 0;
+    pub(crate) global GRAMMAR_SCAN: u32 = 0;
+    pub(crate) global STRING_SCAN: u32 = 1;
+    pub(crate) global NUMERIC_SCAN: u32 = 2;
+    pub(crate) global LITERAL_SCAN: u32 = 3;
 }
 
 pub(crate) mod Token {
