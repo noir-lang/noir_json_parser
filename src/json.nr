@@ -77,8 +77,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 }
 
-// TODO: casting entry_ptr to u16 is kind of expensive when generating witnesses, can we fix?
 unconstrained fn __check_entry_ptr_bounds(entry_ptr: Field, max: u32) {
+    entry_ptr.assert_max_bit_size::<32>();
     // n.b. even though this assert is in an unconstrained function, an out of bounds error will be triggered when writing into self.key_data[entry_ptr]
     assert(entry_ptr as u32 < max - 1, "create_json_entries: MaxNumValues limit exceeded!");
 }
@@ -421,17 +421,21 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
             let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
                 ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
-            let mut push_transcript = push_transcript;
-            let mut scan_token = scan_token;
-            let mut increase_length = increase_length;
+            let push_transcript = push_transcript;
+            let scan_token = scan_token;
+            let increase_length = increase_length;
 
-            let new_entry = RawTranscriptEntry::to_field(
-                RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
-            );
+            if push_transcript == 1 {
+                let new_entry = RawTranscriptEntry::to_field(
+                    RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
+                );
 
-            raw_transcript[transcript_ptr] = new_entry;
-            length = length * (1 - push_transcript) + increase_length;
-            transcript_ptr += (push_transcript != 0) as u32;
+                raw_transcript[transcript_ptr] = new_entry;
+                transcript_ptr += 1;
+                length = increase_length;
+            } else {
+                length += increase_length;
+            }
 
             previous_was_potential_escape_sequence = is_potential_escape_sequence;
 
@@ -507,6 +511,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                     RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
                 );
             std::as_witness(diff);
+
             // 1 gate
             assert(diff * push_transcript == 0);
 

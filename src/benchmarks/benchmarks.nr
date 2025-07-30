@@ -3,7 +3,6 @@ use crate::{JSON16kb, JSON512b, json::JSON};
 comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
     let module_name = m.name();
     let parse_json_from_string = f"parse_json_from_string_{module_name}".quoted_contents();
-    let parse_json = f"parse_json_{module_name}".quoted_contents();
     let get_array = f"get_array_{module_name}".quoted_contents();
     let get_object = f"get_object_{module_name}".quoted_contents();
     let get_literal = f"get_literal_{module_name}".quoted_contents();
