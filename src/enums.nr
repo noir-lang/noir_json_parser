@@ -1,10 +1,3 @@
-pub(crate) mod ScanMode {
-    pub(crate) global GRAMMAR_SCAN: u32 = 0;
-    pub(crate) global STRING_SCAN: u32 = 1;
-    pub(crate) global NUMERIC_SCAN: u32 = 2;
-    pub(crate) global LITERAL_SCAN: u32 = 3;
-}
-
 pub(crate) mod Token {
     pub(crate) global NO_TOKEN: u32 = 0;
     pub(crate) global BEGIN_OBJECT_TOKEN: u32 = 1;
@@ -25,4 +18,12 @@ pub(crate) mod Layer {
     pub(crate) global OBJECT_LAYER: u32 = 0;
     pub(crate) global ARRAY_LAYER: u32 = 1;
     pub(crate) global SINGLE_VALUE_LAYER: u32 = 2;
+}
+
+pub(crate) mod CaptureMode {
+    pub(crate) global GRAMMAR_CAPTURE: Field = 0;
+    pub(crate) global STRING_CAPTURE: Field = 1;
+    pub(crate) global NUMERIC_CAPTURE: Field = 2;
+    pub(crate) global LITERAL_CAPTURE: Field = 3;
+    pub(crate) global ERROR_CAPTURE: Field = 4;
 }

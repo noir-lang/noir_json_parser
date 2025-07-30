@@ -62,7 +62,6 @@ comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
         fn $get_keys_at_root(s: $typ) -> BoundedVec<BoundedVec<u8, 1024>, 1024>{
             $JSON::get_keys_at_root(s)
         }
-
         
 }
 }

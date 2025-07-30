@@ -1,6 +1,6 @@
 use crate::_comparison_tools::bounds_checker::get_validity_flags;
+use crate::enums::CaptureMode::GRAMMAR_CAPTURE;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
-use crate::enums::ScanMode::GRAMMAR_SCAN;
 use crate::enums::Token::{
     BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN, KEY_TOKEN, LITERAL_TOKEN,
     NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN,
@@ -409,7 +409,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     unconstrained fn __build_transcript(self) -> [Field; MaxNumTokens] {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: u32 = 0;
-        let mut scan_mode = GRAMMAR_SCAN as Field;
+        let mut scan_mode = GRAMMAR_CAPTURE;
         let mut length: Field = 0;
         let mut previous_was_potential_escape_sequence = 0;
         for i in 0..NumBytes {
@@ -419,7 +419,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             let encoded_ascii =
                 previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
-            println(f"previous_was_potential_escape_sequence: {previous_was_potential_escape_sequence}, scan_mode: {scan_mode}, ascii: {ascii}");
+            println(
+                f"previous_was_potential_escape_sequence: {previous_was_potential_escape_sequence}, scan_mode: {scan_mode}, ascii: {ascii}",
+            );
             let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
                 ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
             let mut push_transcript = push_transcript;
@@ -429,7 +431,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let new_entry = RawTranscriptEntry::to_field(
                 RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
             );
-            println(f"scan_token: {scan_token}, length: {length}, push_transcript: {push_transcript}, increase_length: {increase_length}, is_potential_escape_sequence: {is_potential_escape_sequence}");
+            println(
+                f"scan_token: {scan_token}, length: {length}, push_transcript: {push_transcript}, increase_length: {increase_length}, is_potential_escape_sequence: {is_potential_escape_sequence}",
+            );
             raw_transcript[transcript_ptr] = new_entry;
             length = length * (1 - push_transcript) + increase_length;
             transcript_ptr += (push_transcript != 0) as u32;
@@ -442,7 +446,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // if we end in a scan mode where we're searching for a number, string or a literal (true/false/null), we have an incomplete token and this is invalid JSON
         // NOTE: if we upgrade this parser to be able to process single-value JSON (e,g, "999" or ""hello" : "world"" this logic needs to be upgraded)
         assert(
-            scan_mode == GRAMMAR_SCAN as Field,
+            scan_mode == GRAMMAR_CAPTURE,
             "build_transcript: incomplete token (number, string or literal)",
         );
 
@@ -478,7 +482,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     fn build_transcript(self) -> Self {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: Field = 0;
-        let mut scan_mode = GRAMMAR_SCAN as Field;
+        let mut scan_mode = GRAMMAR_CAPTURE;
         let mut length: Field = 0;
 
         // Safety: check the comments below
@@ -643,7 +647,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {
+    pub fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {
         assert(StringBytes <= NumBytes, "json length exceeds NumBytes!");
         let mut text: [u8; NumBytes] = [0; NumBytes];
         for i in 0..StringBytes {
@@ -980,23 +984,4 @@ fn test_finishing_with_numeric_scan_fails() {
 fn key_is_not_a_key() {
     let json_string = "{1\n:0}";
     let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
-}
-
-
-#[test]
-fn test_arrays2() {
-    let text: str<15> = "{\"name\": \"A\\d\"}";
-    let mut json: JSON<15, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
-}
-
-#[test]
-fn test_arrays3() {
-    let text: str<12> = "{\"name\": 43}";
-    let mut json: JSON<12, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
-}
-
-#[test]
-fn test_arrays4() {
-    let text: str<17> = "{\"name\":\"jo¥hn\"}";
-    let mut json: JSON<17, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
 }
