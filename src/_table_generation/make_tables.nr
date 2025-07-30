@@ -1,12 +1,5 @@
 //! Contains methods used to generate tables in `json_tables.nr`. These table generation methods shouldn't be used inside of actual circuits.
-
-pub(crate) mod CaptureMode {
-    pub(crate) global GRAMMAR_CAPTURE: Field = 0;
-    pub(crate) global STRING_CAPTURE: Field = 1;
-    pub(crate) global NUMERIC_CAPTURE: Field = 2;
-    pub(crate) global LITERAL_CAPTURE: Field = 3;
-    pub(crate) global ERROR_CAPTURE: Field = 4;
-}
+use crate::enums::CaptureMode::STRING_CAPTURE;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
 use crate::enums::Token::{
     BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN,
@@ -24,7 +17,6 @@ use super::make_tables_subtables::{
     STRING_CAPTURE_ERROR_FLAG, STRING_CAPTURE_INCREASE_LENGTH, STRING_CAPTURE_PUSH_TRANSCRIPT,
     STRING_CAPTURE_TABLE, STRING_CAPTURE_TOKEN, TOKEN_IS_NUMERIC_OR_LITERAL,
 };
-use CaptureMode::STRING_CAPTURE;
 
 global CAPTURE_TABLE: [[Field; 128]; 4] =
     [GRAMMAR_CAPTURE_TABLE, STRING_CAPTURE_TABLE, NUMERIC_CAPTURE_TABLE, LITERAL_CAPTURE_TABLE];

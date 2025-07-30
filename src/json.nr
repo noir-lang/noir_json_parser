@@ -1,6 +1,6 @@
 use crate::_comparison_tools::bounds_checker::get_validity_flags;
+use crate::enums::CaptureMode::GRAMMAR_CAPTURE;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
-use crate::enums::ScanMode::GRAMMAR_SCAN;
 use crate::enums::Token::{
     BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN, KEY_TOKEN, LITERAL_TOKEN,
     NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN,
@@ -409,7 +409,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     unconstrained fn __build_transcript(self) -> [Field; MaxNumTokens] {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: u32 = 0;
-        let mut scan_mode = GRAMMAR_SCAN as Field;
+        let mut scan_mode = GRAMMAR_CAPTURE;
         let mut length: Field = 0;
         let mut previous_was_potential_escape_sequence = 0;
         for i in 0..NumBytes {
@@ -441,7 +441,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // if we end in a scan mode where we're searching for a number, string or a literal (true/false/null), we have an incomplete token and this is invalid JSON
         // NOTE: if we upgrade this parser to be able to process single-value JSON (e,g, "999" or ""hello" : "world"" this logic needs to be upgraded)
         assert(
-            scan_mode == GRAMMAR_SCAN as Field,
+            scan_mode == GRAMMAR_CAPTURE as Field,
             "build_transcript: incomplete token (number, string or literal)",
         );
 
@@ -455,20 +455,20 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @details JSON_CAPTURE_TABLE takes the following as input:
      *          1. the ascii byte at the current location in the json
      *          2. the current scan mode (are we searching for grammar, strings, numbers or literals?)
-     *          3. could this byte potentially be an escape sequence? (i.e. the previous byte was a backslash character "\" and scan_mode == STRING_SCAN)
+     *          3. could this byte potentially be an escape sequence? (i.e. the previous byte was a backslash character "\" and scan_mode == STRING_CAPTURE)
      *          The table outputs the following flags:
      *          1. what token have we scanned? (listed in enums::Token)
      *          2. should we push this token to the transcript (no push if token == NO_TOKEN)
      *          3. should we increase the length of the current entry we're evaluating?
-     *              (i.e. if token == STRING_TOKEN and scan_mode == STRING_SCAN, then increase the length because we're in the process of scanning a string)
-     *          4. is this scanned ascii character a potential escape sequence? i.e. scan_mode == STRING_SCAN and ascii = "\"
+     *              (i.e. if token == STRING_TOKEN and scan_mode == STRING_CAPTURE, then increase the length because we're in the process of scanning a string)
+     *          4. is this scanned ascii character a potential escape sequence? i.e. scan_mode == STRING_CAPTURE and ascii = "\"
      *          5. have we entered an error state? (i.e. invalid grammar e.g. ":" is followed by "}")
      *
      * NOTE: we represent error states in a nonstandard way to reduce gate count. Instead of handling an error flag,
      *       an error state will increase the value of `scan_token` by 0x100000000. This will cause the next access into `JSON_CAPTURE_TABLE` to trigger an out of bounds error
      *
      * NOTE: the scanned transcript will be missing some edge cases that are caught via `swap_keys` and `capture_missing_tokens`:
-     *          1. If the scan mode is NUMERIC_SCAN or LITERAL_SCAN and the next character is a "," or "}" or "]",
+     *          1. If the scan mode is NUMERIC_CAPTURE or LITERAL_CAPTURE and the next character is a "," or "}" or "]",
      *             we will push a NUMERIC_TOKEN or LITERAL_TOKEN into the transcript but we will MISS the VALUE_SEPARATOR_TOKEN, END_OBJECT_TOKEN or END_ARRAY_TOKEN
      *             (accomodating this edge case requires conditionally pushing two transcript entries per iteration, so we do this in a separate step where we iterate over the transcript and not the json bytes)
      *          2. We can't yet tell if an entry is a KEY_TOKEN or a STRING_TOKEN. All keys are represented as STRING_TOKEN. This gets fixed after `swap_keys` is evaluated
@@ -476,7 +476,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     fn build_transcript(self) -> Self {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: Field = 0;
-        let mut scan_mode = GRAMMAR_SCAN;
+        let mut scan_mode = GRAMMAR_CAPTURE;
         let mut length: Field = 0;
 
         // Safety: check the comments below
