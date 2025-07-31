@@ -421,9 +421,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
             let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
                 ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
-            let push_transcript = push_transcript;
-            let scan_token = scan_token;
-            let increase_length = increase_length;
 
             if push_transcript == 1 {
                 let new_entry = RawTranscriptEntry::to_field(
