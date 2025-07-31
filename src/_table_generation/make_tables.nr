@@ -1,18 +1,16 @@
 //! Contains methods used to generate tables in `json_tables.nr`. These table generation methods shouldn't be used inside of actual circuits.
-
-pub(crate) mod CaptureMode {
-    pub(crate) global GRAMMAR_CAPTURE: Field = 0;
-    pub(crate) global STRING_CAPTURE: Field = 1;
-    pub(crate) global NUMERIC_CAPTURE: Field = 2;
-    pub(crate) global LITERAL_CAPTURE: Field = 3;
-    pub(crate) global ERROR_CAPTURE: Field = 4;
-}
+use crate::enums::CaptureMode::STRING_CAPTURE;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
 use crate::enums::Token::{
     BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN,
     KEY_TOKEN, LITERAL_TOKEN, NO_TOKEN, NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN,
     VALUE_SEPARATOR_TOKEN,
 };
+use crate::json_tables::ASCII_TO_TOKEN_TABLE;
+use crate::json_tables::JSON_CAPTURE_TABLE;
+use crate::json_tables::PROCESS_RAW_TRANSCRIPT_TABLE;
+use crate::json_tables::TOKEN_FLAGS_TABLE;
+use crate::json_tables::TOKEN_VALIDATION_TABLE;
 use crate::token_flags::TokenFlags;
 use crate::transcript_entry::ValidationFlags;
 use super::make_tables_subtables::{
@@ -24,7 +22,6 @@ use super::make_tables_subtables::{
     STRING_CAPTURE_ERROR_FLAG, STRING_CAPTURE_INCREASE_LENGTH, STRING_CAPTURE_PUSH_TRANSCRIPT,
     STRING_CAPTURE_TABLE, STRING_CAPTURE_TOKEN, TOKEN_IS_NUMERIC_OR_LITERAL,
 };
-use CaptureMode::STRING_CAPTURE;
 
 global CAPTURE_TABLE: [[Field; 128]; 4] =
     [GRAMMAR_CAPTURE_TABLE, STRING_CAPTURE_TABLE, NUMERIC_CAPTURE_TABLE, LITERAL_CAPTURE_TABLE];
@@ -324,16 +321,6 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     flattened_flags
 }
 
-// #[test]
-// fn test_make_validation_flags() {
-//     let f = make_token_validation_table();
-//     println(f"global TOKEN_VALIDATION_TABLE: [Field; 363] = {f};");
-// }
-// #[test]
-// fn test_make_ascii_to_token_table() {
-//     let r = make_ascii_to_token_table();
-//     println(f"table = {r}");
-// }
 unconstrained fn make_json_capture_table() -> [Field; 2048] {
     let backslash: u32 = "\\".as_bytes()[0] as u32;
     let quotes: u32 = "\"".as_bytes()[0] as u32;
@@ -373,11 +360,6 @@ unconstrained fn make_json_capture_table() -> [Field; 2048] {
 
     result
 }
-// #[test]
-// fn test_make_JSON_CAPTURE_TABLE() {
-//     let r = make_JSON_CAPTURE_TABLE();
-//     println(f"table = {r}");
-// }
 
 unconstrained fn make_process_raw_transcript_table() -> [Field; 1024] {
     let mut result: [Field; 1024] = [0; 1024];
@@ -397,11 +379,6 @@ unconstrained fn make_process_raw_transcript_table() -> [Field; 1024] {
     }
     result
 }
-// #[test]
-// fn test_make_process_raw_transcript_table() {
-//     let r = make_process_raw_transcript_table();
-//     println(f"table = {r}");
-// }
 
 unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     let mut flags: [TokenFlags; NUM_TOKENS * 2] = [TokenFlags::default(); NUM_TOKENS * 2];
@@ -531,14 +508,41 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     result
 }
 
-// #[test]
-// fn test_generate_token_flags_table() {
-//     let r = generate_token_flags_table();
-//     println(f"global TOKEN_FLAGS_TABLE: [Field; NUM_TOKENS_MUL_2] = {r};");
-// }
+#[test]
+fn test_generate_token_flags_table() {
+    unsafe {
+        let r = generate_token_flags_table();
+        assert(r == TOKEN_FLAGS_TABLE);
+    }
+}
 
-// #[test]
-// fn test_make_json_capture_table() {
-//     let r = make_json_capture_table();
-//     println(f"global JSON_CAPTURE_TABLE: [Field; 2048] = {r};");
-// }
+#[test]
+fn test_make_json_capture_table() {
+    unsafe {
+        let r = make_json_capture_table();
+        assert(r == JSON_CAPTURE_TABLE);
+    }
+}
+
+#[test]
+fn test_make_validation_flags() {
+    unsafe {
+        let f = make_token_validation_table();
+        assert(f == TOKEN_VALIDATION_TABLE);
+    }
+}
+#[test]
+fn test_make_ascii_to_token_table() {
+    unsafe {
+        let r = make_ascii_to_token_table();
+        assert(r == ASCII_TO_TOKEN_TABLE);
+    }
+}
+
+#[test]
+fn test_make_process_raw_transcript_table() {
+    unsafe {
+        let r = make_process_raw_transcript_table();
+        assert(r == PROCESS_RAW_TRANSCRIPT_TABLE);
+    }
+}
