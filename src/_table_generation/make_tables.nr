@@ -384,7 +384,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     let mut flags: [TokenFlags; NUM_TOKENS * 2] = [TokenFlags::default(); NUM_TOKENS * 2];
 
     let mut no_token_flags: TokenFlags = TokenFlags {
-        create_json_entry: 0,
+        create_json_entry: false,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 0,
         new_context: OBJECT_LAYER as Field,
@@ -393,7 +393,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         preserve_num_entries: 1,
     };
     let mut key_token_flags: TokenFlags = TokenFlags {
-        create_json_entry: 0,
+        create_json_entry: false,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 0,
         new_context: OBJECT_LAYER as Field,
@@ -402,7 +402,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         preserve_num_entries: 1,
     };
     let begin_object_flags = TokenFlags {
-        create_json_entry: 0,
+        create_json_entry: false,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 1,
         new_context: OBJECT_LAYER as Field,
@@ -412,7 +412,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     };
 
     let begin_array_flags = TokenFlags {
-        create_json_entry: 0,
+        create_json_entry: false,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 1,
         new_context: ARRAY_LAYER as Field,
@@ -422,7 +422,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     };
 
     let mut end_object_flags = TokenFlags {
-        create_json_entry: 1,
+        create_json_entry: true,
         is_end_of_object_or_array: 1,
         is_start_of_object_or_array: 0,
         new_context: 0,
@@ -432,7 +432,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     };
 
     let mut end_array_flags = TokenFlags {
-        create_json_entry: 1,
+        create_json_entry: true,
         is_end_of_object_or_array: 1,
         is_start_of_object_or_array: 0,
         new_context: 0,
@@ -442,7 +442,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     };
 
     let mut string_flags = TokenFlags {
-        create_json_entry: 1,
+        create_json_entry: true,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 0,
         new_context: OBJECT_LAYER as Field,
@@ -452,7 +452,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     };
 
     let mut numeric_flags = TokenFlags {
-        create_json_entry: 1,
+        create_json_entry: true,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 0,
         new_context: OBJECT_LAYER as Field,
@@ -462,7 +462,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     };
 
     let mut literal_flags = TokenFlags {
-        create_json_entry: 1,
+        create_json_entry: true,
         is_end_of_object_or_array: 0,
         is_start_of_object_or_array: 0,
         new_context: OBJECT_LAYER as Field,

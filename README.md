@@ -122,6 +122,27 @@ e.g. to take the existing 1kb JSON paramters, but also support 124-byte keys, us
 
 If you are deriving a key to look up in-circuit and you do not know the maximum length of the key, all query methods have a version with a `_var` suffix (e.g. `JSON::get_string_var`), which accepts the key as a `BoundedVec`
 
+#  Architecture
+### Overview
+The JSON parser uses 5 steps to efficiently parse and index JSON data:
+
+1. **build_transcript** - Convert raw bytes to a transcript of tokens using state machine defined by by JSON_CAPTURE_TABLE. Categorize each character as string, number, ...
+2. **capture_missing_tokens & keyswap** - Fix missing tokens and correctly identify keys. Complete a second scan of the tokens, check for missing tokens (e.g.commas after literals), and for strings that are keys to an object, relabel them as keys, 
+3. **compute_json_packed** - Pack bytes into Field elements for efficient substring extraction
+4. **create_json_entries** - Create structured JSON entries with parent-child relationships
+5. **compute_keyhash_and_sort_json_entries** - Sort entries by key hash for efficient lookups
+
+### Key Design Patterns
+- **Using table lookups**: Uses many lookup tables to avoid branching logic to reduce circuit size
+- **Packing data to Field elements**: Combines multiple fields that encodes different features into a single Field element for comparison
+
+### Table Generation
+The parser uses several lookup tables generated from `src/_table_generation/`:
+- `TOKEN_FLAGS_TABLE`: State transitions for token processing
+- `JSON_CAPTURE_TABLE`: Character-by-character parsing rules
+- `TOKEN_VALIDATION_TABLE`: JSON grammar validation
+
+
 # Acknowledgements
 
 Many thanks to the authors of the OG noir json library https://github.com/RontoSOFT/noir-json-parser

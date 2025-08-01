@@ -77,8 +77,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 }
 
-unconstrained fn __check_entry_ptr_bounds(entry_ptr: Field, max: u32) {
-    entry_ptr.assert_max_bit_size::<32>();
+unconstrained fn __check_entry_ptr_bounds(entry_ptr: u32, max: u32) {
     // n.b. even though this assert is in an unconstrained function, an out of bounds error will be triggered when writing into self.key_data[entry_ptr]
     assert(entry_ptr as u32 < max - 1, "create_json_entries: MaxNumValues limit exceeded!");
 }
@@ -244,15 +243,18 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      *              7. Is the token one that we should skip over? `,` or `:`
      **/
     fn create_json_entries(&mut self) {
-        let mut entry_ptr = 0;
+        let mut entry_ptr: u32 = 0;
         let mut depth: Field = 1;
         let mut num_entries_at_current_depth: Field = 0;
         let mut next_identity_value: Field = 1;
         let mut current_identity_value: Field = 0;
+        // context: 0 for object, 1 for array
         let mut context = OBJECT_LAYER;
 
+        //lower 2 bytes is the index, upper 2 bytes is the length
         let mut current_key_index_and_length: Field = 0;
 
+        //stack won't pop elements, but will push new elements by overwriting the top element
         let mut parent_context_stack: [Field; 32] = [0; 32];
         let mut tokens: [Field; MaxNumTokens] = [0; MaxNumTokens];
         //  maybe 71.75 gates per iteration
@@ -270,16 +272,17 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     is_end_of_object_or_array,
     is_start_of_object_or_array,
     new_context,
-    is_key_token: update_key,
+    is_key_token,
     is_value_token,
     preserve_num_entries,} = TokenFlags::from_field(
                 TOKEN_FLAGS_TABLE[cast_num_to_u32(token) + context * NUM_TOKENS],
             );
 
             // 2 gates
+            // only update current_key_index_and_length if the token is a key token
             let diff = (index + length * 0x10000) - current_key_index_and_length;
             std::as_witness(diff);
-            current_key_index_and_length = diff * update_key + current_key_index_and_length;
+            current_key_index_and_length = diff * is_key_token + current_key_index_and_length;
             std::as_witness(current_key_index_and_length);
 
             // 2 gates
@@ -294,12 +297,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
             // subtotal 22.25
             // 1 gate
+            // set new_entry to object_or_array_entry if the token is end of an object or array, or set new_entry to value_entry
             let depth_index: Field = (depth - 1);
             // 3.5 gates
             let previous_stack_entry_packed = parent_context_stack[cast_num_to_u32(depth_index)];
 
             // 9.5 gates
-            let previous_stack_entry =
+            let previous_stack_entry: JSONContextStackEntry =
                 JSONContextStackEntry::from_field(previous_stack_entry_packed);
 
             let object_or_array_entry: JSONEntry = JSONEntry {
@@ -337,6 +341,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             // 3 gates
             // subtotal 24 + 22.25 = 46.25
+            // if preserve_num_entries (i.e. not start or end of object or array) is 1, then current_identity_value does not change.
+            // if is_start_of_object_or_array is 1, then current_identity_value is set to next_identity_value.
+            // if is_end_of_object_or_array is 1, then current_identity_value is set to previous_stack_entry.current_identity.
+
             let old = current_identity_value;
             current_identity_value = (next_identity_value * is_start_of_object_or_array);
             std::as_witness(current_identity_value);
@@ -347,6 +355,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             std::as_witness(current_identity_value);
 
             // 2 gates
+            // If we ses a value token (string/number/literal), we add 1 to count. If we see , or :, no change.
+            // If preserve_num_entries is 0 (i.e. start or end of object or array) then we reset variable to 0.
             num_entries_at_current_depth =
                 num_entries_at_current_depth * preserve_num_entries + is_value_token;
             std::as_witness(num_entries_at_current_depth);
@@ -356,11 +366,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             // 1 gate
             // if `is_end_of_object_or_array == 1`, `new_context = 0` so we can do something cheaper than a conditional select:
+            // If is_end_of_object_or_array is 1, then new_context is 0, so set context = previous_stack_entry.context
+            // If is_end_of_object_or_array is 0, then set context = new_context
             context = cast_num_to_u32(
                 previous_stack_entry.context * is_end_of_object_or_array + new_context,
             );
             std::as_witness(context as Field);
             // 3 gates
+            // If context is 0 (object context), then don't take the num_entries_at_current_depth term into account
+            // because searching for a key only depends of the key name, not position, as opposed to array context where we need to look up by position/index.
             let common_term = current_identity_value
                 + context as Field * (num_entries_at_current_depth - 1) * 0x1000000000000;
             std::as_witness(common_term);
@@ -374,14 +388,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             std::as_witness(new_key_data);
 
             // 3.5 gates
-            self.key_data[cast_num_to_u32(entry_ptr)] = new_key_data * create_json_entry;
+            self.key_data[entry_ptr] = new_key_data * create_json_entry as Field;
 
             // 3.5 gates
             parent_context_stack[cast_num_to_u32(depth)] = new_context_stack_entry;
 
             // 4.5 gates
-            self.json_entries_packed[cast_num_to_u32(entry_ptr)] =
-                JSONEntryPacked { value: new_entry * create_json_entry };
+            self.json_entries_packed[entry_ptr] =
+                JSONEntryPacked { value: new_entry * create_json_entry as Field };
 
             // 1 gate
             next_identity_value = next_identity_value + is_start_of_object_or_array;
@@ -393,8 +407,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 1 gate
             // 2105 + 46.25
             // subtotal 66.75?
-            entry_ptr += create_json_entry;
-            std::as_witness(entry_ptr);
+            entry_ptr += create_json_entry as u32;
         }
         self.validate_tokens(tokens);
     }

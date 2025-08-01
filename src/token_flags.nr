@@ -1,5 +1,5 @@
 pub(crate) struct TokenFlags {
-    pub(crate) create_json_entry: Field,
+    pub(crate) create_json_entry: bool,
     pub(crate) is_end_of_object_or_array: Field,
     pub(crate) is_start_of_object_or_array: Field,
     pub(crate) new_context: Field,
@@ -12,7 +12,7 @@ impl TokenFlags {
 
     unconstrained fn __from_field(f: Field) -> Self {
         let bytes: [u8; 7] = f.to_be_bytes();
-        let create_json_entry = bytes[0] as Field;
+        let create_json_entry = bytes[0] != 0;
         let is_end_of_object_or_array = bytes[1] as Field;
         let is_start_of_object_or_array = bytes[2] as Field;
         let new_context = bytes[3] as Field;
@@ -37,7 +37,6 @@ impl TokenFlags {
         let r = unsafe { TokenFlags::__from_field(f) };
 
         // checks that the flags are binary
-        assert(r.create_json_entry * r.create_json_entry == r.create_json_entry);
         assert(
             r.is_end_of_object_or_array * r.is_end_of_object_or_array
                 == r.is_end_of_object_or_array,
@@ -64,12 +63,12 @@ impl TokenFlags {
             + self.new_context * 0x1000000
             + self.is_start_of_object_or_array * 0x100000000
             + self.is_end_of_object_or_array * 0x10000000000
-            + self.create_json_entry * 0x1000000000000
+            + self.create_json_entry as Field * 0x1000000000000
     }
 
     pub(crate) fn default() -> Self {
         TokenFlags {
-            create_json_entry: 0,
+            create_json_entry: false,
             is_end_of_object_or_array: 0,
             is_start_of_object_or_array: 0,
             new_context: 0,
