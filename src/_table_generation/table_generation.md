@@ -23,3 +23,47 @@ Maps (escape_flag, scan_mode, ascii) to scanning actions:
 - `push_transcript`: Whether to add token to transcript: in grammar mode: true for all structual elements[,{,comma,},],:. In string_capture, true for ", which signals string end. In numeric/literal_capture, true for space, \t, \n, \r, ", and comma. Note the first scan will not pick up numerics or literals because we don't know when they end, so we need to rely on capture_missing_tokens function.
 - `increase_length`: Whether to extend current token, always false for grammar_capture, true for 0-9 in numeric capture, all characters except for " in string_capture, all letters in true, false, null in literal_capture
 - `is_potential_escape_sequence`: true if current token is / in string_capture mode
+
+## Other tables
+While TOKEN_FLAGS_TABLE and JSON_CAPTURE_TABLE are the more important tables, they are built from foundational hardcoded tables in make_tables_subtables.nr:
+
+GRAMMAR_CAPTURE_TABLE: State transition table for grammar scan mode. Each entry specifies the next scan mode (GRAMMAR_CAPTURE, STRING_CAPTURE, NUMERIC_CAPTURE, LITERAL_CAPTURE, or ERROR_CAPTURE) based on the encountered ASCII character. For example, "f" is mapped to LITEAL_CAPTURE because it indicates we began to scan the literal false.
+STRING_CAPTURE_TABLE
+NUMERIC_CAPTURE_TABLE
+LITERAL_CAPTURE_TABLE
+
+GRAMMAR_CAPTURE_TOKEN: Maps characters in grammar mode to token types. Converts ASCII characters into the appropriate JSON token types for structural elements, values, and literals.
+ Structural characters ({, }, [, ], ,, :) → their respective structural tokens
+- Quote (") → STRING_TOKEN (start of string)
+- Digits (0-9) → NUMERIC_TOKEN (start of number)
+- Literal starters (f, t, n) → LITERAL_TOKEN (start of true/false/null)
+- Invalid characters → NO_TOKEN or error handling
+STRING_CAPTURE_TOKEN
+NUMERIC_CAPTURE_TOKEN
+LITERAL_CAPTURE_TOKEN
+
+STRING_CAPTURE_PUSH_TRANSCRIPT: Determines when to add tokens to the transcript while scanning inside a string. Only true for the closing quote ("). This signals the end of the string and triggers token creation. All other characters within the string (letters, numbers, punctuation, spaces) are false because they extend the current string token rather than creating new tokens.
+
+GRAMMAR_CAPTURE_PUSH_TRANSCRIPT: Determines when to add tokens to the transcript while scanning in grammar mode. True for the following characters:
+- Comma (,) → true (value separator)
+- Colon (:) → true (key-value separator)
+- All other characters → false (including digits, quotes, and literal starters)
+
+NUMERIC_CAPTURE_PUSH_TRANSCRIPT: Determines when to add the current numeric token to the transcript while scanning a number. True for the following characters:
+- Whitespace (space, tab, newline, carriage return) → true (end number)
+- Quote (") → true (end number, followed by string)
+- Comma (,) → true (end number, followed by next value)
+- All other characters → false (extend current number or error)
+
+LITERAL_CAPTURE_PUSH_TRANSCRIPT: Determines when to add the current literal token (true/false/null) to the transcript while scanning a literal. True for any grammar character: , [ ] { } " space tab newline (This is only used in the first scan, in the second step capture_missing_tokens, we will be able to separate the literal and value separator)
+
+GRAMMAR_CAPTURE_INCREASE_LENGTH: Determines when to extend the current token length while scanning in grammar mode. True for Digits (0-9) -> starting numeric scan, Letters for literals (f, t, n, r, u, e, a, l, s) -> starting literal scan. For structural tokens, we don't count its length (is just  1). For string tokens, we are expecting to see a " first before seeing letters.
+
+STRING_CAPTURE_INCREASE_LENGTH: Determines when to extend the current string token while scanning inside a string. True for all printable characters except for Quote (ends the string)
+NUMERIC_CAPTURE_INCREASE_LENGTH: True for 0-9
+LITERAL_CAPTURE_INCREASE_LENGTH: True for t,r,u,e,f,a,l,s,n
+
+GRAMMAR_CAPTURE_ERROR_FLAG
+STRING_CAPTURE_ERROR_FLAG
+NUMERIC_CAPTURE_ERROR_FLAG
+LITERAL_CAPTURE_ERROR_FLAG
