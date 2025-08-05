@@ -46,28 +46,6 @@ global CAPTURE_ERROR_FLAG: [[bool; 128]; 4] = [
     LITERAL_CAPTURE_ERROR_FLAG,
 ];
 
-unconstrained fn make_capture_table_full() -> [[Field; 128]; 4] {
-    let mut result: [[Field; 128]; 4] = [[0; 128]; 4];
-    for i in 0..4 {
-        for j in 0..128 {
-            let table = CAPTURE_TABLE[i][j];
-            let token = CAPTURE_TOKEN[i][j];
-            let push_transcript = CAPTURE_PUSH_TRANSCRIPT[i][j] as Field;
-            let increase_length = CAPTURE_INCREASE_LENGTH[i][j] as Field;
-            let error = CAPTURE_ERROR_FLAG[i][j] as Field;
-
-            let full = table
-                + token as Field * 0x100
-                + push_transcript * 0x10000
-                + increase_length * 0x1000000
-                + error * 0x100000000;
-            result[i][j] = full;
-        }
-    }
-
-    result
-}
-
 unconstrained fn make_ascii_to_token_table() -> [Field; 1024] {
     let mut result: [Field; 256 * 4] = [0; 256 * 4];
     for i in 0..4 {
