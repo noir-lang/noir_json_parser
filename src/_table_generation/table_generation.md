@@ -67,3 +67,5 @@ GRAMMAR_CAPTURE_ERROR_FLAG
 STRING_CAPTURE_ERROR_FLAG
 NUMERIC_CAPTURE_ERROR_FLAG
 LITERAL_CAPTURE_ERROR_FLAG
+
+PROCESS_RAW_TRANSCRIPT_TABLE: This table is used to post-process the raw transcript and add missing grammar tokens that were not captured during the initial scanning in build_transcript. Input: encoded_ascii of the last token in each entry (scan_mode + ascii character). Output: containing: token: The token type for this entry, new_grammar: Whether to add a missing grammar token, and scan_token: The type of grammar token to add (if needed), such as END_OBJECT_TOKEN }, or VALUE_SEPARATOR_TOKEN comma.

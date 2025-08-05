@@ -116,6 +116,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     // TODO: when impl is more mature, merge this into create_json_entries
+    // correctly identify and label key tokens that are previous labeled as string tokens
     fn keyswap(&mut self) {
         // TODO: this won't work if 1st entry is a key!
         let mut current = TranscriptEntry::from_field(self.transcript[0]);
@@ -124,6 +125,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         for i in 0..MaxNumTokens - 1 {
             next = TranscriptEntry::from_field(self.transcript[i + 1]);
 
+            //if next token is :, current token is a key, so next_is_key = 1 and we can swap the token
             let next_is_key = (next.token == KEY_SEPARATOR_TOKEN as Field) as Field;
 
             let valid_token = TOKEN_IS_STRING[cast_num_to_u32(current.token)];
@@ -133,6 +135,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
 
             let old_transcript = self.transcript[i];
+            // only change is set the token to be KEY_TOKEN
             let new_transcript = TranscriptEntry::to_field(
                 TranscriptEntry {
                     token: KEY_TOKEN as Field,
@@ -540,11 +543,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     unconstrained fn __build_transcript(self) -> [Field; MaxNumTokens] {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: u32 = 0;
+        // We start in grammar capture mode, expecting to see a { or [.
         let mut scan_mode = GRAMMAR_CAPTURE;
         let mut length: Field = 0;
         let mut previous_was_potential_escape_sequence = 0;
         for i in 0..NumBytes {
-            // while this assert is in an unconstrained function, the out of bounds accesss `raw_transcript[transcript_ptr]` in build_transcript also generates failing constraints
+            // while this assert is in an unconstrained function, the out of bounds access `raw_transcript[transcript_ptr]` in build_transcript also generates failing constraints
             assert(transcript_ptr < MaxNumTokens, "build_transcript: MaxNumTokens limit exceeded!");
             let ascii = self.json[i];
 
@@ -552,18 +556,23 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
             let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
                 ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
+            // increase_length and push_transcript are contradictory
+            // increase_length = true means "extend the current token"
+            // push_transcript = true means "start a new token"
             let mut push_transcript = push_transcript;
             let mut scan_token = scan_token;
             let mut increase_length = increase_length;
 
             if push_transcript == 1 {
                 let new_entry = RawTranscriptEntry::to_field(
+                    // index is where the token starts in the original JSON
                     RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
                 );
 
                 raw_transcript[transcript_ptr] = new_entry;
                 transcript_ptr += 1;
-                length = increase_length;
+                // reset length to 0 as we're starting a new token
+                length = 0;
             } else {
                 length += increase_length;
             }
@@ -617,6 +626,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: check the comments below
         let raw_transcript = unsafe { self.__build_transcript() };
 
+        // steps to verify the transcript is correct
         // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
         let mut previous_was_potential_escape_sequence = 0;
         for i in 0..NumBytes {
@@ -659,10 +669,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             scan_mode = scan_token;
         }
 
-        // we encode error flag into the scan_token value, which must be less than 4
+        // we encode error flag into the scan_token value, which must be less than 4 (object, array, string, literal)
         // the lookup into JSON_CAPTURE_TABLE applies an implicit 2-bit range check on `scan_token`
         // however this does not get triggered if the final byte scanned produces an error state
-        length.assert_max_bit_size::<2>();
+        scan_mode.assert_max_bit_size::<2>();
 
         JSON {
             json: self.json,
@@ -689,19 +699,24 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut transcript_ptr: u32 = 0;
         // TODO: do we need a null transcript value?!?!
         for i in 0..MaxNumTokens {
+            // encoded_ascii is the encoded scan_mode + ascii character of the LAST token in the entry
             let RawTranscriptEntry { encoded_ascii, index, length } =
                 RawTranscriptEntry::from_field(self.raw_transcript[i]);
 
+            // If there is missing grammar, token will be LITERAL_TOKEN or NUMERIC_TOKEN, and new_grammar will be true, and scan_token will be a grammar token, such as END_OBJECT_TOKEN or VALUE_SEPARATOR_TOKEN
             let PostProcessScanData { token, new_grammar, scan_token } = PostProcessScanData::from_field(
                 PROCESS_RAW_TRANSCRIPT_TABLE[cast_num_to_u32(encoded_ascii)],
             );
 
+            // set the token to be the last token in the literal/numeric instead of the grammar token
             let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
             updated_transcript[transcript_ptr] = entry;
 
+            //self.transcript_length is the number of entries after building transcript
             let index_valid: u32 = (i < self.transcript_length) as u32;
             transcript_ptr += index_valid;
 
+            //index_of_possible_grammar is the index of the grammar token after last token in the literal/numeric.
             let index_of_possible_grammar = (index + length);
             let new_entry =
                 TranscriptEntry { token: scan_token, index: index_of_possible_grammar, length: 0 };
@@ -722,7 +737,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief Check for missing tokens that we could have missed in `build_transcript`
      * @details If we had a json string where a NUMERIC_TOKEN or LITERAL_TOKEN is directly succeeded by a VALUE_SEPARATOR_TOKEN, END_OBJECT_TOKEN, END_ARRAY_TOKEN,
      *          we will have missed the latter token.
-     *          We pick these up via the lookup table PROCESS_RAW_TRANSCRIPT_TABLE
+     *          We pick these up via the lookup table PROCESS_RAW_TRANSCRIPT_TABLE. 
+     *          The entries in self.raw_transcript currently look like false}, true], null, where the grammar tokens are counted as part of the token.
      **/
     fn capture_missing_tokens(&mut self) {
         let mut transcript_ptr: Field = 0;
