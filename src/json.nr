@@ -326,6 +326,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let is_end_of_object_or_array = is_end_of_object_or_array as Field;
             let is_start_of_object_or_array = is_start_of_object_or_array as Field;
             let new_context = new_context as Field;
+            let is_key_token = is_key_token as Field;
             let is_value_token = is_value_token as Field;
             let preserve_num_entries = preserve_num_entries as Field;
 
@@ -338,7 +339,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // only update current_key_index_and_length if the token is a key token
             let diff = (index + length * 0x10000) - current_key_index_and_length;
             std::as_witness(diff);
-            current_key_index_and_length = diff * is_key_token as Field + current_key_index_and_length;
+            current_key_index_and_length =
+                diff * is_key_token as Field + current_key_index_and_length;
             std::as_witness(current_key_index_and_length);
 
             // If the current token is BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
