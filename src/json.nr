@@ -361,10 +361,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 },
             );
             // subtotal 22.25
-            // 1 gate
-            // set new_entry to object_or_array_entry if the token is end of an object or array, or set new_entry to value_entry
-            let depth_index: Field = (depth - 1);
-            // 3.5 gates
+
             parent_context_stack[cast_num_to_u32(depth)] = new_context_stack_entry;
 
             // `previous_stack_entry` = Extract information about the parent of the current token
