@@ -326,7 +326,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let is_end_of_object_or_array = is_end_of_object_or_array as Field;
             let is_start_of_object_or_array = is_start_of_object_or_array as Field;
             let new_context = new_context as Field;
-            let update_key = update_key as Field;
+            let is_key_token = is_key_token as Field;
             let is_value_token = is_value_token as Field;
             let preserve_num_entries = preserve_num_entries as Field;
 
