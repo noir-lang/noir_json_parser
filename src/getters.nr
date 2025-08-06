@@ -1,5 +1,5 @@
 use crate::_comparison_tools::lt::{assert_gt_240_bit, assert_lt_240_bit, lt_field_16_bit};
-use crate::_string_tools::string_chopper::StringChopper;
+use crate::_string_tools::string_chopper::slice_string;
 use crate::enums::Layer::ARRAY_LAYER;
 use crate::json::JSON;
 use crate::json_entry::JSONEntry;
@@ -179,60 +179,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             "get_string, string size is larger than StringBytes",
         );
 
-        let mut result: [u8; StringBytes] = [0; StringBytes];
-        if (StringBytes <= 31) {
-            let s: StringChopper<1> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 62) {
-            let s: StringChopper<2> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 93) {
-            let s: StringChopper<3> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 124) {
-            let s: StringChopper<4> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 155) {
-            let s: StringChopper<5> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 186) {
-            let s: StringChopper<6> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 217) {
-            let s: StringChopper<7> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 248) // 8
-        {
-            let s: StringChopper<8> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 496) // 16
-        {
-            let s: StringChopper<16> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 992) // 32
-        {
-            let s: StringChopper<32> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 1984) {
-            let s: StringChopper<64> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 3968) {
-            let s: StringChopper<128> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 7936) {
-            let s: StringChopper<256> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 15872) {
-            let s: StringChopper<512> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else if (StringBytes <= 31774) {
-            let s: StringChopper<1024> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        } else {
-            // max 16 bits = 65535 = 2115 31-byte slices
-            let s: StringChopper<2115> = StringChopper {};
-            result = s.slice_string(self.json_packed, entry.json_pointer, entry.json_length);
-        }
+        let result: [u8; StringBytes] =
+            slice_string(self.json_packed, entry.json_pointer, entry.json_length);
+
         result
     }
 
