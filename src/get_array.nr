@@ -28,7 +28,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     pub(crate) fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl(key);
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(key_index)].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
         assert(
             (entry.entry_type - END_ARRAY_TOKEN as Field) * exists as Field == 0,
             "key does not describe an object",
@@ -38,7 +38,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
         r.root_id = entry.id;
         r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index;
+        r.root_index_in_transcript = key_index as Field;
 
         if exists {
             Option::some(r)
@@ -75,7 +75,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     ) -> Option<Self> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (exists, key_index) = self.key_exists_impl_var(key);
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(key_index)].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
         // TODO: ADD A layer_context VARIABLE INTO JSON WHICH DESCRIBES WHETHER WE ARE AN OBJECT, ARRAY OR SINGLE VALUE
         assert(
             (entry.entry_type - END_ARRAY_TOKEN as Field) * exists as Field == 0,
@@ -86,7 +86,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
         r.root_id = entry.id;
         r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index;
+        r.root_index_in_transcript = key_index as Field;
 
         if exists {
             Option::some(r)
