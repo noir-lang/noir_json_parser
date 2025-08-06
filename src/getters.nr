@@ -14,8 +14,8 @@ pub struct KeySearchResult {
     found: bool, // does the key exist?
     target_lt_smallest_entry: bool, // is the target keyhash smaller than the smallest keyhash in self.key_hashes?
     target_gt_largest_entry: bool, // is the target keyhash larger than the largest keyhash in self.key_hashes?
-    lhs_index: Field, // either the index of the key being searched for, or the index of the keyhash in self.key_hashes that is closest to keyhash (hash > lhs_index_hash)
-    rhs_index: Field, // either the index of the key being searched for, or the index of the keyhash in self.key_hashes that is closest to keyhash (hash < rhs_index_hash)
+    lhs_index: u32, // either the index of the key being searched for, or the index of the keyhash in self.key_hashes that is closest to keyhash (hash > lhs_index_hash)
+    rhs_index: u32, // either the index of the key being searched for, or the index of the keyhash in self.key_hashes that is closest to keyhash (hash < rhs_index_hash)
 }
 
 /**
@@ -36,7 +36,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl(key);
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(key_index)].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
         (exists, entry)
     }
 
@@ -80,7 +80,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl_var(key);
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(key_index)].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
         (exists, entry)
     }
 
@@ -256,8 +256,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             found,
             target_lt_smallest_entry,
             target_gt_largest_entry,
-            lhs_index,
-            rhs_index,
+            lhs_index: lhs_index as u32,
+            rhs_index: rhs_index as u32,
         }
     }
 
@@ -274,7 +274,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      *              Method computes a key hash and checks whether key hash exists in the list of sorted preprocessed key hashes
      *              If it does *not* exist, we can find two adjacent entries in `key_hashes` where `key_hashes[i]` < target_key_hash < `key_hashes[i+1]`
      **/
-    pub(crate) fn key_exists_impl<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> (bool, Field) {
+    pub(crate) fn key_exists_impl<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> (bool, u32) {
         /*
             Option A: key exists
             Option B: key does NOT exist
@@ -293,19 +293,21 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
         let search_result = unsafe { self.search_for_key_in_map(keyhash) };
+        if search_result.found {
+            assert_eq(search_result.lhs_index, search_result.rhs_index);
+        }
+
         let found = search_result.found as Field;
 
         let target_lt_smallest_entry = search_result.target_lt_smallest_entry as Field;
         let target_gt_largest_entry = search_result.target_gt_largest_entry as Field;
 
-        assert(((search_result.lhs_index - search_result.rhs_index) * found) == 0);
-
         // only one of "found", "target_lt_smallest_entry", "target_gt_largest_entry" can be true
         let exclusion_test = found + target_gt_largest_entry + target_lt_smallest_entry;
         assert(exclusion_test * exclusion_test == exclusion_test);
 
-        let mut lhs = self.key_hashes[cast_num_to_u32(search_result.lhs_index)];
-        let mut rhs = self.key_hashes[cast_num_to_u32(search_result.rhs_index)];
+        let mut lhs = self.key_hashes[search_result.lhs_index];
+        let mut rhs = self.key_hashes[search_result.rhs_index];
 
         // case where hash < self.key_hashes[0]
         // 0 < hash < hashes[0]
@@ -334,7 +336,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     pub(crate) fn key_exists_impl_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
-    ) -> (bool, Field) {
+    ) -> (bool, u32) {
         /*
             Option A: key exists
             Option B: key does NOT exist
@@ -353,19 +355,20 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         // Safety: the assertion (search_result.lhs_index - search_result.rhs_index) * found == 0 constraints this function
         let search_result = unsafe { self.search_for_key_in_map(keyhash) };
-        let found = search_result.found as Field;
+        if search_result.found {
+            assert_eq(search_result.lhs_index, search_result.rhs_index);
+        }
 
+        let found = search_result.found as Field;
         let target_lt_smallest_entry = search_result.target_lt_smallest_entry as Field;
         let target_gt_largest_entry = search_result.target_gt_largest_entry as Field;
-
-        assert(((search_result.lhs_index - search_result.rhs_index) * found) == 0);
 
         // only one of "found", "target_lt_smallest_entry", "target_gt_largest_entry" can be true
         let exclusion_test = found + target_gt_largest_entry + target_lt_smallest_entry;
         assert(exclusion_test * exclusion_test == exclusion_test);
 
-        let mut lhs = self.key_hashes[cast_num_to_u32(search_result.lhs_index)];
-        let mut rhs = self.key_hashes[cast_num_to_u32(search_result.rhs_index)];
+        let mut lhs = self.key_hashes[search_result.lhs_index];
+        let mut rhs = self.key_hashes[search_result.rhs_index];
 
         // case where hash < self.key_hashes[0]
         // 0 < hash < hashes[0]
@@ -376,8 +379,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         rhs = rhs * (1 - target_gt_largest_entry) + target_gt_largest_entry * HASH_MAXIMUM;
 
         // case where hash == self.key_hashes[found_index]
-        lhs = lhs - found;
-        rhs = rhs + found;
+        lhs -= found;
+        rhs += found;
 
         assert_gt_240_bit(keyhash, lhs);
         assert_lt_240_bit(keyhash, rhs);
