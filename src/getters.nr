@@ -99,7 +99,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
         let key_index = unsafe { self.find_key_in_map(keyhash) };
 
-        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
+        assert_eq(self.key_hashes[key_index], keyhash, "get_json_entry_unchecked: key not found");
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
 
         entry
@@ -123,7 +123,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
         let key_index = unsafe { self.find_key_in_map(keyhash) };
 
-        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
+        assert_eq(self.key_hashes[key_index], keyhash, "get_json_entry_unchecked: key not found");
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
 
         (entry, key_index)
@@ -146,7 +146,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
         let key_index = unsafe { self.find_key_in_map(keyhash) };
 
-        assert(self.key_hashes[key_index] == keyhash, "get_json_entry_unchecked: key not found");
+        assert_eq(self.key_hashes[key_index], keyhash, "get_json_entry_unchecked: key not found");
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
 
         (entry, key_index)
