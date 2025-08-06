@@ -54,7 +54,7 @@ pub struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u
     pub(crate) json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
     pub(crate) layer_type_of_root: u32, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
     pub(crate) root_id: Field, // the unique identifier of the root (if an object or array)
-    pub(crate) root_index_in_transcript: Field, // location in json_entries_packed of the root
+    pub(crate) root_index_in_transcript: u32, // location in json_entries_packed of the root
 }
 
 /**
@@ -266,13 +266,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             tokens[i] = token;
             // 13 gates
             let TokenFlags {
-    create_json_entry,
-    is_end_of_object_or_array,
-    is_start_of_object_or_array,
-    new_context,
-    is_key_token: update_key,
-    is_value_token,
-    preserve_num_entries,} = TokenFlags::from_field(
+                create_json_entry,
+                is_end_of_object_or_array,
+                is_start_of_object_or_array,
+                new_context,
+                is_key_token: update_key,
+                is_value_token,
+                preserve_num_entries,
+            } = TokenFlags::from_field(
                 TOKEN_FLAGS_TABLE[cast_num_to_u32(token) + context * NUM_TOKENS],
             );
 
@@ -428,8 +429,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             let encoded_ascii =
                 previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
-            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
-                ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
+            let ScanData {
+                scan_token,
+                push_transcript,
+                increase_length,
+                is_potential_escape_sequence,
+            } = ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
 
             if push_transcript == 1 {
                 let new_entry = RawTranscriptEntry::to_field(
@@ -505,8 +510,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 2 gates
             let capture_flags = JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)];
             // 5 gates
-            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
-                ScanData::from_field(capture_flags);
+            let ScanData {
+                scan_token,
+                push_transcript,
+                increase_length,
+                is_potential_escape_sequence,
+            } = ScanData::from_field(capture_flags);
 
             // 2 gates
             let raw = raw_transcript[cast_num_to_u32(transcript_ptr)];

@@ -201,17 +201,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
         let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
-
-        assert(
-            (entry.entry_type - STRING_TOKEN as Field) * valid as Field == 0,
-            "get_array_element_as_string: entry exists but is not a string!",
-        );
+        if !valid {
+            assert_eq(
+                entry.entry_type,
+                STRING_TOKEN as Field,
+                "get_array_element_as_string: entry exists but is not a string!",
+            );
+        }
 
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
         let parsed_string: BoundedVec<u8, StringBytes> = process_escape_sequences(
@@ -239,7 +241,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
@@ -379,17 +381,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
         let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
-
-        assert(
-            (entry.entry_type - STRING_TOKEN as Field) * valid as Field == 0,
-            "get_array_element_as_string: entry exists but is not a string!",
-        );
+        if !valid {
+            assert_eq(
+                entry.entry_type,
+                STRING_TOKEN as Field,
+                "get_array_element_as_string: entry exists but is not a string!",
+            );
+        }
 
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
 
@@ -422,7 +426,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
