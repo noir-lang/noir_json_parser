@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754505126186,
+  "lastUpdate": 1754505133716,
   "repoUrl": "https://github.com/noir-lang/noir_json_parser",
   "entries": {
     "ACIR Opcodes": [
@@ -2635,6 +2635,120 @@ window.BENCHMARK_DATA = {
           {
             "name": "get_value_JSON512b_Bench",
             "value": 7749,
+            "unit": "opcodes"
+          },
+          {
+            "name": "key_exists_JSON16kb_Bench",
+            "value": 18155,
+            "unit": "opcodes"
+          },
+          {
+            "name": "key_exists_JSON512b_Bench",
+            "value": 2283,
+            "unit": "opcodes"
+          },
+          {
+            "name": "parse_json_from_string_JSON16kb_Bench",
+            "value": 17087,
+            "unit": "opcodes"
+          },
+          {
+            "name": "parse_json_from_string_JSON512b_Bench",
+            "value": 17078,
+            "unit": "opcodes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6cda9b89c07017b140c42e13994c895591e34935",
+          "message": "chore: simplify `slice_string` implementation (#66)",
+          "timestamp": "2025-08-06T19:24:34+01:00",
+          "tree_id": "5bd527d2e619509f0d78ccd6fdb52540b3522262",
+          "url": "https://github.com/noir-lang/noir_json_parser/commit/6cda9b89c07017b140c42e13994c895591e34935"
+        },
+        "date": 1754505133699,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "get_array_JSON16kb_Bench",
+            "value": 18500,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_array_JSON512b_Bench",
+            "value": 2628,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_keys_at_root_JSON16kb_Bench",
+            "value": 43616,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_keys_at_root_JSON512b_Bench",
+            "value": 27743,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_literal_JSON16kb_Bench",
+            "value": 22334,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_literal_JSON512b_Bench",
+            "value": 6461,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_number_JSON16kb_Bench",
+            "value": 22643,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_number_JSON512b_Bench",
+            "value": 6770,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_object_JSON16kb_Bench",
+            "value": 18500,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_object_JSON512b_Bench",
+            "value": 2628,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_string_JSON16kb_Bench",
+            "value": 24399,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_string_JSON512b_Bench",
+            "value": 8526,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_value_JSON16kb_Bench",
+            "value": 23449,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_value_JSON512b_Bench",
+            "value": 7576,
             "unit": "opcodes"
           },
           {
