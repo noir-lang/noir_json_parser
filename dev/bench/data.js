@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754502709050,
+  "lastUpdate": 1754503754105,
   "repoUrl": "https://github.com/noir-lang/noir_json_parser",
   "entries": {
     "ACIR Opcodes": [
@@ -693,6 +693,120 @@ window.BENCHMARK_DATA = {
           {
             "name": "parse_json_from_string_JSON512b_Bench.json/main",
             "value": 38027,
+            "unit": "acir_opcodes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c1e9bdff941806f4eac24471d83807eff6bd4134",
+          "message": "chore: make `TokenFlags` fields booleans (#67)",
+          "timestamp": "2025-08-06T18:58:12+01:00",
+          "tree_id": "5d6dc815d74970ae8bf08f7dd05d6508f92543dd",
+          "url": "https://github.com/noir-lang/noir_json_parser/commit/c1e9bdff941806f4eac24471d83807eff6bd4134"
+        },
+        "date": 1754503753134,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "get_array_JSON16kb_Bench.json/main",
+            "value": 42556,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_array_JSON512b_Bench.json/main",
+            "value": 2364,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_keys_at_root_JSON16kb_Bench.json/main",
+            "value": 5253273,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_keys_at_root_JSON512b_Bench.json/main",
+            "value": 5237401,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_literal_JSON16kb_Bench.json/main",
+            "value": 17708,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_literal_JSON512b_Bench.json/main",
+            "value": 1836,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_number_JSON16kb_Bench.json/main",
+            "value": 17835,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_number_JSON512b_Bench.json/main",
+            "value": 1963,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_object_JSON16kb_Bench.json/main",
+            "value": 42556,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_object_JSON512b_Bench.json/main",
+            "value": 2364,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_string_JSON16kb_Bench.json/main",
+            "value": 44042,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_string_JSON512b_Bench.json/main",
+            "value": 28170,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_value_JSON16kb_Bench.json/main",
+            "value": 21535,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_value_JSON512b_Bench.json/main",
+            "value": 5663,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "key_exists_JSON16kb_Bench.json/main",
+            "value": 18076,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "key_exists_JSON512b_Bench.json/main",
+            "value": 2204,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "parse_json_from_string_JSON16kb_Bench.json/main",
+            "value": 1094557,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "parse_json_from_string_JSON512b_Bench.json/main",
+            "value": 38036,
             "unit": "acir_opcodes"
           }
         ]
