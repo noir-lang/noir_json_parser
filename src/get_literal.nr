@@ -170,7 +170,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
         let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
-        if !valid {
+        if valid {
             assert_eq(
                 entry.entry_type,
                 LITERAL_TOKEN as Field,
