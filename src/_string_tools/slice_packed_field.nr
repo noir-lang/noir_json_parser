@@ -756,7 +756,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     let use_previous_for_last_limb: Field = extra_head_section + bytes_fit_into_limb;
 
     // 1, 132.5
-    let mut index_of_overflow_limb = start_index + num_whole_limbs + 1;
+    let index_of_overflow_limb = start_index + num_whole_limbs + 1;
     // 2, 134.5
     let last_limb_from_data = data[index_of_overflow_limb as u32];
     // 2, 136.5
