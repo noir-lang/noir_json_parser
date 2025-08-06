@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754493732586,
+  "lastUpdate": 1754494059206,
   "repoUrl": "https://github.com/noir-lang/noir_json_parser",
   "entries": {
     "ACIR Opcodes": [
@@ -375,6 +375,120 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/noir-lang/noir_json_parser/commit/8adc6a84e51e59fb1c224ac3206604186f869083"
         },
         "date": 1754493722749,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "get_array_JSON16kb_Bench.json/main",
+            "value": 42556,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_array_JSON512b_Bench.json/main",
+            "value": 2364,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_keys_at_root_JSON16kb_Bench.json/main",
+            "value": 5253273,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_keys_at_root_JSON512b_Bench.json/main",
+            "value": 5237401,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_literal_JSON16kb_Bench.json/main",
+            "value": 17708,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_literal_JSON512b_Bench.json/main",
+            "value": 1836,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_number_JSON16kb_Bench.json/main",
+            "value": 17835,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_number_JSON512b_Bench.json/main",
+            "value": 1963,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_object_JSON16kb_Bench.json/main",
+            "value": 42556,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_object_JSON512b_Bench.json/main",
+            "value": 2364,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_string_JSON16kb_Bench.json/main",
+            "value": 44042,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_string_JSON512b_Bench.json/main",
+            "value": 28170,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_value_JSON16kb_Bench.json/main",
+            "value": 21535,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "get_value_JSON512b_Bench.json/main",
+            "value": 5663,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "key_exists_JSON16kb_Bench.json/main",
+            "value": 18076,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "key_exists_JSON512b_Bench.json/main",
+            "value": 2204,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "parse_json_from_string_JSON16kb_Bench.json/main",
+            "value": 1094548,
+            "unit": "acir_opcodes"
+          },
+          {
+            "name": "parse_json_from_string_JSON512b_Bench.json/main",
+            "value": 38027,
+            "unit": "acir_opcodes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c4876188f97129f2922ef623f58c70a2a54c9a47",
+          "message": "chore: remove unused functions (#65)\n\nCo-authored-by: jialinli <jialinmli98@gmail.com>",
+          "timestamp": "2025-08-06T16:17:28+01:00",
+          "tree_id": "978e4b013613e0792a7b8b5c19bec12fc546c603",
+          "url": "https://github.com/noir-lang/noir_json_parser/commit/c4876188f97129f2922ef623f58c70a2a54c9a47"
+        },
+        "date": 1754494058791,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
