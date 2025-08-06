@@ -607,6 +607,36 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let index_valid: Field = range_valid[i] as Field;
             // 1 gate
             let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
+
+            if token == LITERAL_TOKEN as Field {
+                index.assert_max_bit_size::<8>();
+                let index_as_u32 = index as u32;
+                let first_char = self.json[index_as_u32];
+                let second_char = self.json[index_as_u32 + 1];
+                let third_char = self.json[index_as_u32 + 2];
+                let fourth_char = self.json[index_as_u32 + 3];
+                if length == 5 {
+                    let fifth_char = self.json[index_as_u32 + 4];
+                    let is_false = (first_char == 102) // 'f'
+                        & (second_char == 97) // 'a'
+                        & (third_char == 108) // 'l'
+                        & (fourth_char == 115) // 's'
+                        & (fifth_char == 101); // 'e'
+                    assert(is_false, "invalid literal");
+                } else {
+                    assert_eq(length, 4, "invalid literal");
+                    let is_true = (first_char == 116) // 't'
+                        & (second_char == 114) // 'r'
+                        & (third_char == 117) // 'u'
+                        & (fourth_char == 101); // 'e'
+
+                    let is_null = (first_char == 110) // 'n'
+                        & (second_char == 117) // 'u'
+                        & (third_char == 108) // 'l'
+                        & (fourth_char == 108); // 'l'
+                    assert(is_null | is_true, "invalid literal");
+                }
+            }
             // 2 gates
             let diff = updated_transcript[cast_num_to_u32(transcript_ptr)] - entry;
             std::as_witness(diff);
@@ -924,13 +954,6 @@ fn test_json_char_outside_of_string_fails() {
 }
 
 #[test(should_fail_with = "ValidationFlags: grammar error")]
-fn test_json_char_outside_of_string_fails_2() {
-    // n could be the start of the literal "null", so this passes the ScanData check but fails ValidationFlags
-    let text = "{ \"hello \", \"world\" n}";
-    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
-}
-
-#[test(should_fail_with = "ValidationFlags: grammar error")]
 fn test_json_array_with_invalid_tokens_fails() {
     // n could be the start of the literal "null", so this passes the ScanData check but fails ValidationFlags
     let text = "[,,,]";
@@ -980,4 +1003,28 @@ fn test_finishing_with_numeric_scan_fails() {
 fn key_is_not_a_key() {
     let json_string = "{1\n:0}";
     let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(json_string);
+}
+
+#[test(should_fail_with = "invalid literal")]
+fn test_invalid_literal() {
+    let text = "{ \"name\":fal }";
+    let _: JSON<153, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "invalid literal")]
+fn test_invalid_literal_2() {
+    let text = "{ \"name\":treu}";
+    let _: JSON<153, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "invalid literal")]
+fn test_invalid_literal_3() {
+    let text = "{ \"name\":truea }";
+    let _: JSON<153, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test(should_fail_with = "invalid literal")]
+fn test_invalid_literal_4() {
+    let text = "{ \"hello \", \"world\" n}";
+    let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
 }
