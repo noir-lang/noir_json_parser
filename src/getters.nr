@@ -179,7 +179,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             "get_string, string size is larger than StringBytes",
         );
 
-        // We want to round up the quotient of StringBytes to the next multiple of 31
         let result: [u8; StringBytes] =
             slice_string(self.json_packed, entry.json_pointer, entry.json_length);
 
