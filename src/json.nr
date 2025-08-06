@@ -426,8 +426,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             assert(transcript_ptr < MaxNumTokens, "build_transcript: MaxNumTokens limit exceeded!");
             let ascii = self.json[i];
 
-            let encoded_ascii =
-                previous_was_potential_escape_sequence as Field * 1024 + scan_mode * 256 + ascii as Field;
+            let encoded_ascii = previous_was_potential_escape_sequence as Field * 1024
+                + scan_mode * 256
+                + ascii as Field;
             let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
                 ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
 
@@ -498,8 +499,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let ascii = self.json[i];
 
             // 1 gate
-            let encoded_ascii =
-                previous_was_potential_escape_sequence as Field * 1024 + scan_mode * 256 + ascii as Field;
+            let encoded_ascii = previous_was_potential_escape_sequence as Field * 1024
+                + scan_mode * 256
+                + ascii as Field;
             std::as_witness(encoded_ascii);
 
             // 2 gates
