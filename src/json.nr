@@ -761,28 +761,32 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
 
             if token == LITERAL_TOKEN as Field {
-                let index_as_u32 = index as u32;
                 index.assert_max_bit_size::<8>();
+                let index_as_u32 = index as u32;
+                let first_char = self.json[index_as_u32];
+                let second_char = self.json[index_as_u32 + 1];
+                let third_char = self.json[index_as_u32 + 2];
+                let fourth_char = self.json[index_as_u32 + 3];
                 if length == 5 {
-                    let is_false = (self.json[index_as_u32] == 102) // 'f'
-                        & (self.json[index_as_u32 + 1] == 97) // 'a'
-                        & (self.json[index_as_u32 + 2] == 108) // 'l'
-                        & (self.json[index_as_u32 + 3] == 115) // 's'
-                        & (self.json[index_as_u32 + 4] == 101); // 'e'
+                    let fifth_char = self.json[index_as_u32 + 4];
+                    let is_false = (first_char == 102) // 'f'
+                        & (second_char == 97) // 'a'
+                        & (third_char == 108) // 'l'
+                        & (fourth_char == 115) // 's'
+                        & (fifth_char == 101); // 'e'
                     assert(is_false, "invalid literal");
-                } else if length == 4 {
-                    let is_true = (self.json[index_as_u32] == 116) // 't'
-                        & (self.json[index_as_u32 + 1] == 114) // 'r'
-                        & (self.json[index_as_u32 + 2] == 117) // 'u'
-                        & (self.json[index_as_u32 + 3] == 101); // 'e'
-
-                    let is_null = (self.json[index_as_u32] == 110) // 'n'
-                        & (self.json[index_as_u32 + 1] == 117) // 'u'
-                        & (self.json[index_as_u32 + 2] == 108) // 'l'
-                        & (self.json[index_as_u32 + 3] == 108); // 'l'
-                    assert(is_null | is_true, "invalid literal");
                 } else {
-                    assert(false, "invalid literal");
+                    assert_eq(length, 4, "invalid literal");
+                    let is_true = (first_char == 116) // 't'
+                        & (second_char == 114) // 'r'
+                        & (third_char == 117) // 'u'
+                        & (fourth_char == 101); // 'e'
+
+                    let is_null = (first_char == 110) // 'n'
+                        & (second_char == 117) // 'u'
+                        & (third_char == 108) // 'l'
+                        & (fourth_char == 108); // 'l'
+                    assert(is_null | is_true, "invalid literal");
                 }
             }
             // 2 gates
