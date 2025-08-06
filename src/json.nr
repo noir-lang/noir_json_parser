@@ -311,13 +311,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // See comments in token_flags.nr for more details
             // 13 gates
             let TokenFlags {
-    create_json_entry,
-    is_end_of_object_or_array,
-    is_start_of_object_or_array,
-    new_context,
-    is_key_token,
-    is_value_token,
-    preserve_num_entries,} = TokenFlags::from_field(
+                create_json_entry,
+                is_end_of_object_or_array,
+                is_start_of_object_or_array,
+                new_context,
+                is_key_token,
+                is_value_token,
+                preserve_num_entries,
+            } = TokenFlags::from_field(
                 TOKEN_FLAGS_TABLE[cast_num_to_u32(token) + context * NUM_TOKENS],
             );
 
@@ -557,16 +558,21 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // We start in grammar capture mode, expecting to see a { or [.
         let mut scan_mode = GRAMMAR_CAPTURE;
         let mut length: Field = 0;
-        let mut previous_was_potential_escape_sequence = 0;
+        let mut previous_was_potential_escape_sequence: bool = false;
         for i in 0..NumBytes {
             // while this assert is in an unconstrained function, the out of bounds access `raw_transcript[transcript_ptr]` in build_transcript also generates failing constraints
             assert(transcript_ptr < MaxNumTokens, "build_transcript: MaxNumTokens limit exceeded!");
             let ascii = self.json[i];
 
-            let encoded_ascii =
-                previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
-            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
-                ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
+            let encoded_ascii = previous_was_potential_escape_sequence as Field * 1024
+                + scan_mode * 256
+                + ascii as Field;
+            let ScanData {
+                scan_token,
+                push_transcript,
+                increase_length,
+                is_potential_escape_sequence,
+            } = ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
             // increase_length and push_transcript are contradictory
             // increase_length = true means "extend the current token"
             // push_transcript = true means "start a new token"
@@ -574,7 +580,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let mut scan_token = scan_token;
             let mut increase_length = increase_length;
 
-            if push_transcript == 1 {
+            if push_transcript {
                 let new_entry = RawTranscriptEntry::to_field(
                     // index is where the token starts in the original JSON
                     RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
@@ -585,7 +591,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 // reset length to 0 as we're starting a new token
                 length = 0;
             } else {
-                length += increase_length;
+                length += increase_length as Field;
             }
 
             previous_was_potential_escape_sequence = is_potential_escape_sequence;
@@ -639,20 +645,25 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         // steps to verify the transcript is correct
         // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
-        let mut previous_was_potential_escape_sequence = 0;
+        let mut previous_was_potential_escape_sequence: bool = false;
         for i in 0..NumBytes {
             let ascii = self.json[i];
 
             // 1 gate
-            let encoded_ascii: Field =
-                previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
+            let encoded_ascii: Field = previous_was_potential_escape_sequence as Field * 1024
+                + scan_mode * 256
+                + ascii as Field;
             std::as_witness(encoded_ascii);
 
             // 2 gates
             let capture_flags = JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)];
             // 5 gates
-            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
-                ScanData::from_field(capture_flags);
+            let ScanData {
+                scan_token,
+                push_transcript,
+                increase_length,
+                is_potential_escape_sequence,
+            } = ScanData::from_field(capture_flags);
 
             // 2 gates
             let raw: Field = raw_transcript[cast_num_to_u32(transcript_ptr)];
@@ -667,14 +678,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             std::as_witness(diff);
 
             // 1 gate
-            assert(diff * push_transcript == 0);
+            assert(diff * push_transcript as Field == 0);
 
             // 1 gate
-            length = length * (1 - push_transcript) + increase_length;
+            length = length * (1 - push_transcript as Field) + increase_length as Field;
             std::as_witness(length);
 
             // 1 gate
-            transcript_ptr += push_transcript;
+            transcript_ptr += push_transcript as Field;
 
             previous_was_potential_escape_sequence = is_potential_escape_sequence;
             scan_mode = scan_token;
