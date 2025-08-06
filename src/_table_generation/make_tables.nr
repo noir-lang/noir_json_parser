@@ -288,8 +288,8 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     let mut flattened_flags: [Field; NUM_TOKENS * NUM_TOKENS * 3] =
         [0; NUM_TOKENS * NUM_TOKENS * 3];
     let NN = (NUM_TOKENS * NUM_TOKENS);
-    for j in 0..NUM_TOKENS as u32 {
-        for k in 0..NUM_TOKENS as u32 {
+    for j in 0..NUM_TOKENS {
+        for k in 0..NUM_TOKENS {
             flattened_flags[OBJECT_LAYER * NN + j * NUM_TOKENS + k] = object_layer_flags[j][k];
             flattened_flags[ARRAY_LAYER * NN + j * NUM_TOKENS + k] = array_layer_flags[j][k];
             flattened_flags[SINGLE_VALUE_LAYER * NN + j * NUM_TOKENS + k] =
@@ -467,20 +467,20 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     numeric_flags.new_context = ARRAY_LAYER as Field;
     literal_flags.new_context = ARRAY_LAYER as Field;
 
-    flags[NUM_TOKENS + (NO_TOKEN as u32)] = no_token_flags;
-    flags[NUM_TOKENS + (BEGIN_OBJECT_TOKEN as u32)] = begin_object_flags;
-    flags[NUM_TOKENS + (END_OBJECT_TOKEN as u32)] = end_object_flags;
-    flags[NUM_TOKENS + (BEGIN_ARRAY_TOKEN as u32)] = begin_array_flags;
-    flags[NUM_TOKENS + (END_ARRAY_TOKEN as u32)] = end_array_flags;
-    flags[NUM_TOKENS + (KEY_SEPARATOR_TOKEN as u32)] = no_token_flags;
-    flags[NUM_TOKENS + (VALUE_SEPARATOR_TOKEN as u32)] = no_token_flags;
-    flags[NUM_TOKENS + (STRING_TOKEN as u32)] = string_flags;
-    flags[NUM_TOKENS + (NUMERIC_TOKEN as u32)] = numeric_flags;
-    flags[NUM_TOKENS + (LITERAL_TOKEN as u32)] = literal_flags;
-    flags[NUM_TOKENS + (KEY_TOKEN as u32)] = key_token_flags;
+    flags[NUM_TOKENS + NO_TOKEN] = no_token_flags;
+    flags[NUM_TOKENS + BEGIN_OBJECT_TOKEN] = begin_object_flags;
+    flags[NUM_TOKENS + END_OBJECT_TOKEN] = end_object_flags;
+    flags[NUM_TOKENS + BEGIN_ARRAY_TOKEN] = begin_array_flags;
+    flags[NUM_TOKENS + END_ARRAY_TOKEN] = end_array_flags;
+    flags[NUM_TOKENS + KEY_SEPARATOR_TOKEN] = no_token_flags;
+    flags[NUM_TOKENS + VALUE_SEPARATOR_TOKEN] = no_token_flags;
+    flags[NUM_TOKENS + STRING_TOKEN] = string_flags;
+    flags[NUM_TOKENS + NUMERIC_TOKEN] = numeric_flags;
+    flags[NUM_TOKENS + LITERAL_TOKEN] = literal_flags;
+    flags[NUM_TOKENS + KEY_TOKEN] = key_token_flags;
 
     let mut result: [Field; NUM_TOKENS * 2] = [0; NUM_TOKENS * 2];
-    for i in 0..(NUM_TOKENS as u32 * 2) {
+    for i in 0..(NUM_TOKENS * 2) {
         result[i] = flags[i].to_field();
     }
     result
