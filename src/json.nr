@@ -125,13 +125,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         for i in 0..MaxNumTokens - 1 {
             next = TranscriptEntry::from_field(self.transcript[i + 1]);
 
-            let next_is_key = (next.token == KEY_SEPARATOR_TOKEN as Field) as Field;
+            let next_is_key = next.token == KEY_SEPARATOR_TOKEN as Field;
 
             let valid_token = TOKEN_IS_STRING[cast_num_to_u32(current.token)];
-            assert(
-                (valid_token * next_is_key) + (1 - next_is_key) == 1,
-                "Cannot find key/value straddling KEY_DELIMITER_TOKEN",
-            );
+            if !valid_token {
+                assert(!next_is_key, "Cannot find key/value straddling KEY_DELIMITER_TOKEN");
+            }
 
             let old_transcript = self.transcript[i];
             let new_transcript = TranscriptEntry::to_field(
@@ -141,9 +140,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                     length: current.length,
                 },
             );
-            let updated_transcript =
-                (new_transcript - old_transcript) * next_is_key + old_transcript;
-            self.transcript[i] = updated_transcript;
+            self.transcript[i] = if next_is_key {
+                new_transcript
+            } else {
+                old_transcript
+            };
 
             current = next;
         }
@@ -183,7 +184,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         parent_layer_stack[0] =
             is_object as Field * OBJECT_LAYER as Field + is_array as Field * ARRAY_LAYER as Field;
         assert(
-            TOKEN_IS_ARRAY_OBJECT_OR_VALUE[cast_num_to_u32(previous_token)] == 1,
+            TOKEN_IS_ARRAY_OBJECT_OR_VALUE[cast_num_to_u32(previous_token)],
             "first json token does not describe an object, array or key",
         );
 
@@ -206,7 +207,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             // 1 gate
             // we encode an error flag into `push_layer` by making its value such that `depth` will exceed the size of `parent_layer_stack`
-            depth = depth + push_layer - pop_layer;
+            depth += push_layer - pop_layer;
             std::as_witness(depth);
 
             // 6.5 gates
@@ -673,13 +674,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         // TODO we could make this more efficient...probably not a big deal though
         let first = TranscriptEntry::from_field(self.transcript[0]);
-        if (first.token == BEGIN_OBJECT_TOKEN as Field) {
-            self.layer_type_of_root = OBJECT_LAYER;
+        self.layer_type_of_root = if (first.token == BEGIN_OBJECT_TOKEN as Field) {
+            OBJECT_LAYER
         } else if (first.token == BEGIN_ARRAY_TOKEN as Field) {
-            self.layer_type_of_root = ARRAY_LAYER;
+            ARRAY_LAYER
         } else if (first.token == STRING_TOKEN as Field) {
-            self.layer_type_of_root = SINGLE_VALUE_LAYER;
-        }
+            SINGLE_VALUE_LAYER
+        } else {
+            self.layer_type_of_root
+        };
     }
 
     fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {
