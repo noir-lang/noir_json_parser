@@ -321,10 +321,20 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 TOKEN_FLAGS_TABLE[cast_num_to_u32(token) + context * NUM_TOKENS],
             );
 
+            // We convert these booleans into Fields so that we can use them in arithmetic operations.
+            let create_json_entry = create_json_entry as Field;
+            let is_end_of_object_or_array = is_end_of_object_or_array as Field;
+            let is_start_of_object_or_array = is_start_of_object_or_array as Field;
+            let new_context = new_context as Field;
+            let update_key = update_key as Field;
+            let is_value_token = is_value_token as Field;
+            let preserve_num_entries = preserve_num_entries as Field;
+
             // Determine what the current key index is and the key size in bytes
             // (key index = byte location in the original JSON of the key)
             // Pseudocode equivalent:
             // current_key_index_and_length = update_key ? (index + length * 0x10000) : current_key_index_and_length
+
             // 2 gates
             // only update current_key_index_and_length if the token is a key token
             let diff = (index + length * 0x10000) - current_key_index_and_length;
