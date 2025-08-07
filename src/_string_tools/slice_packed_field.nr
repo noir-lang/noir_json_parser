@@ -702,7 +702,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     std::as_witness(lookup);
     // 3, 15
     let bytes_fit_into_limb =
-        INTEGER_UP_TO_62_IS_GREATER_THAN_31[cast_num_to_u32(lookup)] * num_bytes_div_31_is_0;
+        INTEGER_UP_TO_62_IS_GREATER_THAN_31[cast_num_to_u32(lookup)] & num_bytes_div_31_is_0;
     std::as_witness(bytes_fit_into_limb as Field);
 
     // 2, 17
