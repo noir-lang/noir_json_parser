@@ -207,17 +207,17 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             // 1 gate
             // we encode an error flag into `push_layer` by making its value such that `depth` will exceed the size of `parent_layer_stack`
-            depth += push_layer - pop_layer;
+            depth += push_layer as Field - pop_layer as Field;
             std::as_witness(depth);
 
             // 6.5 gates
             let parent_layer = parent_layer_stack[cast_num_to_u32(depth)];
-            let mut updated_layer = (1 - pop_layer - push_layer);
+            let mut updated_layer = (1 - pop_layer as Field - push_layer as Field);
             std::as_witness(updated_layer);
             updated_layer =
                 updated_layer * current_layer as Field + push_layer_type_of_root as Field;
             std::as_witness(updated_layer);
-            updated_layer = updated_layer + parent_layer * pop_layer;
+            updated_layer = updated_layer + parent_layer as Field * pop_layer as Field;
             std::as_witness(updated_layer);
             current_layer = cast_num_to_u32(updated_layer);
 
