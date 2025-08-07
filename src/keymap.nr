@@ -91,12 +91,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let update = TOKEN_ENDS_OBJECT_OR_ARRAY[cast_num_to_u32(entry_type)];
             // NOTE THIS RELIES ON MaxNumValues ACTUALLY DESCRIBING NUMMaxNumValues + 1
             let index = if update {
-                id
+                cast_num_to_u32(id)
             } else {
-                (MaxNumValues as Field - 1)
+                MaxNumValues - 1
             };
             // 3.5 gates
-            identity_to_json_map[cast_num_to_u32(index)] = i;
+            identity_to_json_map[index] = i;
         }
         // 13.5 gates per iteration
         let mut parent_identity_pre = parent_indices[0];
