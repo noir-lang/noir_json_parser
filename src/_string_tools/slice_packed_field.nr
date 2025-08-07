@@ -698,7 +698,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     let num_bytes_div_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_div_31 as u32];
 
     // 1, 12
-    let lookup = (-num_bytes_div_31_is_0 as Field * num_bytes) - start_mod_31 as Field + 62;
+    let lookup = 62 - num_bytes_div_31_is_0 as Field * num_bytes - start_mod_31 as Field;
     std::as_witness(lookup);
     // 3, 15
     let bytes_fit_into_limb =
