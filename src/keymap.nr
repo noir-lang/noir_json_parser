@@ -90,9 +90,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // update is 1 for end of object/array, 0 for other
             let update = TOKEN_ENDS_OBJECT_OR_ARRAY[cast_num_to_u32(entry_type)];
             // NOTE THIS RELIES ON MaxNumValues ACTUALLY DESCRIBING NUMMaxNumValues + 1
-            // index = id if update = 1, else MaxNumValues -1
-            // 1 gate
-            let index = (id - (MaxNumValues as Field - 1)) * update + (MaxNumValues as Field - 1);
+            let index = if update {
+                id
+            } else {
+                (MaxNumValues as Field - 1)
+            };
             // 3.5 gates
             identity_to_json_map[cast_num_to_u32(index)] = i;
         }

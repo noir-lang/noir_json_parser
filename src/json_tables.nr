@@ -1,8 +1,11 @@
 use crate::enums::Token::NUM_TOKENS_MUL_2;
 
-pub(crate) global TOKEN_ENDS_OBJECT_OR_ARRAY: [Field; 11] = [0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0];
-pub(crate) global TOKEN_IS_STRING: [Field; 11] = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0];
-pub(crate) global TOKEN_IS_ARRAY_OBJECT_OR_VALUE: [Field; 11] = [0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0];
+pub(crate) global TOKEN_ENDS_OBJECT_OR_ARRAY: [bool; 11] =
+    [false, false, true, false, true, false, false, false, false, false, false];
+pub(crate) global TOKEN_IS_STRING: [bool; 11] =
+    [false, false, false, false, false, false, false, true, false, false, false];
+pub(crate) global TOKEN_IS_ARRAY_OBJECT_OR_VALUE: [bool; 11] =
+    [false, true, false, true, false, false, false, true, true, true, false];
 pub(crate) global TOKEN_FLAGS_TABLE: [Field; NUM_TOKENS_MUL_2] = [
     0x01,
     0x0100000000,
