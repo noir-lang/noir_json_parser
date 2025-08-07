@@ -141,12 +141,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.set_root_entry();
     }
 
-    pub(crate) unconstrained fn __find_root_entry(self) -> Field {
+    pub(crate) unconstrained fn __find_root_entry(self) -> u32 {
         let mut found_index = 0;
         for i in 0..MaxNumValues {
             let entry: JSONEntry = self.json_entries_packed[i].into();
             if (entry.parent_index == 0) & (self.json_entries_packed[i].value != 0) {
-                found_index = i as Field;
+                found_index = i;
                 break;
             }
         }
@@ -157,7 +157,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: check the comments below
         let root_index = unsafe { self.__find_root_entry() };
 
-        let packed_entry = self.json_entries_packed[cast_num_to_u32(root_index)];
+        let packed_entry = self.json_entries_packed[root_index];
         let entry: JSONEntry = packed_entry.into();
 
         // checks that the entry is not empty
