@@ -423,7 +423,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut length: Field = 0;
         let mut previous_was_potential_escape_sequence: bool = false;
         for i in 0..NumBytes {
-            // while this assert is in an unconstrained function, the out of bounds accesss `raw_transcript[transcript_ptr]` in build_transcript also generates failing constraints
+            // while this assert is in an unconstrained function, the out of bounds access `raw_transcript[transcript_ptr]` in build_transcript also generates failing constraints
             assert(transcript_ptr < MaxNumTokens, "build_transcript: MaxNumTokens limit exceeded!");
             let ascii = json_array[i];
 
@@ -492,7 +492,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut length: Field = 0;
 
         // Safety: check the comments below
-        let raw_transcript = unsafe { JSON::<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields>::__build_transcript(self.json) };
+        let raw_transcript = unsafe {
+            JSON::<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields>::__build_transcript(
+                self.json,
+            )
+        };
 
         // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
         let mut previous_was_potential_escape_sequence: bool = false;
@@ -560,7 +564,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief We compute the output of `capture_missing_tokens` via an unconstrained function, then validate the result is correct.
      *        Saves some gates for same reason as in __build_transcript
      **/
-    unconstrained fn __capture_missing_tokens(raw_transcript: [Field; MaxNumTokens], transcript_length: u32) -> [Field; MaxNumTokens] {
+    unconstrained fn __capture_missing_tokens(
+        raw_transcript: [Field; MaxNumTokens],
+        transcript_length: u32,
+    ) -> [Field; MaxNumTokens] {
         let mut updated_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: u32 = 0;
         // TODO: do we need a null transcript value?!?!
@@ -604,7 +611,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut transcript_ptr: Field = 0;
         // hmm probably need a null transcript value?!?!
         // Safety: check the comments below
-        let updated_transcript = unsafe { JSON::<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields>::__capture_missing_tokens(self.raw_transcript, self.transcript_length) };
+        let updated_transcript = unsafe {
+            JSON::<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields>::__capture_missing_tokens(
+                self.raw_transcript,
+                self.transcript_length,
+            )
+        };
         // 26? gates per iteration
         let range_valid: [u32; MaxNumTokens] = get_validity_flags(self.transcript_length);
         for i in 0..MaxNumTokens {
