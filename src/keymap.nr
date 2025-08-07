@@ -1,5 +1,4 @@
 use crate::_comparison_tools::lt::assert_lte_240_bit;
-use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::_comparison_tools::lt::lte_field_240_bit;
 use crate::json::JSON;
 use crate::json_entry::{JSONEntry, JSONEntryPacked};
@@ -78,15 +77,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             sorted_entries[sort_result.sort_indices[i]] = self.json_entries_packed[i];
         }
 
-        let mut parent_indices: [Field; MaxNumValues] = [0; MaxNumValues];
+        let mut parent_indices: [u32; MaxNumValues] = [0; MaxNumValues];
 
-        let mut identity_to_json_map: [Field; MaxNumValues] = [0; MaxNumValues];
+        let mut identity_to_json_map: [u32; MaxNumValues] = [0; MaxNumValues];
         for i in 0..MaxNumValues {
             // 11.75 + 3.5 = 15.25 gates per iteration
             let (id, parent_index, entry_type) = JSONEntry::extract_entry_type_id_and_parent_index_from_field(
                 sorted_entries[i].value,
             );
-            parent_indices[i] = parent_index;
+            parent_indices[i] = cast_num_to_u32(parent_index);
             // 2 gates
             // update is 1 for end of object/array, 0 for other
             let update = TOKEN_ENDS_OBJECT_OR_ARRAY[cast_num_to_u32(entry_type)];
@@ -95,7 +94,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 1 gate
             let index = (id - (MaxNumValues as Field - 1)) * update + (MaxNumValues as Field - 1);
             // 3.5 gates
-            identity_to_json_map[cast_num_to_u32(index)] = i as Field;
+            identity_to_json_map[cast_num_to_u32(index)] = i;
         }
         // 13.5 gates per iteration
         let mut parent_identity_pre = parent_indices[0];
@@ -104,24 +103,23 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // if the parent identity changes,
             // 3.5 gate
             // the list is sorted according to parent_identity,
-            // n.b. parent_identity_post - parent_identity_pre is not neccessarily 0 or 1 (can be larger)
+            // n.b. parent_identity_post - parent_identity_pre is not necessarily 0 or 1 (can be larger)
             //      due to empty objects and arrays increasing identity value without creating associated child json entries
-            // let new_parent = (parent_identity_post as u32 > parent_identity_pre as u32) as Field;
-            let new_parent = lt_field_16_bit(parent_identity_pre, parent_identity_post) as Field;
+            let new_parent = parent_identity_pre < parent_identity_post;
             // 3.5 gates
-            let index_of_parent = identity_to_json_map[cast_num_to_u32(parent_identity_post)];
+            let index_of_parent = identity_to_json_map[parent_identity_post];
             // 1 gate + 3.5 gates
             let updated = JSONEntry::add_child_pointer_into_field(
-                sorted_entries[cast_num_to_u32(index_of_parent)].value,
+                sorted_entries[index_of_parent].value,
                 i as Field,
             );
 
             // RELIES ON THE SMALLEST ENTRY IN THE SORTED LIST BEING EMPTY
             // 1 gate
-            let index = (index_of_parent * new_parent);
+            let index = if new_parent { index_of_parent } else { 0 };
             // 3.5 gates
             //index is just 0 if new_parent is false, so sorted_entries[0] is useless info
-            sorted_entries[cast_num_to_u32(index)] = JSONEntryPacked { value: updated };
+            sorted_entries[index] = JSONEntryPacked { value: updated };
 
             parent_identity_pre = parent_identity_post;
         }
