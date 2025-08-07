@@ -416,7 +416,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      *        because we can use ROM arrays instead of RAM arrays
      *        (i.e. we're only reading from our arrays, we don't write to them in constrained functions)
      **/
-    unconstrained fn __build_transcript(self) -> [Field; MaxNumTokens] {
+    unconstrained fn __build_transcript(json_array: [u8; NumBytes]) -> [Field; MaxNumTokens] {
         let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: u32 = 0;
         let mut scan_mode = GRAMMAR_CAPTURE;
@@ -425,7 +425,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         for i in 0..NumBytes {
             // while this assert is in an unconstrained function, the out of bounds accesss `raw_transcript[transcript_ptr]` in build_transcript also generates failing constraints
             assert(transcript_ptr < MaxNumTokens, "build_transcript: MaxNumTokens limit exceeded!");
-            let ascii = self.json[i];
+            let ascii = json_array[i];
 
             let encoded_ascii = previous_was_potential_escape_sequence as Field * 1024
                 + scan_mode * 256
@@ -492,7 +492,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut length: Field = 0;
 
         // Safety: check the comments below
-        let raw_transcript = unsafe { self.__build_transcript() };
+        let raw_transcript = unsafe { JSON::<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields>::__build_transcript(self.json) };
 
         // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
         let mut previous_was_potential_escape_sequence: bool = false;
@@ -560,13 +560,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief We compute the output of `capture_missing_tokens` via an unconstrained function, then validate the result is correct.
      *        Saves some gates for same reason as in __build_transcript
      **/
-    unconstrained fn __capture_missing_tokens(self) -> [Field; MaxNumTokens] {
+    unconstrained fn __capture_missing_tokens(raw_transcript: [Field; MaxNumTokens], transcript_length: u32) -> [Field; MaxNumTokens] {
         let mut updated_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
         let mut transcript_ptr: u32 = 0;
         // TODO: do we need a null transcript value?!?!
         for i in 0..MaxNumTokens {
             let RawTranscriptEntry { encoded_ascii, index, length } =
-                RawTranscriptEntry::from_field(self.raw_transcript[i]);
+                RawTranscriptEntry::from_field(raw_transcript[i]);
 
             let PostProcessScanData { token, new_grammar, scan_token } = PostProcessScanData::from_field(
                 PROCESS_RAW_TRANSCRIPT_TABLE[cast_num_to_u32(encoded_ascii)],
@@ -575,7 +575,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
             updated_transcript[transcript_ptr] = entry;
 
-            let index_valid: u32 = (i < self.transcript_length) as u32;
+            let index_valid: u32 = (i < transcript_length) as u32;
             transcript_ptr += index_valid;
 
             let index_of_possible_grammar = (index + length);
@@ -604,7 +604,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut transcript_ptr: Field = 0;
         // hmm probably need a null transcript value?!?!
         // Safety: check the comments below
-        let updated_transcript = unsafe { self.__capture_missing_tokens() };
+        let updated_transcript = unsafe { JSON::<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields>::__capture_missing_tokens(self.raw_transcript, self.transcript_length) };
         // 26? gates per iteration
         let range_valid: [u32; MaxNumTokens] = get_validity_flags(self.transcript_length);
         for i in 0..MaxNumTokens {
