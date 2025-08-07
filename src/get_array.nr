@@ -17,7 +17,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     pub(crate) fn get_length(self) -> u32 {
         assert(self.layer_type_of_root == ARRAY_LAYER, "can only get length of an array type");
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
         parent_entry.num_children as u32
     }
 
@@ -38,7 +38,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
         r.root_id = entry.id;
         r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index as Field;
+        r.root_index_in_transcript = key_index;
 
         if exists {
             Option::some(r)
@@ -77,16 +77,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let (exists, key_index) = self.key_exists_impl_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         // TODO: ADD A layer_context VARIABLE INTO JSON WHICH DESCRIBES WHETHER WE ARE AN OBJECT, ARRAY OR SINGLE VALUE
-        assert(
-            (entry.entry_type - END_ARRAY_TOKEN as Field) * exists as Field == 0,
-            "key does not describe an object",
-        );
+        if !exists {
+            assert_eq(
+                entry.entry_type,
+                END_ARRAY_TOKEN as Field,
+                "key does not describe an object",
+            );
+        }
 
         let mut r = self;
         r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
         r.root_id = entry.id;
         r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index as Field;
+        r.root_index_in_transcript = key_index;
 
         if exists {
             Option::some(r)
@@ -127,21 +130,24 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
         let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
-        assert(
-            (entry.entry_type - END_ARRAY_TOKEN as Field) * valid as Field == 0,
-            "get_object_from_array: entry exists but is not an object!",
-        );
+        if valid {
+            assert_eq(
+                entry.entry_type,
+                END_ARRAY_TOKEN as Field,
+                "get_object_from_array: entry exists but is not an object!",
+            );
+        }
 
         let mut r = self;
         r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
         r.root_id = entry.id;
         r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = entry_index;
+        r.root_index_in_transcript = cast_num_to_u32(entry_index);
 
         if valid {
             Option::some(r)
@@ -161,7 +167,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
         let entry_index = (parent_entry.child_pointer + array_index);
@@ -175,7 +181,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
         r.root_id = entry.id;
         r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = entry_index;
+        r.root_index_in_transcript = cast_num_to_u32(entry_index);
         r
     }
 
@@ -191,8 +197,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     {
         assert(self.layer_type_of_root == ARRAY_LAYER, "can only call map on an array");
 
-        let entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+        let entry: JSONEntry = self.json_entries_packed[self.root_index_in_transcript].into();
         let num_children = entry.num_children;
         let mut r: [U; MaxElements] = [U::default(); MaxElements];
 

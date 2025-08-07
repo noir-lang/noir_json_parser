@@ -54,7 +54,7 @@ pub struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u
     pub(crate) json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
     pub(crate) layer_type_of_root: u32, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
     pub(crate) root_id: Field, // the unique identifier of the root (if an object or array)
-    pub(crate) root_index_in_transcript: Field, // location in json_entries_packed of the root
+    pub(crate) root_index_in_transcript: u32, // location in json_entries_packed of the root
 }
 
 /**

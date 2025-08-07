@@ -164,17 +164,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
         let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
-
-        assert(
-            (entry.entry_type - LITERAL_TOKEN as Field) * valid as Field == 0,
-            "get_literal_from_array: entry exists but is not a literal!",
-        );
+        if valid {
+            assert_eq(
+                entry.entry_type,
+                LITERAL_TOKEN as Field,
+                "get_literal_from_array: entry exists but is not a literal!",
+            );
+        }
 
         let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
             self.extract_string_entry(entry);
@@ -198,7 +200,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
