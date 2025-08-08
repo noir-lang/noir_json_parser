@@ -132,11 +132,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.set_root_entry();
     }
 
-    pub(crate) unconstrained fn __find_root_entry(self) -> u32 {
+    pub(crate) unconstrained fn __find_root_entry(
+        json_entries_packed: [JSONEntryPacked; MaxNumValues],
+    ) -> u32 {
         let mut found_index = 0;
         for i in 0..MaxNumValues {
-            let entry: JSONEntry = self.json_entries_packed[i].into();
-            if (entry.parent_index == 0) & (self.json_entries_packed[i].value != 0) {
+            let entry: JSONEntry = json_entries_packed[i].into();
+            if (entry.parent_index == 0) & (json_entries_packed[i].value != 0) {
                 found_index = i;
                 break;
             }
@@ -146,7 +148,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
     pub(crate) fn set_root_entry(&mut self) {
         // Safety: check the comments below
-        let root_index = unsafe { self.__find_root_entry() };
+        let root_index = unsafe {
+            JSON::<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields>::__find_root_entry(
+                self.json_entries_packed,
+            )
+        };
 
         let packed_entry = self.json_entries_packed[root_index];
         let entry: JSONEntry = packed_entry.into();
