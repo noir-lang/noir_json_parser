@@ -643,8 +643,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let ascii = self.json[i];
 
             // 1 gate
-            let encoded_ascii: Field =
-                previous_was_potential_escape_sequence as Field * 1024 + scan_mode * 256 + ascii as Field;
+            let encoded_ascii: Field = previous_was_potential_escape_sequence as Field * 1024
+                + scan_mode * 256
+                + ascii as Field;
             std::as_witness(encoded_ascii);
 
             // 2 gates
