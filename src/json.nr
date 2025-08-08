@@ -431,10 +431,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 self.json_entries_packed[entry_ptr] =
                     JSONEntryPacked { value: new_entry * create_json_entry as Field };
             }
-            // Update `next_identity_value` and `current_identity_value` (unique identfiers for JSON entries)
+            // Update `next_identity_value` and `current_identity_value` (unique identifiers for JSON entries)
             // If we've ended an object/array, set `current_identity_value` to the value of the object/array's parent (whose context we're now in)
-            // If we've started an object/array, set `current_identity_value` to `next_identity_value` (the next unused unique identifier)
-            // If we've started an object/array, also increment `next_identity_value` to a new unique value
+            // If we've started an object/array, set `current_identity_value` to `next_identity_value` (the next unused unique identifier), also increment `next_identity_value` to a new unique value
+            //  When processing normal tokens: keep current ID unchanged
             // Pseudocode for the following:
             //
             //  if !preserve_num_entries {
@@ -446,6 +446,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             //      }
             //      next_identity_value += is_start_of_object_or_array;
             //  }
+            //
+            // Note: `preserve_num_entries` is mutually exclusive with `is_start_of_object_or_array` and `is_end_of_object_or_array`
+            // - When `is_start_of_object_or_array = 1` -> `preserve_num_entries = 0` (start new object/array)
+            // - When `is_end_of_object_or_array = 1` -> `preserve_num_entries = 0` (end object/array)  
+            // - When `preserve_num_entries = 1` -> both flags = 0 (normal token)
             //
             // 4 gates
             {
@@ -643,8 +648,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let ascii = self.json[i];
 
             // 1 gate
-            let encoded_ascii: Field =
-                previous_was_potential_escape_sequence as Field * 1024 + scan_mode * 256 + ascii as Field;
+            let encoded_ascii: Field = previous_was_potential_escape_sequence as Field * 1024
+                + scan_mode * 256
+                + ascii as Field;
             std::as_witness(encoded_ascii);
 
             // 2 gates
