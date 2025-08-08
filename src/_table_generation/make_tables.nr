@@ -65,27 +65,27 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     // output is layer type
     // 11 tokens , 3 layers = 11 * 11 * 3 = 121 * 3 = 343
     // object contexts
-    let no_change = ValidationFlags { push_layer: 0, push_layer_type_of_root: 0, pop_layer: 0 };
-    let error_flags =
-        ValidationFlags { push_layer: 0x1000000, push_layer_type_of_root: 0, pop_layer: 0 };
+    let no_change =
+        ValidationFlags { push_layer: false, push_layer_type_of_root: false, pop_layer: false };
+    let error_flags_field = 0x1000000;
     let begin_new_object_flags = ValidationFlags {
-        push_layer: 1,
-        push_layer_type_of_root: OBJECT_LAYER as Field,
-        pop_layer: 0,
+        push_layer: true,
+        push_layer_type_of_root: OBJECT_LAYER != 0,
+        pop_layer: false,
     };
     let begin_new_array_flags = ValidationFlags {
-        push_layer: 1,
-        push_layer_type_of_root: ARRAY_LAYER as Field,
-        pop_layer: 0,
+        push_layer: true,
+        push_layer_type_of_root: ARRAY_LAYER != 0,
+        pop_layer: false,
     };
     let end_object_or_array_flags: ValidationFlags =
-        ValidationFlags { push_layer: 0, push_layer_type_of_root: 0, pop_layer: 1 };
+        ValidationFlags { push_layer: false, push_layer_type_of_root: false, pop_layer: true };
 
     let token_ids: [u32; NUM_TOKENS] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-    let error_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|_| error_flags.to_field());
+    let error_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|_| error_flags_field);
     let object_layer_begin_object_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == KEY_TOKEN) {
             result = no_change.to_field();
         }
@@ -98,13 +98,13 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     let object_layer_key_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = no_change.to_field();
         if (token != KEY_SEPARATOR_TOKEN) {
-            result = error_flags.to_field();
+            result = error_flags_field;
         }
         result
     });
 
     let object_layer_key_separator_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == STRING_TOKEN) | (token == LITERAL_TOKEN) | (token == NUMERIC_TOKEN) {
             result = no_change.to_field();
         }
@@ -118,7 +118,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     });
 
     let object_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == VALUE_SEPARATOR_TOKEN) {
             result = no_change.to_field();
         }
@@ -129,7 +129,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     });
 
     let object_layer_end_object_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == VALUE_SEPARATOR_TOKEN) {
             result = no_change.to_field();
         }
@@ -144,7 +144,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     });
 
     let object_layer_value_separator_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == KEY_TOKEN) {
             result = no_change.to_field();
         }
@@ -157,7 +157,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
         [[0; NUM_TOKENS]; NUM_TOKENS];
 
     let no_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == NO_TOKEN) {
             result = no_change.to_field();
         }
@@ -177,7 +177,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     object_layer_flags[KEY_TOKEN] = object_layer_key_token_outcomes;
 
     let array_layer_begin_array_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token: u32| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == STRING_TOKEN) | (token == LITERAL_TOKEN) | (token == NUMERIC_TOKEN) {
             result = no_change.to_field();
         }
@@ -194,7 +194,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     });
 
     let array_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == VALUE_SEPARATOR_TOKEN) {
             result = no_change.to_field();
         }
@@ -205,7 +205,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     });
 
     let array_layer_value_separator_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == STRING_TOKEN) | (token == LITERAL_TOKEN) | (token == NUMERIC_TOKEN) {
             result = no_change.to_field();
         }
@@ -219,7 +219,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     });
 
     let array_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == VALUE_SEPARATOR_TOKEN) {
             result = no_change.to_field();
         }
@@ -229,7 +229,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
         result
     });
     let array_layer_end_array_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == VALUE_SEPARATOR_TOKEN) {
             result = no_change.to_field();
         }
@@ -243,7 +243,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
         result
     });
     let array_layer_end_object_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         if (token == VALUE_SEPARATOR_TOKEN) {
             result = no_change.to_field();
         }
@@ -266,7 +266,7 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     array_layer_flags[KEY_TOKEN] = error_token_outcomes;
 
     let single_value_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
+        let mut result = error_flags_field;
         // we have reached the end of json
         if (token == NO_TOKEN) {
             result = no_change.to_field();
