@@ -54,7 +54,7 @@ pub struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u
     pub(crate) json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
     pub(crate) layer_type_of_root: u32, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
     pub(crate) root_id: Field, // the unique identifier of the root (if an object or array)
-    pub(crate) root_index_in_transcript: Field, // location in json_entries_packed of the root
+    pub(crate) root_index_in_transcript: u32, // location in json_entries_packed of the root
 }
 
 /**
@@ -129,10 +129,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let next_is_key = (next.token == KEY_SEPARATOR_TOKEN as Field) as Field;
 
             let valid_token = TOKEN_IS_STRING[cast_num_to_u32(current.token)];
-            assert(
-                (valid_token * next_is_key) + (1 - next_is_key) == 1,
-                "Cannot find key/value straddling KEY_DELIMITER_TOKEN",
-            );
+            if !valid_token {
+                assert(!next_is_key, "Cannot find key/value straddling KEY_DELIMITER_TOKEN");
+            }
 
             let old_transcript = self.transcript[i];
             // only change is set the token to be KEY_TOKEN
@@ -143,9 +142,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                     length: current.length,
                 },
             );
-            let updated_transcript =
-                (new_transcript - old_transcript) * next_is_key + old_transcript;
-            self.transcript[i] = updated_transcript;
+            self.transcript[i] = if next_is_key {
+                new_transcript
+            } else {
+                old_transcript
+            };
 
             current = next;
         }
@@ -185,7 +186,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         parent_layer_stack[0] =
             is_object as Field * OBJECT_LAYER as Field + is_array as Field * ARRAY_LAYER as Field;
         assert(
-            TOKEN_IS_ARRAY_OBJECT_OR_VALUE[cast_num_to_u32(previous_token)] == 1,
+            TOKEN_IS_ARRAY_OBJECT_OR_VALUE[cast_num_to_u32(previous_token)],
             "first json token does not describe an object, array or key",
         );
 
@@ -208,7 +209,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             // 1 gate
             // we encode an error flag into `push_layer` by making its value such that `depth` will exceed the size of `parent_layer_stack`
-            depth = depth + push_layer - pop_layer;
+            depth += push_layer - pop_layer;
             std::as_witness(depth);
 
             // 6.5 gates
@@ -554,14 +555,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // We start in grammar capture mode, expecting to see a { or [.
         let mut scan_mode = GRAMMAR_CAPTURE;
         let mut length: Field = 0;
-        let mut previous_was_potential_escape_sequence = 0;
+        let mut previous_was_potential_escape_sequence: bool = false;
         for i in 0..NumBytes {
             // while this assert is in an unconstrained function, the out of bounds access `raw_transcript[transcript_ptr]` in build_transcript also generates failing constraints
             assert(transcript_ptr < MaxNumTokens, "build_transcript: MaxNumTokens limit exceeded!");
             let ascii = self.json[i];
 
-            let encoded_ascii =
-                previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
+            let encoded_ascii = previous_was_potential_escape_sequence as Field * 1024
+                + scan_mode * 256
+                + ascii as Field;
             let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
                 ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
             // increase_length and push_transcript are contradictory
@@ -571,7 +573,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let mut scan_token = scan_token;
             let mut increase_length = increase_length;
 
-            if push_transcript == 1 {
+            if push_transcript {
                 let new_entry = RawTranscriptEntry::to_field(
                     // index is where the token starts in the original JSON
                     RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
@@ -582,7 +584,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 // reset length to 0 as we're starting a new token
                 length = 0;
             } else {
-                length += increase_length;
+                length += increase_length as Field;
             }
 
             previous_was_potential_escape_sequence = is_potential_escape_sequence;
@@ -636,7 +638,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         // steps to verify the transcript is correct
         // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
-        let mut previous_was_potential_escape_sequence = 0;
+        let mut previous_was_potential_escape_sequence: bool = false;
         for i in 0..NumBytes {
             let ascii = self.json[i];
 
@@ -664,14 +666,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             std::as_witness(diff);
 
             // 1 gate
-            assert(diff * push_transcript == 0);
+            assert(diff * push_transcript as Field == 0);
 
             // 1 gate
-            length = length * (1 - push_transcript) + increase_length;
+            length = length * (1 - push_transcript as Field) + increase_length as Field;
             std::as_witness(length);
 
             // 1 gate
-            transcript_ptr += push_transcript;
+            transcript_ptr += push_transcript as Field;
 
             previous_was_potential_escape_sequence = is_potential_escape_sequence;
             scan_mode = scan_token;
@@ -824,13 +826,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         // TODO we could make this more efficient...probably not a big deal though
         let first = TranscriptEntry::from_field(self.transcript[0]);
-        if (first.token == BEGIN_OBJECT_TOKEN as Field) {
-            self.layer_type_of_root = OBJECT_LAYER;
+        self.layer_type_of_root = if (first.token == BEGIN_OBJECT_TOKEN as Field) {
+            OBJECT_LAYER
         } else if (first.token == BEGIN_ARRAY_TOKEN as Field) {
-            self.layer_type_of_root = ARRAY_LAYER;
+            ARRAY_LAYER
         } else if (first.token == STRING_TOKEN as Field) {
-            self.layer_type_of_root = SINGLE_VALUE_LAYER;
-        }
+            SINGLE_VALUE_LAYER
+        } else {
+            self.layer_type_of_root
+        };
     }
 
     fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {

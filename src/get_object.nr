@@ -18,7 +18,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl(key);
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(key_index)].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
         assert(
             (entry.entry_type - END_OBJECT_TOKEN as Field) * exists as Field == 0,
             "get_object: entry exists but is not an object!",
@@ -43,7 +43,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     pub(crate) fn get_object_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index(key);
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(key_index)].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
         assert(
             entry.entry_type == END_OBJECT_TOKEN as Field,
             "get_object: entry exists but is not an object!",
@@ -67,7 +67,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl_var(key);
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(key_index)].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
         assert(
             (entry.entry_type - END_OBJECT_TOKEN as Field) * exists as Field == 0,
             "get_object: entry exists but is not an object!",
@@ -94,7 +94,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     ) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(key_index)].into();
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
         assert(
             entry.entry_type == END_OBJECT_TOKEN as Field,
             "get_object: entry exists but is not an object!",
@@ -119,23 +119,25 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
 
         let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
-
-        assert(
-            (entry.entry_type - END_OBJECT_TOKEN as Field) * valid as Field == 0,
-            "get_object_from_array: entry exists but is not an object!",
-        );
+        if valid {
+            assert_eq(
+                entry.entry_type,
+                END_OBJECT_TOKEN as Field,
+                "get_object_from_array: entry exists but is not an object!",
+            );
+        }
 
         let mut r = self;
         r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
         r.root_id = entry.id;
         r.layer_type_of_root = OBJECT_LAYER;
-        r.root_index_in_transcript = entry_index;
+        r.root_index_in_transcript = cast_num_to_u32(entry_index);
 
         if valid {
             Option::some(r)
@@ -155,7 +157,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         );
 
         let parent_entry: JSONEntry =
-            self.json_entries_packed[cast_num_to_u32(self.root_index_in_transcript)].into();
+            self.json_entries_packed[self.root_index_in_transcript].into();
 
         let valid = lt_field_16_bit(array_index, parent_entry.num_children);
         assert(valid, "array overflow");
@@ -171,7 +173,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
         r.root_id = entry.id;
         r.layer_type_of_root = OBJECT_LAYER;
-        r.root_index_in_transcript = entry_index;
+        r.root_index_in_transcript = cast_num_to_u32(entry_index);
         r
     }
 }
@@ -193,13 +195,7 @@ fn test_object() {
     assert(B == B_alt.unwrap());
 
     let C = B.get_object_unchecked("bartholomew tony Harrison III".as_bytes());
-    assert(
-        JSONEntry::from(
-            C.json_entries_packed[cast_num_to_u32(C.root_index_in_transcript)],
-        )
-            .num_children
-            == 1,
-    );
+    assert_eq(JSONEntry::from(C.json_entries_packed[C.root_index_in_transcript]).num_children, 1);
 
     let not_real = B.get_object("bartholomew tony Harrison IV".as_bytes());
     assert(not_real.is_some() == false);
@@ -208,13 +204,7 @@ fn test_object() {
         "bartholomew tony Harrison III".as_bytes(),
         29,
     ));
-    assert(
-        JSONEntry::from(
-            C.json_entries_packed[cast_num_to_u32(C.root_index_in_transcript)],
-        )
-            .num_children
-            == 1,
-    );
+    assert_eq(JSONEntry::from(C.json_entries_packed[C.root_index_in_transcript]).num_children, 1);
 
     let C = B.get_object_var(BoundedVec::from_parts_unchecked(
         "bartholomew tony Harrison III".as_bytes(),

@@ -107,9 +107,9 @@ pub(crate) struct TranscriptEntry {
 
 pub(crate) struct ScanData {
     pub(crate) scan_token: Field,
-    pub(crate) push_transcript: Field,
-    pub(crate) increase_length: Field,
-    pub(crate) is_potential_escape_sequence: Field,
+    pub(crate) push_transcript: bool,
+    pub(crate) increase_length: bool,
+    pub(crate) is_potential_escape_sequence: bool,
 }
 
 impl ScanData {
@@ -117,9 +117,9 @@ impl ScanData {
         let bytes: [u8; 6] = f.to_le_bytes();
 
         let scan_token: Field = bytes[0] as Field;
-        let push_transcript = bytes[1] as Field;
-        let increase_length = bytes[2] as Field;
-        let is_potential_escape_sequence = bytes[3] as Field;
+        let push_transcript = bytes[1] != 0;
+        let increase_length = bytes[2] != 0;
+        let is_potential_escape_sequence = bytes[3] != 0;
         let error = bytes[4] as Field * 0x100 + bytes[5] as Field;
         assert(error == 0, "ScanData: Invalid token");
         ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence }
@@ -128,21 +128,12 @@ impl ScanData {
     pub(crate) fn from_field(f: Field) -> Self {
         // Safety: check the comments below
         let result = unsafe { ScanData::__from_field(f) };
-        // checks increase_length is a valid boolean
-        assert(result.increase_length * result.increase_length == result.increase_length);
-        // checks push_transcript is a valid boolean
-        assert(result.push_transcript * result.push_transcript == result.push_transcript);
-        // checks is_potential_escape_sequence is a valid boolean
-        assert(
-            result.is_potential_escape_sequence * result.is_potential_escape_sequence
-                == result.is_potential_escape_sequence,
-        );
         // checks the input field is a valid combination of the outputs of the decomposition
         assert(
             result.scan_token
-                + result.push_transcript * 0x100
-                + result.increase_length * 0x10000
-                + result.is_potential_escape_sequence * 0x1000000
+                + result.push_transcript as Field * 0x100
+                + result.increase_length as Field * 0x10000
+                + result.is_potential_escape_sequence as Field * 0x1000000
                 == f,
         );
         result
@@ -230,6 +221,6 @@ impl TranscriptEntry {
         assert(ascii + remainder * 0x10000 == raw_encoded);
         // this lookup enforces an implicit 10 bit range check on ascii
         let token = ASCII_TO_TOKEN_TABLE[cast_num_to_u32(ascii)];
-        token + remainder * 0x100
+        token as Field + remainder * 0x100
     }
 }
