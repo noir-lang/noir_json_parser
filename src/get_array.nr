@@ -10,6 +10,16 @@ use crate::utils::cast_num_to_u32;
  * @brief getter methods for extracting array types out of a JSON struct
  **/
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+    /**
+     * @brief Updates the JSON object to point to a specific array entry
+     **/
+    pub(crate) fn update_json_array(mut self, entry: JSONEntry, key_index: u32) -> Self {
+        self.layer_type_of_root = cast_num_to_u32(entry.parent_index);
+        self.root_id = entry.id;
+        self.layer_type_of_root = ARRAY_LAYER;
+        self.root_index_in_transcript = key_index;
+        self
+    }
 
     /**
      * @brief if the root JSON is an array, return its length
@@ -34,14 +44,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             "key does not describe an object",
         );
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index;
+        let result = self.update_json_array(entry, key_index);
 
         if exists {
-            Option::some(r)
+            Option::some(result)
         } else {
             Option::none()
         }
@@ -57,13 +63,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index(key);
         assert(entry.entry_type == END_ARRAY_TOKEN as Field, "key does not describe an object");
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index;
-
-        r
+        self.update_json_array(entry, key_index)
     }
 
     /**
@@ -85,14 +85,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index;
+        let result = self.update_json_array(entry, key_index);
 
         if exists {
-            Option::some(r)
+            Option::some(result)
         } else {
             Option::none()
         }
@@ -110,13 +106,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
         assert(entry.entry_type == END_ARRAY_TOKEN as Field, "key does not describe an object");
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index;
-
-        r
+        self.update_json_array(entry, key_index)
     }
 
     /**
@@ -143,14 +133,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = cast_num_to_u32(entry_index);
+        let result = self.update_json_array(entry, cast_num_to_u32(entry_index));
 
         if valid {
-            Option::some(r)
+            Option::some(result)
         } else {
             Option::none()
         }
@@ -177,12 +163,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             "get_array_from_array_unchecked: entry exists but is not an array!",
         );
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = cast_num_to_u32(entry_index);
-        r
+        self.update_json_array(entry, cast_num_to_u32(entry_index))
     }
 
     /**
