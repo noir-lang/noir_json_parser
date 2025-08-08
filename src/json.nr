@@ -126,7 +126,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             next = TranscriptEntry::from_field(self.transcript[i + 1]);
 
             //if next token is :, current token is a key, so next_is_key = 1 and we can swap the token
-            let next_is_key = (next.token == KEY_SEPARATOR_TOKEN as Field) as Field;
+            let next_is_key = next.token == KEY_SEPARATOR_TOKEN as Field;
 
             let valid_token = TOKEN_IS_STRING[cast_num_to_u32(current.token)];
             if !valid_token {
@@ -644,7 +644,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             // 1 gate
             let encoded_ascii: Field =
-                previous_was_potential_escape_sequence * 1024 + scan_mode * 256 + ascii as Field;
+                previous_was_potential_escape_sequence as Field * 1024 + scan_mode * 256 + ascii as Field;
             std::as_witness(encoded_ascii);
 
             // 2 gates
