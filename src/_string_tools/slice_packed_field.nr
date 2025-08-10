@@ -374,12 +374,18 @@ global LAST_LIMB_PATH: [Field; 36] = [
     0x3ffffffff,
 ];
 
-global INTEGER_UP_TO_62_IS_GREATER_THAN_31: [Field; 63] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+global INTEGER_UP_TO_62_IS_GREATER_THAN_31: [bool; 63] = [
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, true, true, true, true, true, true, true, true, true,
+    true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+    true, true, true, true, true, true,
 ];
-global NUM_BYTES_MOD_31_IS_ZERO: [Field; 31] =
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+global NUM_BYTES_MOD_31_IS_ZERO: [bool; 31] = [
+    true, false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false,
+];
 global BYTE_SHIFT: [Field; 32] = [
     1,
     0x1000000000000000000000000000000000000000000000000000000000000,
@@ -692,17 +698,19 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     let num_bytes_div_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_div_31 as u32];
 
     // 1, 12
-    let lookup = (-num_bytes_div_31_is_0 * num_bytes) - start_mod_31 as Field + 62;
+    let lookup = 62 - num_bytes_div_31_is_0 as Field * num_bytes - start_mod_31 as Field;
     std::as_witness(lookup);
     // 3, 15
     let bytes_fit_into_limb =
-        INTEGER_UP_TO_62_IS_GREATER_THAN_31[cast_num_to_u32(lookup)] * num_bytes_div_31_is_0;
-    std::as_witness(bytes_fit_into_limb);
+        INTEGER_UP_TO_62_IS_GREATER_THAN_31[cast_num_to_u32(lookup)] & num_bytes_div_31_is_0;
+    std::as_witness(bytes_fit_into_limb as Field);
 
     // 2, 17
-    let num_unused_bytes_in_start_limb = (num_bytes + start_mod_31 as Field - 31)
-        * bytes_fit_into_limb
-        + (31 - start_mod_31 as Field);
+    let num_unused_bytes_in_start_limb = if bytes_fit_into_limb {
+        num_bytes
+    } else {
+        (31 - start_mod_31 as Field)
+    };
     std::as_witness(num_unused_bytes_in_start_limb);
     let num_remaining_bytes = num_bytes - num_unused_bytes_in_start_limb;
 
@@ -712,18 +720,13 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     // 44, 65.5
     let (_, tail) = slice_field(data[start_index as u32], num_underflow_bytes as u32);
 
-    let mut previous = tail;
-
-    let mut result = [0; OutputFields];
-
     // 4, 69.5
-    let extra_head_section = INTEGER_UP_TO_62_IS_GREATER_THAN_31[(
-        31 + num_overflow_bytes - start_mod_31
-    ) as u32]
-        * (1 - bytes_fit_into_limb);
+    let int_greater_than_61 =
+        INTEGER_UP_TO_62_IS_GREATER_THAN_31[(31 + num_overflow_bytes - start_mod_31) as u32];
+    let extra_head_section = int_greater_than_61 & !bytes_fit_into_limb;
 
     // 1, 70.5
-    let index_of_output_limb: Field = (num_bytes_div_31 as Field - num_bytes_mod_31_is_0);
+    let index_of_output_limb: Field = (num_bytes_div_31 as Field - num_bytes_mod_31_is_0 as Field);
     // 5, 75.5
     let path_valid_output: [Field; OutputFields] = get_last_limb_path(index_of_output_limb);
 
@@ -731,6 +734,8 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     let tail_shift = BYTE_SHIFT[cast_num_to_u32(num_unused_bytes_in_start_limb)];
 
     // 51, 128.5
+    let mut result = [0; OutputFields];
+    let mut previous = tail;
     for i in 0..(OutputFields - 1) {
         // 0
         let slice_valid = path_valid_output[i];
@@ -749,11 +754,12 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     }
 
     // 2, 130.5
-    let slice_size =
-        (num_bytes + start_mod_31 as Field) * bytes_fit_into_limb + num_overflow_bytes as Field;
+    let slice_size = (bytes_fit_into_limb as Field) * (num_bytes + start_mod_31 as Field)
+        + num_overflow_bytes as Field;
 
     // 1, 131.5
-    let use_previous_for_last_limb: Field = extra_head_section + bytes_fit_into_limb;
+    let use_previous_for_last_limb: Field =
+        extra_head_section as Field + bytes_fit_into_limb as Field;
 
     // 1, 132.5
     let index_of_overflow_limb = start_index + num_whole_limbs + 1;
@@ -781,21 +787,14 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     std::as_witness(last_limb);
 
     let mut path: [Field; OutputFields] = [0; OutputFields];
-    // 2, 190.5
+    path[0] = (1 - path_valid_output[0]);
     for i in 1..OutputFields {
         path[i] = path_valid_output[i] * -path_valid_output[i - 1] + path_valid_output[i - 1];
     }
-    // 1, 191.5
-    path[0] = (1 - path_valid_output[0]);
 
-    // 4, 195.5
-    // actual valud = 182, missing gates?
     for i in 0..OutputFields {
-        // 2
         result[i] = (last_limb - result[i]) * path[i] + result[i];
-        // std::as_witness(result[i]);
     }
-    // actual value = 182?
     result
 }
 
