@@ -152,7 +152,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
     /**
      * @brief if the root JSON is an array, extract an array given by the position of the target in the source array
-     * @description will revert if the array does not exist
+     * @description When the current root is an array, returns the nested array at `index`. Errors if `index` is out of bounds or the element is not an array.
      **/
     pub fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
         assert(

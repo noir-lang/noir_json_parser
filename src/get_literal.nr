@@ -66,12 +66,13 @@ fn extract_literal_from_array(
 
 /**
  * @brief getter methods for extracting literal values out of a JSON struct
+ * @description iterals are the JSON keywords `true`, `false`, and `null`. They are represented by `JSONLiteral`, which supports: `is_true()`, `is_false()`, `is_null()`, `to_bool()` (maps `true` to `true`, `false`/`null` to `false`)
  **/
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
     /**
      * @brief if the root JSON is an object, extract a literal value given by `key`
-     * @description returns an Option<JSONLiteral> which will be null if the literal does not exist
+     * @description From an object root, returns `Some(JSONLiteral)` if `key` exists and is a literal; `None` if `key` is missing; errors if `key` exists but is not a literal, or if called when the current root is an array.
      **/
     pub fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
@@ -93,7 +94,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
     /**
      * @brief if the root JSON is an object, extract a literal value given by `key`
-     * @description will revert if the literal does not exist
+     * @description From an object root, returns the literal at `key`; errors if the key is missing, not a literal, or if called when the current root is an array.
      **/
     pub fn get_literal_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> JSONLiteral {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
@@ -110,7 +111,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /**
-     * @brief same as `get_literal` for where the key length may be less than KeyBytes
+     * @brief Same as `get_literal`, but accepts a variable-length key up to `KeyBytes`.
      **/
     pub fn get_literal_var<let KeyBytes: u32>(
         self,
@@ -134,7 +135,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /**
-     * @brief same as `get_literal_unchecked` for where the key length may be less than KeyBytes
+     * @brief Same as `get_literal_unchecked`, with a variable-length key.
      **/
     pub fn get_literal_unchecked_var<let KeyBytes: u32>(
         self,
@@ -155,7 +156,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
     /**
      * @brief if the root JSON is an array, extract a literal given by the position of the target in the source array
-     * @description returns an Option<JSONLiteral> which will be null if the literal does not exist
+     * @description When the current root is an array, returns the literal at `index` wrapped in `Option`. Returns `None` if `index` is out of bounds; errors if in-bounds but the element at `index` is not a literal.
      **/
     fn get_literal_from_array(self, array_index: Field) -> Option<JSONLiteral> {
         assert(
@@ -191,7 +192,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
     /**
      * @brief if the root JSON is an array, extract a literal given by the position of the target in the source array
-     * @description will revert if the literal does not exist
+     * @description When the current root is an array, returns the literal at `index`; errors if `index` is out of bounds or the element is not a literal.
      **/
     pub fn get_literal_from_array_unchecked(self, array_index: Field) -> JSONLiteral {
         assert(
