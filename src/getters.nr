@@ -337,7 +337,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 }
 
-pub(crate) unconstrained fn find_key_in_map<let MaxNumValues: u32>(
+unconstrained fn find_key_in_map<let MaxNumValues: u32>(
     key_hashes: [Field; MaxNumValues],
     target: Field,
 ) -> u32 {
@@ -361,7 +361,7 @@ pub(crate) unconstrained fn find_key_in_map<let MaxNumValues: u32>(
     *          entries in `self.key_hashes`, lhs_index, rhs_index, where
     *          lhs_index < key_hash < rhs_index
     **/
-pub(crate) unconstrained fn search_for_key_in_map<let MaxNumValues: u32>(
+unconstrained fn search_for_key_in_map<let MaxNumValues: u32>(
     key_hashes: [Field; MaxNumValues],
     target: Field,
 ) -> KeySearchResult {
@@ -418,7 +418,7 @@ pub(crate) unconstrained fn search_for_key_in_map<let MaxNumValues: u32>(
     }
 }
 
-pub(crate) unconstrained fn __get_keys_at_root<let MaxNumKeys: u32, let MaxNumValues: u32>(
+unconstrained fn __get_keys_at_root<let MaxNumKeys: u32, let MaxNumValues: u32>(
     root_id: Field,
     root_index_in_transcript: u32,
     json_entries_packed: [JSONEntryPacked; MaxNumValues],
