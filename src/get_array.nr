@@ -36,21 +36,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value  
      **/
     pub(crate) fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-        let (exists, key_index) = self.key_exists_impl(key);
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
-        assert(
-            (entry.entry_type - END_ARRAY_TOKEN as Field) * exists as Field == 0,
-            "key does not describe an object",
-        );
-
-        let result = self.update_json_array(entry, key_index);
-
-        if exists {
-            Option::some(result)
-        } else {
-            Option::none()
-        }
+        self.get_array_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
@@ -58,12 +44,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description will revert if the array does not exist
      **/
     pub(crate) fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index(key);
-        assert(entry.entry_type == END_ARRAY_TOKEN as Field, "key does not describe an object");
-
-        self.update_json_array(entry, key_index)
+        self.get_array_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
