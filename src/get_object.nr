@@ -12,7 +12,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief Updates the JSON object to point to a specific object entry
      **/
-    fn update_json_object(mut self, entry: JSONEntry, key_index: u32) -> Self {
+    pub(crate) fn update_json_object(mut self, entry: JSONEntry, key_index: u32) -> Self {
         self.layer_type_of_root = cast_num_to_u32(entry.parent_index);
         self.root_id = entry.id;
         self.layer_type_of_root = OBJECT_LAYER;
