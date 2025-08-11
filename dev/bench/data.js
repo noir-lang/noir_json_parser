@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754907330462,
+  "lastUpdate": 1754907331365,
   "repoUrl": "https://github.com/noir-lang/noir_json_parser",
   "entries": {
     "ACIR Opcodes": [
@@ -3921,6 +3921,120 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/noir-lang/noir_json_parser/commit/3a46322c366e9bf42abdf32498ae51fa846ac5c5"
         },
         "date": 1754904592690,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "get_array_JSON16kb_Bench.json/main",
+            "value": 54968,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_array_JSON512b_Bench.json/main",
+            "value": 5848,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_keys_at_root_JSON16kb_Bench.json/main",
+            "value": 3380422,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_keys_at_root_JSON512b_Bench.json/main",
+            "value": 3354628,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_literal_JSON16kb_Bench.json/main",
+            "value": 32183,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_literal_JSON512b_Bench.json/main",
+            "value": 6389,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_number_JSON16kb_Bench.json/main",
+            "value": 32612,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_number_JSON512b_Bench.json/main",
+            "value": 6883,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_object_JSON16kb_Bench.json/main",
+            "value": 54968,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_object_JSON512b_Bench.json/main",
+            "value": 5848,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_string_JSON16kb_Bench.json/main",
+            "value": 252831,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_string_JSON512b_Bench.json/main",
+            "value": 227999,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_value_JSON16kb_Bench.json/main",
+            "value": 35344,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_value_JSON512b_Bench.json/main",
+            "value": 9550,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "key_exists_JSON16kb_Bench.json/main",
+            "value": 31277,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "key_exists_JSON512b_Bench.json/main",
+            "value": 9452,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "parse_json_from_string_JSON16kb_Bench.json/main",
+            "value": 1473490,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "parse_json_from_string_JSON512b_Bench.json/main",
+            "value": 68763,
+            "unit": "circuit_size"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15848336+TomAFrench@users.noreply.github.com",
+            "name": "Tom French",
+            "username": "TomAFrench"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "51574b7d7007792c59a23cedeacb7a0830c298fd",
+          "message": "chore: make some assert statements more idiomatic (#85)",
+          "timestamp": "2025-08-11T11:07:12+01:00",
+          "tree_id": "85bdc89c9c51b5ea055037bbb10d84f97f310c9d",
+          "url": "https://github.com/noir-lang/noir_json_parser/commit/51574b7d7007792c59a23cedeacb7a0830c298fd"
+        },
+        "date": 1754907331348,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
