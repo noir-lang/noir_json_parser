@@ -55,18 +55,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description returns an Option<u64> which will be null if the key does not exist
      **/
     pub(crate) fn get_number<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<u64> {
-        let (exists, entry) = self.get_json_entry(key);
-        assert(
-            (entry.entry_type - NUMERIC_TOKEN as Field) * exists as Field == 0,
-            "get_number: entry exists but is not a number!",
-        );
-        let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
-
-        if exists {
-            Option::some(extract_number_from_array(parsed_string, entry.json_length))
-        } else {
-            Option::none()
-        }
+        self.get_number_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
@@ -74,20 +63,16 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description will revert if the number does not exist
      **/
     fn get_number_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> u64 {
-        let entry = self.get_json_entry_unchecked(key);
-        assert(
-            entry.entry_type == NUMERIC_TOKEN as Field,
-            "get_number_unchecked: entry exists but is not a number!",
-        );
-        let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
-
-        extract_number_from_array(parsed_string, entry.json_length)
+        self.get_number_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
      * @brief same as `get_number` for where the key length may be less than KeyBytes
      **/
-    fn get_number_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<u64> {
+    pub(crate) fn get_number_var<let KeyBytes: u32>(
+        self,
+        key: BoundedVec<u8, KeyBytes>,
+    ) -> Option<u64> {
         let (exists, entry) = self.get_json_entry_var(key);
         assert(
             (entry.entry_type - NUMERIC_TOKEN as Field) * exists as Field == 0,
@@ -105,7 +90,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_number_unchecked` for where the key length may be less than KeyBytes
      **/
-    fn get_number_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> u64 {
+    pub(crate) fn get_number_unchecked_var<let KeyBytes: u32>(
+        self,
+        key: BoundedVec<u8, KeyBytes>,
+    ) -> u64 {
         let entry = self.get_json_entry_unchecked_var(key);
         assert(
             entry.entry_type == NUMERIC_TOKEN as Field,

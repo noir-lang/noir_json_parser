@@ -105,22 +105,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self,
         key: [u8; KeyBytes],
     ) -> Option<BoundedVec<u8, StringBytes>> {
-        let (exists, entry) = self.get_json_entry(key);
-        assert(
-            (entry.entry_type - STRING_TOKEN as Field) * exists as Field == 0,
-            "get_string: entry exists but is not a string!",
-        );
-        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
-
-        let parsed_string: BoundedVec<u8, StringBytes> = process_escape_sequences(
-            BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32),
-        );
-
-        if exists {
-            Option::some(parsed_string)
-        } else {
-            Option::none()
-        }
+        self.get_string_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
@@ -132,16 +117,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self,
         key: [u8; KeyBytes],
     ) -> BoundedVec<u8, StringBytes> {
-        let entry = self.get_json_entry_unchecked(key);
-        assert(
-            entry.entry_type == STRING_TOKEN as Field,
-            "get_string_unchecked: entry exists but is not a string!",
-        );
-        let parsed_string = BoundedVec::from_parts_unchecked(
-            self.extract_string_entry(entry),
-            entry.json_length as u32,
-        );
-        process_escape_sequences(parsed_string)
+        self.get_string_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
@@ -294,19 +270,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self,
         key: [u8; KeyBytes],
     ) -> Option<JSONValue<StringBytes>> {
-        let (exists, entry) = self.get_json_entry(key);
-        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
-
-        let parsed_string: BoundedVec<u8, StringBytes> =
-            BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32);
-
-        if exists {
-            Option::some(
-                JSONValue { value: parsed_string, value_type: entry.entry_type },
-            )
-        } else {
-            Option::none()
-        }
+        self.get_value_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
@@ -318,14 +282,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self,
         key: [u8; KeyBytes],
     ) -> JSONValue<StringBytes> {
-        let entry = self.get_json_entry_unchecked(key);
-        JSONValue {
-            value: BoundedVec::from_parts_unchecked(
-                self.extract_string_entry(entry),
-                entry.json_length as u32,
-            ),
-            value_type: entry.entry_type,
-        }
+        self.get_value_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
