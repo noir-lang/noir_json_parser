@@ -31,13 +31,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self,
         key: [u8; KeyBytes],
     ) -> (bool, JSONEntry) {
-        // let key_index = self.find_key_in_map(keyhash);
-        // assert(self.key_hashes[key_index] == keyhash);
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let (exists, key_index) = self.key_exists_impl(key);
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
-        (exists, entry)
+        self.get_json_entry_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
@@ -48,21 +42,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self,
         key: [u8; KeyBytes],
     ) -> JSONEntry {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
-        let keyhash = hasher.get_keyhash_var(key, 0, KeyBytes);
-        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
-
-        let keyhash = keyhash + self.root_id * two_pow_216;
-
-        // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
-        let key_index = unsafe { find_key_in_map::<MaxNumValues>(self.key_hashes, keyhash) };
-
-        assert_eq(self.key_hashes[key_index], keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
-
-        entry
+        self.get_json_entry_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
@@ -112,21 +92,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self,
         key: [u8; KeyBytes],
     ) -> (JSONEntry, u32) {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
-        let keyhash = hasher.get_keyhash_var(key, 0, KeyBytes);
-        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
-
-        let keyhash = keyhash + self.root_id * two_pow_216;
-
-        // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
-        let key_index = unsafe { find_key_in_map::<MaxNumValues>(self.key_hashes, keyhash) };
-
-        assert_eq(self.key_hashes[key_index], keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
-
-        (entry, key_index)
+        self.get_json_entry_unchecked_with_key_index_var(BoundedVec::from_parts_unchecked(
+            key,
+            KeyBytes,
+        ))
     }
     /**
      * @brief same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.json_entries_packed`
@@ -187,57 +156,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      *              If it does *not* exist, we can find two adjacent entries in `key_hashes` where `key_hashes[i]` < target_key_hash < `key_hashes[i+1]`
      **/
     pub(crate) fn key_exists_impl<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> (bool, u32) {
-        /*
-            Option A: key exists
-            Option B: key does NOT exist
-        If key does NOT exist. 3 cases
-            case 1: keyhash < first entry
-            case 2: keyhash > last entry
-            case 3: entry A > keyhash > entryB
-        */
-        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
-        let keyhash = hasher.get_keyhash_var(key, 0, KeyBytes);
-
-        let HASH_MAXIMUM = 0x1000000000000000000000000000000000000000000000000000000000000 - 1;
-        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
-
-        let keyhash = keyhash + self.root_id * two_pow_216;
-
-        // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
-        let search_result =
-            unsafe { search_for_key_in_map::<MaxNumValues>(self.key_hashes, keyhash) };
-        if search_result.found {
-            assert_eq(search_result.lhs_index, search_result.rhs_index);
-        }
-
-        let found = search_result.found as Field;
-
-        let target_lt_smallest_entry = search_result.target_lt_smallest_entry as Field;
-        let target_gt_largest_entry = search_result.target_gt_largest_entry as Field;
-
-        // only one of "found", "target_lt_smallest_entry", "target_gt_largest_entry" can be true
-        let exclusion_test = found + target_gt_largest_entry + target_lt_smallest_entry;
-        assert(exclusion_test * exclusion_test == exclusion_test);
-
-        let mut lhs = self.key_hashes[search_result.lhs_index];
-        let mut rhs = self.key_hashes[search_result.rhs_index];
-
-        // case where hash < self.key_hashes[0]
-        // 0 < hash < hashes[0]
-        lhs = lhs * (1 - target_lt_smallest_entry);
-
-        // case where hash > self.key_hashes[last]
-        // largest < x < -1
-        rhs = rhs * (1 - target_gt_largest_entry) + target_gt_largest_entry * HASH_MAXIMUM;
-
-        // case where hash == self.key_hashes[found_index]
-        lhs = lhs - found;
-        rhs = rhs + found;
-
-        assert_gt_240_bit(keyhash, lhs);
-        assert_lt_240_bit(keyhash, rhs);
-
-        (search_result.found, search_result.lhs_index)
+        self.key_exists_impl_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
