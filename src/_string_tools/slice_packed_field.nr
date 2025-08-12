@@ -352,22 +352,22 @@ global LAST_LIMB_PATH: [Field; 36] = [
     0x000000fff,
     0x000001fff,
     0x000003fff,
-    0x000007fff, 
-    0x00000ffff, 
-    0x00001ffff, 
-    0x00003ffff, 
-    0x00007ffff, 
-    0x0000fffff, 
-    0x0001fffff, 
-    0x0003fffff, 
-    0x0007fffff, 
-    0x000ffffff, 
-    0x001ffffff, 
-    0x003ffffff, 
-    0x007ffffff, 
-    0x00fffffff, 
-    0x01fffffff, 
-    0x03fffffff, 
+    0x000007fff,
+    0x00000ffff,
+    0x00001ffff,
+    0x00003ffff,
+    0x00007ffff,
+    0x0000fffff,
+    0x0001fffff,
+    0x0003fffff,
+    0x0007fffff,
+    0x000ffffff,
+    0x001ffffff,
+    0x003ffffff,
+    0x007ffffff,
+    0x00fffffff,
+    0x01fffffff,
+    0x03fffffff,
     0x07fffffff,
     0x0ffffffff,
     0x1ffffffff,
@@ -598,9 +598,9 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
 
 // 5 gates?
 pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Field; OutputFields] {
-    // The + 1 offset fixes a special case: when there are 0 bytes of data, last_limb_index becomes -1, 
-    // which would cause an error when trying to access the array. By adding 1, we turn -1 into 0, 
-    // which points to a special "empty" entry in the table. For all other cases, 
+    // The + 1 offset fixes a special case: when there are 0 bytes of data, last_limb_index becomes -1,
+    // which would cause an error when trying to access the array. By adding 1, we turn -1 into 0,
+    // which points to a special "empty" entry in the table. For all other cases,
     // the +1 just shifts us to the right spot in the table to get the correct bit pattern.
     let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; // 2
     // Safety: check the comments below
@@ -742,7 +742,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     let tail_shift = BYTE_SHIFT[cast_num_to_u32(num_unused_bytes_in_start_limb)];
 
     // 51, 128.5
-    // process middle fields 
+    // process middle fields
     let mut result = [0; OutputFields];
     // starting with the remaining bytes from the first limb
     let mut previous = tail;
