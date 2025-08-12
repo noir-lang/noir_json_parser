@@ -37,13 +37,8 @@ impl ValidationFlags {
     pub(crate) fn from_field(f: Field) -> Self {
         // Safety: check the comments below
         let r = unsafe { ValidationFlags::__from_field(f) };
-        // checks the input field is a valid combination of the outputs of the decomposition
-        assert(
-            r.pop_layer as Field * 0x10000
-                + r.push_layer_type_of_root as Field * 0x100
-                + r.push_layer as Field
-                == f,
-        );
+        // checks the input field is a valid combination of the outputs of the decomposition d dddddd
+        assert_eq(r.to_field(), f);
         r
     }
 }
@@ -80,8 +75,7 @@ impl RawTranscriptEntry {
         result.length.assert_max_bit_size::<16>();
         result.index.assert_max_bit_size::<16>();
         result.encoded_ascii.assert_max_bit_size::<14>();
-
-        assert(result.encoded_ascii + result.index * 0x10000 + result.length * 0x100000000 == felt);
+        assert_eq(result.to_field(), felt);
         result
     }
 
@@ -197,7 +191,7 @@ impl TranscriptEntry {
         // checks that token is in range
         result.token.assert_max_bit_size::<8>();
         // checks that the input is a valid combination of the outputs of the decomposition
-        assert(result.token + result.index * 0x100 + result.length * 0x1000000 == felt);
+        assert_eq(result.to_field(), felt);
         result
     }
 
