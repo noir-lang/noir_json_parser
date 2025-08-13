@@ -449,7 +449,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             //
             // Note: `preserve_num_entries` is mutually exclusive with `is_start_of_object_or_array` and `is_end_of_object_or_array`
             // - When `is_start_of_object_or_array = 1` -> `preserve_num_entries = 0` (start new object/array)
-            // - When `is_end_of_object_or_array = 1` -> `preserve_num_entries = 0` (end object/array)  
+            // - When `is_end_of_object_or_array = 1` -> `preserve_num_entries = 0` (end object/array)
             // - When `preserve_num_entries = 1` -> both flags = 0 (normal token)
             //
             // 4 gates
