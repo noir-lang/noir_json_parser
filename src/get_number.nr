@@ -73,7 +73,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> Option<u64> {
-        let (exists, entry) = self.get_json_entry_var(key);
+        let (exists, entry, _) = self.get_json_entry_var(key);
         assert(
             (entry.entry_type - NUMERIC_TOKEN as Field) * exists as Field == 0,
             "get_number: entry exists but is not a number!",
@@ -108,19 +108,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract a numeric value given by the position of the target in the source array
      * @description returns an Option<u64> which will be null if the number does not exist
      **/
-    fn get_number_from_array(self, array_index: Field) -> Option<u64> {
-        assert(
-            self.layer_type_of_root == ARRAY_LAYER,
-            "can only acceess array elements from array",
-        );
-
-        let parent_entry: JSONEntry =
-            self.json_entries_packed[self.root_index_in_transcript].into();
-
-        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
-        let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
-
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
+    pub fn get_number_from_array(self, array_index: Field) -> Option<u64> {
+        let (entry, valid, _) = self.get_entry_from_array(array_index);
         if valid {
             assert_eq(
                 entry.entry_type,
@@ -144,26 +133,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @description will revert if the number does not exist
      **/
     fn get_number_from_array_unchecked(self, array_index: Field) -> u64 {
-        assert(
-            self.layer_type_of_root == ARRAY_LAYER,
-            "can only acceess array elements from array",
-        );
-
-        let parent_entry: JSONEntry =
-            self.json_entries_packed[self.root_index_in_transcript].into();
-
-        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
-        assert(valid, "array overflow");
-        let entry_index = (parent_entry.child_pointer + array_index);
-
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
-
-        assert(
-            entry.entry_type == NUMERIC_TOKEN as Field,
-            "get_number: entry exists but is not a number!",
-        );
-
-        let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
-        extract_number_from_array(parsed_string, entry.json_length)
+        let result = self.get_number_from_array(array_index);
+        assert(result.is_some(), "array index out of bounds");
+        result.unwrap()
     }
 }

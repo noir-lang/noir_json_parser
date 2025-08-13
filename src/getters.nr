@@ -30,7 +30,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     pub(crate) fn get_json_entry<let KeyBytes: u32>(
         self,
         key: [u8; KeyBytes],
-    ) -> (bool, JSONEntry) {
+    ) -> (bool, JSONEntry, u32) {
         self.get_json_entry_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
@@ -51,14 +51,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     pub(crate) fn get_json_entry_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
-    ) -> (bool, JSONEntry) {
-        // let key_index = self.find_key_in_map(keyhash);
-        // assert(self.key_hashes[key_index] == keyhash);
+    ) -> (bool, JSONEntry, u32) {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (exists, key_index) = self.key_exists_impl_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
-        (exists, entry)
+        (exists, entry, key_index)
     }
 
     /**
@@ -253,6 +251,32 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
         BoundedVec::from_parts_unchecked(result, key_indices.len())
+    }
+
+    /**
+    * @brief Helper function to get an entry from an array at a given index
+    * @param array_index The index within the array
+    * @returns (entry, valid, entry_index) where:
+    *   - entry: The JSONEntry at the given index
+    *   - valid: Indicates if the index is within bounds
+    *   - entry_index: The actual index in json_entries_packed where the entry is stored
+    */
+    pub(crate) fn get_entry_from_array(self, array_index: Field) -> (JSONEntry, bool, u32) {
+        assert_eq(
+            self.layer_type_of_root,
+            ARRAY_LAYER,
+            "can only access array elements from array",
+        );
+
+        let parent_entry: JSONEntry =
+            self.json_entries_packed[self.root_index_in_transcript].into();
+
+        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
+        let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
+
+        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
+
+        (entry, valid, cast_num_to_u32(entry_index))
     }
 }
 
