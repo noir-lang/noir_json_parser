@@ -74,6 +74,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract a literal value given by `key`
      * @description From an object root, returns `Some(JSONLiteral)` if `key` exists and is a literal; `None` if `key` is missing; errors if `key` exists but is not a literal, or if called when the current root is an array.
      **/
+<<<<<<< HEAD
     pub fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
@@ -90,12 +91,17 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         } else {
             Option::none()
         }
+=======
+    pub(crate) fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
+        self.get_literal_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
+>>>>>>> 33bf55427694301d3630c946f35ac049c5563092
     }
 
     /**
      * @brief if the root JSON is an object, extract a literal value given by `key`
      * @description From an object root, returns the literal at `key`; errors if the key is missing, not a literal, or if called when the current root is an array.
      **/
+<<<<<<< HEAD
     pub fn get_literal_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> JSONLiteral {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
@@ -108,12 +114,20 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             self.extract_string_entry(entry);
 
         extract_literal_from_array(parsed_string, entry.json_length)
+=======
+    fn get_literal_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> JSONLiteral {
+        self.get_literal_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
+>>>>>>> 33bf55427694301d3630c946f35ac049c5563092
     }
 
     /**
      * @brief Same as `get_literal`, but accepts a variable-length key up to `KeyBytes`.
      **/
+<<<<<<< HEAD
     pub fn get_literal_var<let KeyBytes: u32>(
+=======
+    pub(crate) fn get_literal_var<let KeyBytes: u32>(
+>>>>>>> 33bf55427694301d3630c946f35ac049c5563092
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> Option<JSONLiteral> {
@@ -137,7 +151,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief Same as `get_literal_unchecked`, with a variable-length key.
      **/
+<<<<<<< HEAD
     pub fn get_literal_unchecked_var<let KeyBytes: u32>(
+=======
+    pub(crate) fn get_literal_unchecked_var<let KeyBytes: u32>(
+>>>>>>> 33bf55427694301d3630c946f35ac049c5563092
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> JSONLiteral {

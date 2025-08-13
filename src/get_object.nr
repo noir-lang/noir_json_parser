@@ -9,50 +9,30 @@ use crate::utils::cast_num_to_u32;
  * @brief getter methods for extracting object types out of a JSON struct
  **/
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+    /**
+     * @brief Updates the JSON object to point to a specific object entry
+     **/
+    pub(crate) fn update_json_object(mut self, entry: JSONEntry, key_index: u32) -> Self {
+        self.layer_type_of_root = cast_num_to_u32(entry.parent_index);
+        self.root_id = entry.id;
+        self.layer_type_of_root = OBJECT_LAYER;
+        self.root_index_in_transcript = key_index;
+        self
+    }
 
     /**
-     * @brief From an object root, returns `Some(JSON)` if `key` exists and is an object, `None` if `key` is missing; errors if `key` exists but is not an object, or if called when the current root is an array.
+     * @brief if the root JSON is an object, extract a child object given by `key`
+     * @description returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value  
      **/
-    pub fn get_object<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let (exists, key_index) = self.key_exists_impl(key);
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
-        assert(
-            (entry.entry_type - END_OBJECT_TOKEN as Field) * exists as Field == 0,
-            "get_object: entry exists but is not an object!",
-        );
-
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = OBJECT_LAYER;
-        r.root_index_in_transcript = key_index;
-        if exists {
-            Option::some(r)
-        } else {
-            Option::none()
-        }
+    pub(crate) fn get_object<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
+        self.get_object_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
      * @brief From an object root, returns the object at `key`; errors otherwise.
      **/
-    pub fn get_object_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index(key);
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
-        assert(
-            entry.entry_type == END_OBJECT_TOKEN as Field,
-            "get_object: entry exists but is not an object!",
-        );
-
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = OBJECT_LAYER;
-        r.root_index_in_transcript = key_index;
-        r
+    pub(crate) fn get_object_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
+        self.get_object_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
@@ -63,18 +43,18 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         let (exists, key_index) = self.key_exists_impl_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
-        assert(
-            (entry.entry_type - END_OBJECT_TOKEN as Field) * exists as Field == 0,
-            "get_object: entry exists but is not an object!",
-        );
-
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = OBJECT_LAYER;
-        r.root_index_in_transcript = key_index;
         if exists {
-            Option::some(r)
+            assert_eq(
+                entry.entry_type,
+                END_OBJECT_TOKEN as Field,
+                "get_object: entry exists but is not an object!",
+            );
+        }
+
+        let result = self.update_json_object(entry, key_index);
+
+        if exists {
+            Option::some(result)
         } else {
             Option::none()
         }
@@ -90,26 +70,23 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
-        assert(
-            entry.entry_type == END_OBJECT_TOKEN as Field,
+        assert_eq(
+            entry.entry_type,
+            END_OBJECT_TOKEN as Field,
             "get_object: entry exists but is not an object!",
         );
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = OBJECT_LAYER;
-        r.root_index_in_transcript = key_index;
-        r
+        self.update_json_object(entry, key_index)
     }
 
     /**
      * @brief if the root JSON is an array, extract an object given by the position of the target in the source array
      * @description When the current root is an array, returns the object at `index` wrapped in `Option`. Returns `None` if `index` is out of bounds; errors if in-bounds but the element is not an object.
      **/
-    pub fn get_object_from_array(self, array_index: Field) -> Option<Self> {
-        assert(
-            self.layer_type_of_root == ARRAY_LAYER,
+    pub(crate) fn get_object_from_array(self, array_index: Field) -> Option<Self> {
+        assert_eq(
+            self.layer_type_of_root,
+            ARRAY_LAYER,
             "can only acceess array elements from array",
         );
 
@@ -128,14 +105,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = OBJECT_LAYER;
-        r.root_index_in_transcript = cast_num_to_u32(entry_index);
+        let result = self.update_json_object(entry, cast_num_to_u32(entry_index));
 
         if valid {
-            Option::some(r)
+            Option::some(result)
         } else {
             Option::none()
         }
@@ -145,9 +118,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract an object given by the position of the target in the source array
      * @description When the current root is an array, returns the object at `index`. Errors if `index` is out of bounds or the element is not an object.
      **/
-    pub fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
-        assert(
-            self.layer_type_of_root == ARRAY_LAYER,
+    pub(crate) fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
+        assert_eq(
+            self.layer_type_of_root,
+            ARRAY_LAYER,
             "can only acceess array elements from array",
         );
 
@@ -159,17 +133,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let entry_index = (parent_entry.child_pointer + array_index);
 
         let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
-        assert(
-            entry.entry_type == END_OBJECT_TOKEN as Field,
+        assert_eq(
+            entry.entry_type,
+            END_OBJECT_TOKEN as Field,
             "get_object_from_array_unchecked: entry exists but is not an object!",
         );
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = OBJECT_LAYER;
-        r.root_index_in_transcript = cast_num_to_u32(entry_index);
-        r
+        self.update_json_object(entry, cast_num_to_u32(entry_index))
     }
 }
 

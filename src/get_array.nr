@@ -10,9 +10,19 @@ use crate::utils::cast_num_to_u32;
  * @brief getter methods for extracting array types out of a JSON struct
  **/
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
+    /**
+     * @brief Updates the JSON object to point to a specific array entry
+     **/
+    pub(crate) fn update_json_array(mut self, entry: JSONEntry, key_index: u32) -> Self {
+        self.layer_type_of_root = cast_num_to_u32(entry.parent_index);
+        self.root_id = entry.id;
+        self.layer_type_of_root = ARRAY_LAYER;
+        self.root_index_in_transcript = key_index;
+        self
+    }
 
     /**
-     * @brief Returns its length when the current root is an array; errors otherwise.
+     * @brief if the root JSON is an array, return its length
      **/
     pub fn get_length(self) -> u32 {
         assert(self.layer_type_of_root == ARRAY_LAYER, "can only get length of an array type");
@@ -25,45 +35,16 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract an array given by `key`
      * @description From an object root, returns Some(JSON) if key exists and is an array, None if key is missing; errors if key exists but is not an array, or if called when the current root is an array.  
      **/
-    pub fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-        let (exists, key_index) = self.key_exists_impl(key);
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
-        assert(
-            (entry.entry_type - END_ARRAY_TOKEN as Field) * exists as Field == 0,
-            "key does not describe an object",
-        );
-
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index;
-
-        if exists {
-            Option::some(r)
-        } else {
-            Option::none()
-        }
+    pub(crate) fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
+        self.get_array_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
      * @brief if the root JSON is an object, extract an array given by `key`
      * @description From an object root, returns the array at key; errors otherwise.
      **/
-    pub fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index(key);
-        assert(entry.entry_type == END_ARRAY_TOKEN as Field, "key does not describe an object");
-
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index;
-
-        r
+    pub(crate) fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
+        self.get_array_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
@@ -82,14 +63,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index;
+        let result = self.update_json_array(entry, key_index);
 
         if exists {
-            Option::some(r)
+            Option::some(result)
         } else {
             Option::none()
         }
@@ -104,13 +81,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
         assert(entry.entry_type == END_ARRAY_TOKEN as Field, "key does not describe an object");
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = key_index;
-
-        r
+        self.update_json_array(entry, key_index)
     }
 
     /**
@@ -137,14 +108,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = cast_num_to_u32(entry_index);
+        let result = self.update_json_array(entry, cast_num_to_u32(entry_index));
 
         if valid {
-            Option::some(r)
+            Option::some(result)
         } else {
             Option::none()
         }
@@ -171,12 +138,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             "get_array_from_array_unchecked: entry exists but is not an array!",
         );
 
-        let mut r = self;
-        r.layer_type_of_root = cast_num_to_u32(entry.parent_index);
-        r.root_id = entry.id;
-        r.layer_type_of_root = ARRAY_LAYER;
-        r.root_index_in_transcript = cast_num_to_u32(entry_index);
-        r
+        self.update_json_array(entry, cast_num_to_u32(entry_index))
     }
 
     /**
