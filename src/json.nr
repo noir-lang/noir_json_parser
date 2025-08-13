@@ -410,59 +410,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /**
-     * @brief Perform the 1st transcript processing step as an unconstrained function
-     *        We will validate this transcript is correct via a constrained function
-     *        This is a bit cheaper than doing everything in a constrained function,
-     *        because we can use ROM arrays instead of RAM arrays
-     *        (i.e. we're only reading from our arrays, we don't write to them in constrained functions)
-     **/
-    unconstrained fn __build_transcript(self) -> [Field; MaxNumTokens] {
-        let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
-        let mut transcript_ptr: u32 = 0;
-        let mut scan_mode = GRAMMAR_CAPTURE;
-        let mut length: Field = 0;
-        let mut previous_was_potential_escape_sequence: bool = false;
-        for i in 0..NumBytes {
-            // while this assert is in an unconstrained function, the out of bounds accesss `raw_transcript[transcript_ptr]` in build_transcript also generates failing constraints
-            assert(transcript_ptr < MaxNumTokens, "build_transcript: MaxNumTokens limit exceeded!");
-            let ascii = self.json[i];
-
-            let encoded_ascii = previous_was_potential_escape_sequence as Field * 1024
-                + scan_mode * 256
-                + ascii as Field;
-            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
-                ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
-
-            if push_transcript {
-                let new_entry = RawTranscriptEntry::to_field(
-                    RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
-                );
-
-                raw_transcript[transcript_ptr] = new_entry;
-                transcript_ptr += 1;
-                length = increase_length as Field;
-            } else {
-                length += increase_length as Field;
-            }
-
-            previous_was_potential_escape_sequence = is_potential_escape_sequence;
-
-            scan_mode = scan_token;
-        }
-
-        // if we end in a scan mode where we're searching for a number, string or a literal (true/false/null), we have an incomplete token and this is invalid JSON
-        // NOTE: if we upgrade this parser to be able to process single-value JSON (e,g, "999" or ""hello" : "world"" this logic needs to be upgraded)
-        assert(
-            scan_mode == GRAMMAR_CAPTURE as Field,
-            "build_transcript: incomplete token (number, string or literal)",
-        );
-
-        // ensure an error isn't hiding in the last scanned token
-        scan_mode.assert_max_bit_size::<2>();
-        raw_transcript
-    }
-
-    /**
      * @brief Construct a token transcript by iterating through self.json and using a lookup table `JSON_CAPTURE_TABLE` to define a state transition function
      * @details JSON_CAPTURE_TABLE takes the following as input:
      *          1. the ascii byte at the current location in the json
@@ -492,7 +439,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut length: Field = 0;
 
         // Safety: check the comments below
-        let raw_transcript = unsafe { self.__build_transcript() };
+        let raw_transcript = unsafe { __build_transcript::<NumBytes, MaxNumTokens>(self.json) };
 
         // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
         let mut previous_was_potential_escape_sequence: bool = false;
@@ -557,44 +504,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /**
-     * @brief We compute the output of `capture_missing_tokens` via an unconstrained function, then validate the result is correct.
-     *        Saves some gates for same reason as in __build_transcript
-     **/
-    unconstrained fn __capture_missing_tokens(self) -> [Field; MaxNumTokens] {
-        let mut updated_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
-        let mut transcript_ptr: u32 = 0;
-        // TODO: do we need a null transcript value?!?!
-        for i in 0..MaxNumTokens {
-            let RawTranscriptEntry { encoded_ascii, index, length } =
-                RawTranscriptEntry::from_field(self.raw_transcript[i]);
-
-            let PostProcessScanData { token, new_grammar, scan_token } = PostProcessScanData::from_field(
-                PROCESS_RAW_TRANSCRIPT_TABLE[cast_num_to_u32(encoded_ascii)],
-            );
-
-            let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
-            updated_transcript[transcript_ptr] = entry;
-
-            let index_valid: u32 = (i < self.transcript_length) as u32;
-            transcript_ptr += index_valid;
-
-            let index_of_possible_grammar = (index + length);
-            let new_entry =
-                TranscriptEntry { token: scan_token, index: index_of_possible_grammar, length: 0 };
-
-            let update = new_grammar * index_valid as Field;
-            let new_transcript = TranscriptEntry::to_field(new_entry);
-            assert(
-                transcript_ptr < MaxNumTokens,
-                "capture_missing_tokens: MaxNumTokens limit exceeded!",
-            );
-            updated_transcript[transcript_ptr] = new_transcript;
-            transcript_ptr += (update != 0) as u32;
-        }
-        updated_transcript
-    }
-
-    /**
      * @brief Check for missing tokens that we could have missed in `build_transcript`
      * @details If we had a json string where a NUMERIC_TOKEN or LITERAL_TOKEN is directly succeeded by a VALUE_SEPARATOR_TOKEN, END_OBJECT_TOKEN, END_ARRAY_TOKEN,
      *          we will have missed the latter token.
@@ -604,7 +513,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let mut transcript_ptr: Field = 0;
         // hmm probably need a null transcript value?!?!
         // Safety: check the comments below
-        let updated_transcript = unsafe { self.__capture_missing_tokens() };
+        let updated_transcript = unsafe {
+            __capture_missing_tokens::<MaxNumTokens>(self.raw_transcript, self.transcript_length)
+        };
         // 26? gates per iteration
         let range_valid: [u32; MaxNumTokens] = get_validity_flags(self.transcript_length);
         for i in 0..MaxNumTokens {
@@ -736,6 +647,102 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 //     assert(json.get_length() == 0);
 //     assert(json.get_array_element_as_number(0) == 100);
 // }
+
+/**
+    * @brief Perform the 1st transcript processing step as an unconstrained function
+    *        We will validate this transcript is correct via a constrained function
+    *        This is a bit cheaper than doing everything in a constrained function,
+    *        because we can use ROM arrays instead of RAM arrays
+    *        (i.e. we're only reading from our arrays, we don't write to them in constrained functions)
+    **/
+unconstrained fn __build_transcript<let NumBytes: u32, let MaxNumTokens: u32>(
+    json_array: [u8; NumBytes],
+) -> [Field; MaxNumTokens] {
+    let mut raw_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
+    let mut transcript_ptr: u32 = 0;
+    let mut scan_mode = GRAMMAR_CAPTURE;
+    let mut length: Field = 0;
+    let mut previous_was_potential_escape_sequence: bool = false;
+    for i in 0..NumBytes {
+        // while this assert is in an unconstrained function, the out of bounds access `raw_transcript[transcript_ptr]` in build_transcript also generates failing constraints
+        assert(transcript_ptr < MaxNumTokens, "build_transcript: MaxNumTokens limit exceeded!");
+        let ascii = json_array[i];
+
+        let encoded_ascii = previous_was_potential_escape_sequence as Field * 1024
+            + scan_mode * 256
+            + ascii as Field;
+        let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
+            ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
+
+        if push_transcript {
+            let new_entry = RawTranscriptEntry::to_field(
+                RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
+            );
+
+            raw_transcript[transcript_ptr] = new_entry;
+            transcript_ptr += 1;
+            length = increase_length as Field;
+        } else {
+            length += increase_length as Field;
+        }
+
+        previous_was_potential_escape_sequence = is_potential_escape_sequence;
+
+        scan_mode = scan_token;
+    }
+
+    // if we end in a scan mode where we're searching for a number, string or a literal (true/false/null), we have an incomplete token and this is invalid JSON
+    // NOTE: if we upgrade this parser to be able to process single-value JSON (e,g, "999" or ""hello" : "world"" this logic needs to be upgraded)
+    assert(
+        scan_mode == GRAMMAR_CAPTURE as Field,
+        "build_transcript: incomplete token (number, string or literal)",
+    );
+
+    // ensure an error isn't hiding in the last scanned token
+    scan_mode.assert_max_bit_size::<2>();
+    raw_transcript
+}
+
+/**
+    * @brief We compute the output of `capture_missing_tokens` via an unconstrained function, then validate the result is correct.
+    *        Saves some gates for same reason as in __build_transcript
+    **/
+unconstrained fn __capture_missing_tokens<let MaxNumTokens: u32>(
+    raw_transcript: [Field; MaxNumTokens],
+    transcript_length: u32,
+) -> [Field; MaxNumTokens] {
+    let mut updated_transcript: [Field; MaxNumTokens] = [0; MaxNumTokens];
+    let mut transcript_ptr: u32 = 0;
+    // TODO: do we need a null transcript value?!?!
+    for i in 0..MaxNumTokens {
+        let RawTranscriptEntry { encoded_ascii, index, length } =
+            RawTranscriptEntry::from_field(raw_transcript[i]);
+
+        let PostProcessScanData { token, new_grammar, scan_token } = PostProcessScanData::from_field(
+            PROCESS_RAW_TRANSCRIPT_TABLE[cast_num_to_u32(encoded_ascii)],
+        );
+
+        let entry = TranscriptEntry::to_field(TranscriptEntry { token, index, length });
+        updated_transcript[transcript_ptr] = entry;
+
+        let index_valid: u32 = (i < transcript_length) as u32;
+        transcript_ptr += index_valid;
+
+        let index_of_possible_grammar = (index + length);
+        let new_entry =
+            TranscriptEntry { token: scan_token, index: index_of_possible_grammar, length: 0 };
+
+        let update = new_grammar * index_valid as Field;
+        let new_transcript = TranscriptEntry::to_field(new_entry);
+        assert(
+            transcript_ptr < MaxNumTokens,
+            "capture_missing_tokens: MaxNumTokens limit exceeded!",
+        );
+        updated_transcript[transcript_ptr] = new_transcript;
+        transcript_ptr += (update != 0) as u32;
+    }
+    updated_transcript
+}
 
 #[test]
 fn test_numbers() {
