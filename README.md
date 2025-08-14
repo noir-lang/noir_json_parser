@@ -85,6 +85,19 @@ fn process_schema(text: [u8; NUM_BYTES])
 }
 ```
 
+## Getters API
+
+#### Function name differences
+
+- **Checked vs Unchecked**
+  - `get_*`/`get_*_var` return `Option<T>`; use when a key or index may be absent.
+  - `get_*_unchecked`/`get_*_unchecked_var` return `T` and will error on missing/mismatched types.
+
+- **Fixed key vs Variable key**
+  - Functions taking `key: [u8; KeyBytes]` expect a fixed-length key known at compile time.
+  - Functions with `_var` take `key: BoundedVec<u8, KeyBytes>` for variable-length keys up to `KeyBytes`.
+
+
 # Edge Cases
 
 ### single value JSON
