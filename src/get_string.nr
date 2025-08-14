@@ -295,7 +295,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_value` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_value_var<let KeyBytes: u32, let StringBytes: u32>(
+    pub fn get_value_var<let KeyBytes: u32, let StringBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> Option<JSONValue<StringBytes>> {

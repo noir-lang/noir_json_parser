@@ -24,14 +24,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract a child object given by `key`
      * @description returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value  
      **/
-    pub(crate) fn get_object<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
+    pub fn get_object<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
         self.get_object_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
      * @brief From an object root, returns the object at `key`; errors otherwise.
      **/
-    pub(crate) fn get_object_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
+    pub fn get_object_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
         self.get_object_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
@@ -83,7 +83,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract an object given by the position of the target in the source array
      * @description When the current root is an array, returns the object at `index` wrapped in `Option`. Returns `None` if `index` is out of bounds; errors if in-bounds but the element is not an object.
      **/
-    pub(crate) fn get_object_from_array(self, array_index: Field) -> Option<Self> {
+    pub fn get_object_from_array(self, array_index: Field) -> Option<Self> {
         assert_eq(
             self.layer_type_of_root,
             ARRAY_LAYER,
@@ -118,7 +118,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract an object given by the position of the target in the source array
      * @description When the current root is an array, returns the object at `index`. Errors if `index` is out of bounds or the element is not an object.
      **/
-    pub(crate) fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
+    pub fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
         assert_eq(
             self.layer_type_of_root,
             ARRAY_LAYER,

@@ -35,7 +35,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract an array given by `key`
      * @description From an object root, returns Some(JSON) if key exists and is an array, None if key is missing; errors if key exists but is not an array, or if called when the current root is an array.  
      **/
-    pub(crate) fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
+    pub fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
         self.get_array_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
@@ -43,7 +43,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract an array given by `key`
      * @description From an object root, returns the array at key; errors otherwise.
      **/
-    pub(crate) fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
+    pub fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
         self.get_array_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
