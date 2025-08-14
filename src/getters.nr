@@ -193,23 +193,27 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
 
         let found = search_result.found as Field;
-        let target_lt_smallest_entry = search_result.target_lt_smallest_entry as Field;
-        let target_gt_largest_entry = search_result.target_gt_largest_entry as Field;
+        let target_lt_smallest_entry = search_result.target_lt_smallest_entry;
+        let target_gt_largest_entry = search_result.target_gt_largest_entry;
 
         // only one of "found", "target_lt_smallest_entry", "target_gt_largest_entry" can be true
-        let exclusion_test = found + target_gt_largest_entry + target_lt_smallest_entry;
-        assert(exclusion_test * exclusion_test == exclusion_test);
-
-        let mut lhs = self.key_hashes[search_result.lhs_index];
-        let mut rhs = self.key_hashes[search_result.rhs_index];
+        let exclusion_test =
+            found + (target_gt_largest_entry as Field) + (target_lt_smallest_entry as Field);
+        exclusion_test.assert_max_bit_size::<1>();
 
         // case where hash < self.key_hashes[0]
         // 0 < hash < hashes[0]
-        lhs = lhs * (1 - target_lt_smallest_entry);
+        let lhs = self.key_hashes[search_result.lhs_index];
+        let mut lhs = if target_lt_smallest_entry { 0 } else { lhs };
 
         // case where hash > self.key_hashes[last]
         // largest < x < -1
-        rhs = rhs * (1 - target_gt_largest_entry) + target_gt_largest_entry * HASH_MAXIMUM;
+        let rhs = self.key_hashes[search_result.rhs_index];
+        let mut rhs = if target_gt_largest_entry {
+            HASH_MAXIMUM
+        } else {
+            rhs
+        };
 
         // case where hash == self.key_hashes[found_index]
         lhs -= found;
