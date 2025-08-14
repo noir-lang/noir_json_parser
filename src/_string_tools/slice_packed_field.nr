@@ -330,9 +330,9 @@ global tail_path_multipliers_chunk0: [Field; 32] = [
 ];
 
 // these path variables describe the location of a limb in an array
-// e.g. LAST_LIMB_PATH[5] produces 2^{5-1},
-// which is decomposed into 1 0 0 0 0, and the decompositions turned into an array M
-// M[4] = 1 i.e. the limbs[4] should contain the last limb
+// e.g. LAST_LIMB_PATH[5] produces 0x00000000f (15 in decimal),
+// which is decomposed into ... 0 0 0 0 1 1 1 1 , meaning limbs 0,1,2,3 from the end should contain data
+// Each 1 bit in the decomposed array indicates that the corresponding limb should contain valid data
 // array extends to 0x200000000 which is 2^33 => 33 31 byte limbs = 1,023 bytes
 // this puts a hard limit on the max size of a key that this program supports.
 global LAST_LIMB_PATH: [Field; 36] = [
@@ -574,7 +574,7 @@ fn divmod_31(numerator: u16) -> (u16, u16) {
     // note: these range checks are because we know the denominator is 31
     qf.assert_max_bit_size::<14>();
     rf.assert_max_bit_size::<5>();
-    assert(cast_num_to_u32(rf) < 31);
+    assert(remainder != 31);
 
     // n / d = q
     // d * q + r = n
@@ -603,6 +603,7 @@ pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Fie
     // which points to a special "empty" entry in the table. For all other cases,
     // the +1 just shifts us to the right spot in the table to get the correct bit pattern.
     let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; // 2
+    println(f"path: {path}");
     // Safety: check the comments below
     let path_valid_bits = unsafe { decompose(path) };
     let mut path_valid_sum: Field = 0;
