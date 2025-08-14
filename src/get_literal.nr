@@ -1,8 +1,5 @@
-use crate::_comparison_tools::lt::lt_field_16_bit;
-use crate::enums::Layer::ARRAY_LAYER;
 use crate::enums::Token::LITERAL_TOKEN;
 use crate::json::JSON;
-use crate::json_entry::JSONEntry;
 use crate::utils::cast_num_to_u32;
 
 global MAX_LITERAL_LENGTH_AS_STRING: u32 = 5;
@@ -156,7 +153,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      **/
     fn get_literal_from_array_unchecked(self, array_index: Field) -> JSONLiteral {
         let result = self.get_literal_from_array(array_index);
-        assert(result.is_some(), "array index out of bounds");
-        result.unwrap()
+        result.expect(f"array index out of bounds")
     }
 }

@@ -1,8 +1,5 @@
-use crate::_comparison_tools::lt::lt_field_16_bit;
-use crate::enums::Layer::ARRAY_LAYER;
 use crate::enums::Token::NUMERIC_TOKEN;
 use crate::json::JSON;
-use crate::json_entry::JSONEntry;
 use crate::json_tables::ASCII_TO_NUMBER;
 use crate::utils::cast_num_to_u32;
 
@@ -43,32 +40,27 @@ fn extract_number_from_array(arr: [u8; U64_LENGTH_AS_BASE10_STRING], json_length
     parsed_number as u64
 }
 
-/**
- * @brief getter methods for extracting numeric values out of a JSON struct
- * @note numeric values must fit into a `u64` type.
- *       decimal values and scientific notation are not yet supported
- **/
+/// getter methods for extracting numeric values out of a JSON struct
+///
+/// numeric values must fit into a `u64` type.
+/// decimal values and scientific notation are not yet supported
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
-    /**
-     * @brief if the root JSON is an object, extract a numeric value given by `key`
-     * @description returns an Option<u64> which will be null if the key does not exist
-     **/
+    /// if the root JSON is an object, extract a numeric value given by `key`
+    ///
+    /// returns an Option<u64> which will be null if the key does not exist
     pub(crate) fn get_number<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<u64> {
         self.get_number_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /**
-     * @brief if the root JSON is an object, extract a u64 value given by `key`
-     * @description will revert if the number does not exist
-     **/
+    /// if the root JSON is an object, extract a u64 value given by `key`
+    ///
+    /// will revert if the number does not exist
     fn get_number_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> u64 {
         self.get_number_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /**
-     * @brief same as `get_number` for where the key length may be less than KeyBytes
-     **/
+    /// same as `get_number` for where the key length may be less than KeyBytes
     pub(crate) fn get_number_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
@@ -87,9 +79,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief same as `get_number_unchecked` for where the key length may be less than KeyBytes
-     **/
+    /// same as `get_number_unchecked` for where the key length may be less than KeyBytes
     pub(crate) fn get_number_unchecked_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
@@ -104,10 +94,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         extract_number_from_array(parsed_string, entry.json_length)
     }
 
-    /**
-     * @brief if the root JSON is an array, extract a numeric value given by the position of the target in the source array
-     * @description returns an Option<u64> which will be null if the number does not exist
-     **/
+    /// if the root JSON is an array, extract a numeric value given by the position of the target in the source array
+    ///
+    /// returns an Option<u64> which will be null if the number does not exist
     pub fn get_number_from_array(self, array_index: Field) -> Option<u64> {
         let (entry, valid, _) = self.get_entry_from_array(array_index);
         if valid {
@@ -128,13 +117,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief if the root JSON is an array, extract a numeric value given by the position of the target in the source array
-     * @description will revert if the number does not exist
-     **/
+    /// if the root JSON is an array, extract a numeric value given by the position of the target in the source array
+    ///
+    /// will revert if the number does not exist
     fn get_number_from_array_unchecked(self, array_index: Field) -> u64 {
         let result = self.get_number_from_array(array_index);
-        assert(result.is_some(), "array index out of bounds");
-        result.unwrap()
+        result.expect(f"array index out of bounds")
     }
 }

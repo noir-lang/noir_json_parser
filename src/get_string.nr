@@ -374,8 +374,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         array_index: Field,
     ) -> JSONValue<StringBytes> {
         let result = self.get_value_from_array(array_index);
-        assert(result.is_some(), "array index out of bounds");
-        result.unwrap()
+        result.expect(f"array index out of bounds")
     }
 
     /**

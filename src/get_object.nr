@@ -1,9 +1,7 @@
-use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::END_OBJECT_TOKEN;
 use crate::json::JSON;
 use crate::json_entry::JSONEntry;
-use crate::utils::cast_num_to_u32;
 
 /**
  * @brief getter methods for extracting object types out of a JSON struct
@@ -108,8 +106,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      **/
     pub(crate) fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
         let result = self.get_object_from_array(array_index);
-        assert(result.is_some(), "array index out of bounds");
-        result.unwrap()
+        result.expect(f"array index out of bounds")
     }
 }
 

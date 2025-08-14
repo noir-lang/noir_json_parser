@@ -114,8 +114,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      **/
     pub(crate) fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
         let result = self.get_array_from_array(array_index);
-        assert(result.is_some(), "array index out of bounds");
-        result.unwrap()
+        result.expect(f"array index out of bounds")
     }
 
     /**
