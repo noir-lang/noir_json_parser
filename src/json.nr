@@ -755,7 +755,7 @@ fn test_numbers() {
     let d = json.get_number_unchecked("d".as_bytes());
     let e = json.get_number_unchecked("e".as_bytes());
     let f =
-        json.get_number_unchecked_var(BoundedVec::from_parts_unchecked("ftrololol".as_bytes(), 1));
+        json.get_number_unchecked(BoundedVec::from_parts_unchecked("ftrololol".as_bytes(), 1));
     let g = json.get_number("g".as_bytes()).unwrap();
     let h = json.get_number_var(BoundedVec::from_parts_unchecked("h".as_bytes(), 1)).unwrap();
     let i = json.get_number_unchecked("i".as_bytes());

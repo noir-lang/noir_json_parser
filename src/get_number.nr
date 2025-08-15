@@ -5,6 +5,7 @@ use crate::json::JSON;
 use crate::json_entry::JSONEntry;
 use crate::json_tables::ASCII_TO_NUMBER;
 use crate::utils::cast_num_to_u32;
+use crate::getters::KeyHashable;
 
 global U64_LENGTH_AS_BASE10_STRING: u32 = 20;
 global NUMBER_OFFSET_SHIFT: [Field; 21] = [
@@ -59,14 +60,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /**
-     * @brief if the root JSON is an object, extract a u64 value given by `key`
-     * @description will revert if the number does not exist
-     **/
-    fn get_number_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> u64 {
-        self.get_number_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /**
      * @brief same as `get_number` for where the key length may be less than KeyBytes
      **/
     pub(crate) fn get_number_var<let KeyBytes: u32>(
@@ -90,11 +83,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_number_unchecked` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_number_unchecked_var<let KeyBytes: u32>(
+    pub(crate) fn get_number_unchecked<K>(
         self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> u64 {
-        let entry = self.get_json_entry_unchecked_var(key);
+        key: K,
+    ) -> u64 where K: KeyHashable {
+        let entry = self.get_json_entry_unchecked(key);
         assert(
             entry.entry_type == NUMERIC_TOKEN as Field,
             "get_number_unchecked: entry exists but is not a number!",
