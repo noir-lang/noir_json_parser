@@ -18,6 +18,32 @@ pub struct KeySearchResult {
     rhs_index: u32, // either the index of the key being searched for, or the index of the keyhash in self.key_hashes that is closest to keyhash (hash < rhs_index_hash)
 }
 
+pub trait KeyHashable {
+    fn get_keyhash<let MaxKeyFields: u32>(self) -> Field;
+}
+
+impl<let N: u32> KeyHashable for [u8; N] {
+
+    fn get_keyhash<let MaxKeyFields: u32>(self) -> Field {
+        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
+        hasher.get_keyhash_var(self, 0, N)
+    }
+}
+
+impl<let N: u32> KeyHashable for BoundedVec<u8, N> {
+    fn get_keyhash<let MaxKeyFields: u32>(self) -> Field {
+        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
+        hasher.get_keyhash_var(self.storage(), 0, self.len())
+    }
+}
+
+impl<let N: u32> KeyHashable for str<N> {
+    fn get_keyhash<let MaxKeyFields: u32>(self) -> Field {
+        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
+        hasher.get_keyhash_var(self.as_bytes(), 0, N)
+    }
+}
+
 /**
  * @brief helper methods for extracting data out of a processed JSON object
  **/
@@ -34,16 +60,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.get_json_entry_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /**
-     * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
-     * @note will revert if the key does not exist
-     **/
-    pub(crate) fn get_json_entry_unchecked<let KeyBytes: u32>(
-        self,
-        key: [u8; KeyBytes],
-    ) -> JSONEntry {
-        self.get_json_entry_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
 
     /**
      * @brief same as `get_json_entry` but the key length may be less than KeyBytes
@@ -84,6 +100,33 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
         entry
     }
+
+    /**
+    /**
+     * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
+     * @note will revert if the key does not exist
+     **/
+     * @brief same as `get_json_entry_unchecked` but the key length may be less than KeyBytes
+     **/
+    pub(crate) fn get_json_entry_unchecked<K>(
+        self,
+        key: K,
+    ) -> JSONEntry where K: KeyHashable{
+        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
+        let keyhash = key.get_keyhash::<MaxKeyFields>();
+        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
+
+        let keyhash = keyhash + self.root_id * two_pow_216;
+
+        // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
+        let key_index = unsafe { find_key_in_map::<MaxNumValues>(self.key_hashes, keyhash) };
+
+        assert_eq(self.key_hashes[key_index], keyhash, "get_json_entry_unchecked: key not found");
+        let entry: JSONEntry = self.json_entries_packed[key_index].into();
+
+        entry
+    }
+
 
     /**
      * @brief same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.json_entries_packed`
