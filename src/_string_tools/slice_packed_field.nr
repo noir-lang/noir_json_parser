@@ -809,6 +809,21 @@ mod test {
     use crate::_string_tools::slice_packed_field::slice_field;
     use crate::_string_tools::slice_packed_field::slice_fields;
 
+    mod get_last_limb_path {
+        use crate::_string_tools::slice_packed_field::get_last_limb_path;
+
+        #[test]
+        fn returns_expected_values() {
+            let test_cases: [[Field; 9]] = [[0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 1]];
+
+            for i in 0..test_cases.len() {
+                let path = get_last_limb_path(i as Field);
+                let expected_path = test_cases[i];
+                assert_eq(path, test_cases[i], f"Expected {path} to equal {expected_path} for index {i}");
+            }
+        }
+    }
+
     unconstrained fn build_slices_for_test<let N: u32>(
         bytes: [u8; N],
         start: u32,
@@ -889,7 +904,7 @@ mod test {
             for j in 0..18 {
                 let start_byte: u32 = text.len() - num_bytes - byte_positions[j];
                 let mut expected_slices: [Field; 3] =
-                // Safety: this is a test
+                    // Safety: this is a test
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
                     slice_fields(slices, start_byte as Field, num_bytes as Field);
