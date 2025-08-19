@@ -814,7 +814,9 @@ mod test {
 
         #[test]
         fn returns_expected_values() {
-            let test_cases: [[Field; 9]] = [[0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 1]];
+            // test cases taken from documentation on `LAST_LIMB_PATH`, note that indices are offset by 1 from
+            // the value passed to `get_last_limb_path`.
+            let test_cases: [[Field; 9]] = [[0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 1, 1]];
 
             for i in 0..test_cases.len() {
                 let path = get_last_limb_path(i as Field);
