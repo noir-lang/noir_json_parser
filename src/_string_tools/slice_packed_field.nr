@@ -597,12 +597,12 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
 }
 
 // 5 gates?
-pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Field; OutputFields] {
+pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: u32) -> [Field; OutputFields] {
     // The + 1 offset fixes a special case: when there are 0 bytes of data, last_limb_index becomes -1,
     // which would cause an error when trying to access the array. By adding 1, we turn -1 into 0,
     // which points to a special "empty" entry in the table. For all other cases,
     // the +1 just shifts us to the right spot in the table to get the correct bit pattern.
-    let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; // 2
+    let path = LAST_LIMB_PATH[last_limb_index + 1]; // 2
     println(f"path: {path}");
     // Safety: check the comments below
     let path_valid_bits = unsafe { decompose(path) };
@@ -731,7 +731,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
 
     // 1, 70.5
     // the index of the last limb that contains data
-    let index_of_output_limb: Field = (num_bytes_div_31 as Field - num_bytes_mod_31_is_0 as Field);
+    let index_of_output_limb = cast_num_to_u32(num_bytes_div_31 as Field - num_bytes_mod_31_is_0 as Field);
     // 5, 75.5
     // index_of_output_limb is -1 if num_bytes is 0 as num_bytes_div_31 is 0 and num_bytes_mod_31_is_0 is 1
     // path_valid_output[i] = 1 means field i should contain actual data, 0 means it should be 0. For example, it could be [1, 1, 0]
@@ -819,7 +819,7 @@ mod test {
             let test_cases: [[Field; 9]] = [[0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 1, 1]];
 
             for i in 0..test_cases.len() {
-                let path = get_last_limb_path(i as Field);
+                let path = get_last_limb_path(i);
                 let expected_path = test_cases[i];
                 assert_eq(path, test_cases[i], f"Expected {path} to equal {expected_path} for index {i}");
             }
