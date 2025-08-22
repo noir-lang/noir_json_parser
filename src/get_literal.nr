@@ -4,6 +4,7 @@ use crate::enums::Token::LITERAL_TOKEN;
 use crate::json::JSON;
 use crate::json_entry::JSONEntry;
 use crate::utils::cast_num_to_u32;
+use crate::getters::KeyHashable;
 
 global MAX_LITERAL_LENGTH_AS_STRING: u32 = 5;
 global LITERAL_OFFSET_SHIFT: [Field; 6] =
@@ -78,14 +79,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /**
-     * @brief if the root JSON is an object, extract a literal value given by `key`
-     * @description will revert if the literal does not exist
-     **/
-    fn get_literal_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> JSONLiteral {
-        self.get_literal_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /**
      * @brief same as `get_literal` for where the key length may be less than KeyBytes
      **/
     pub(crate) fn get_literal_var<let KeyBytes: u32>(
@@ -112,13 +105,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_literal_unchecked` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_literal_unchecked_var<let KeyBytes: u32>(
+    pub(crate) fn get_literal_unchecked<K>(
         self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> JSONLiteral {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
+        key: K,
+    ) -> JSONLiteral where K: KeyHashable {
 
-        let entry = self.get_json_entry_unchecked_var(key);
+        let entry = self.get_json_entry_unchecked(key);
         assert(
             entry.entry_type == LITERAL_TOKEN as Field,
             "get_literal_unchecked_var: entry exists but is not a literal!",
