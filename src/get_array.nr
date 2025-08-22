@@ -6,22 +6,16 @@ use crate::json::JSONValue;
 use crate::json_entry::JSONEntry;
 use crate::utils::cast_num_to_u32;
 
-/**
- * @brief getter methods for extracting array types out of a JSON struct
- **/
+/// getter methods for extracting array types out of a JSON struct
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
-    /**
-     * @brief Updates the JSON object to point to a specific array entry
-     **/
+    /// Updates the JSON object to point to a specific array entry
     pub(crate) fn update_json_array(mut self, entry: JSONEntry, key_index: u32) -> Self {
         self.root_id = entry.id;
         self.layer_type_of_root = ARRAY_LAYER;
         self.root_index_in_transcript = key_index;
         self
     }
-    /**
-     * @brief if the root JSON is an array, return its length
-     **/
+    /// if the root JSON is an array, return its length
     pub(crate) fn get_length(self) -> u32 {
         assert(self.layer_type_of_root == ARRAY_LAYER, "can only get length of an array type");
         let parent_entry: JSONEntry =
@@ -29,25 +23,21 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         parent_entry.num_children as u32
     }
 
-    /**
-     * @brief if the root JSON is an object, extract an array given by `key`
-     * @description returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value  
-     **/
+    /// if the root JSON is an object, extract an array given by `key`
+    ///
+    /// returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value
     pub(crate) fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
         self.get_array_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /**
-     * @brief if the root JSON is an object, extract an array given by `key`
-     * @description will revert if the array does not exist
-     **/
+    /// if the root JSON is an object, extract an array given by `key`
+    ///
+    /// will revert if the array does not exist
     pub(crate) fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
         self.get_array_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /**
-     * @brief same as `get_array` for where the key length may be less than KeyBytes
-     **/
+    /// same as `get_array` for where the key length may be less than KeyBytes
     pub(crate) fn get_array_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
@@ -70,9 +60,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief same as `get_array_unchecked` for where the key length may be less than KeyBytes
-     **/
+    /// same as `get_array_unchecked` for where the key length may be less than KeyBytes
     pub(crate) fn get_array_unchecked_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
@@ -85,10 +73,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.update_json_array(entry, key_index)
     }
 
-    /**
-     * @brief if the root JSON is an array, extract an array given by the position of the target in the source array
-     * @description returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value  
-     **/
+    /// if the root JSON is an array, extract an array given by the position of the target in the source array
+    ///
+    /// returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value
     pub(crate) fn get_array_from_array(self, array_index: Field) -> Option<Self> {
         let (entry, valid, entry_index) = self.get_entry_from_array(array_index);
         if valid {
@@ -108,18 +95,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief if the root JSON is an array, extract an array given by the position of the target in the source array
-     * @description will revert if the array does not exist
-     **/
+    /// if the root JSON is an array, extract an array given by the position of the target in the source array
+    ///
+    /// will revert if the array does not exist
     pub(crate) fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
         let result = self.get_array_from_array(array_index);
         result.expect(f"array index out of bounds")
     }
 
-    /**
-     * @brief if the root is an array, map over the array values, applying `fn f` to each value
-     **/
+    /// if the root is an array, map over the array values, applying `fn f` to each value
     fn map<U, let MaxElements: u32, let MaxElementBytes: u32>(
         self,
         f: fn(JSONValue<MaxElementBytes>) -> U,

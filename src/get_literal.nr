@@ -6,10 +6,8 @@ global MAX_LITERAL_LENGTH_AS_STRING: u32 = 5;
 global LITERAL_OFFSET_SHIFT: [Field; 6] =
     [0x10000000000, 0x100000000, 0x1000000, 0x10000, 0x100, 1];
 
-/**
- * @brief a JSON "literal" type has 3 states: "true", "false", "null".
- *        As such we can't directly convert to a bool and cover all possible cases
- **/
+/// a JSON "literal" type has 3 states: "true", "false", "null".
+/// As such we can't directly convert to a bool and cover all possible cases
 pub struct JSONLiteral {
     pub(crate) value: Field,
 }
@@ -36,9 +34,7 @@ impl JSONLiteral {
     }
 }
 
-/**
- * @brief given an input array, return a JSONLiteral depending on whether the array says "true", "false" or "null"
- **/
+/// given an input array, return a JSONLiteral depending on whether the array says "true", "false" or "null"
 fn extract_literal_from_array(
     arr: [u8; MAX_LITERAL_LENGTH_AS_STRING],
     json_length: Field,
@@ -61,30 +57,24 @@ fn extract_literal_from_array(
     JSONLiteral::new(is_true, is_false, is_null)
 }
 
-/**
- * @brief getter methods for extracting literal values out of a JSON struct
- **/
+/// getter methods for extracting literal values out of a JSON struct
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
-    /**
-     * @brief if the root JSON is an object, extract a literal value given by `key`
-     * @description returns an Option<JSONLiteral> which will be null if the literal does not exist
-     **/
+    /// if the root JSON is an object, extract a literal value given by `key`
+    ///
+    /// returns an Option<JSONLiteral> which will be null if the literal does not exist
     pub(crate) fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
         self.get_literal_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /**
-     * @brief if the root JSON is an object, extract a literal value given by `key`
-     * @description will revert if the literal does not exist
-     **/
+    /// if the root JSON is an object, extract a literal value given by `key`
+    ///
+    /// will revert if the literal does not exist
     fn get_literal_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> JSONLiteral {
         self.get_literal_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /**
-     * @brief same as `get_literal` for where the key length may be less than KeyBytes
-     **/
+    /// same as `get_literal` for where the key length may be less than KeyBytes
     pub(crate) fn get_literal_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
@@ -104,9 +94,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief same as `get_literal_unchecked` for where the key length may be less than KeyBytes
-     **/
+    /// same as `get_literal_unchecked` for where the key length may be less than KeyBytes
     pub(crate) fn get_literal_unchecked_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
@@ -122,10 +110,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         extract_literal_from_array(parsed_string, entry.json_length)
     }
 
-    /**
-     * @brief if the root JSON is an array, extract a literal given by the position of the target in the source array
-     * @description returns an Option<JSONLiteral> which will be null if the literal does not exist
-     **/
+    /// if the root JSON is an array, extract a literal given by the position of the target in the source array
+    ///
+    /// returns an Option<JSONLiteral> which will be null if the literal does not exist
     pub fn get_literal_from_array(self, array_index: Field) -> Option<JSONLiteral> {
         let (entry, valid, _) = self.get_entry_from_array(array_index);
         if valid {
@@ -147,10 +134,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief if the root JSON is an array, extract a literal given by the position of the target in the source array
-     * @description will revert if the literal does not exist
-     **/
+    /// if the root JSON is an array, extract a literal given by the position of the target in the source array
+    ///
+    /// will revert if the literal does not exist
     fn get_literal_from_array_unchecked(self, array_index: Field) -> JSONLiteral {
         let result = self.get_literal_from_array(array_index);
         result.expect(f"array index out of bounds")
