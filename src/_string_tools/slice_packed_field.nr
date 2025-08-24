@@ -882,7 +882,7 @@ mod test {
             for j in 0..18 {
                 let start_byte: u32 = text.len() - num_bytes - byte_positions[j];
                 let mut expected_slices: [Field; 3] =
-                    // Safety: this is a test
+                // Safety: this is a test
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
                     slice_fields(slices, start_byte as Field, num_bytes as Field);
