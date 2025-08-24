@@ -71,7 +71,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let (exists, entry, _) = self.get_json_entry(key);
         assert(
             (entry.entry_type - LITERAL_TOKEN as Field) * exists as Field == 0,
-            "get_literal_var: entry exists but is not a literal!",
+            "get_literal: entry exists but is not a literal!",
         );
         let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
             self.extract_string_entry(entry);
@@ -83,9 +83,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief same as `get_literal_unchecked` for where the key length may be less than KeyBytes
-     **/
+    /// if the root JSON is an object, extract a literal value given by `key`
+    ///
+    /// will revert if the literal does not exist
     pub(crate) fn get_literal_unchecked<K>(self, key: K) -> JSONLiteral
     where
         K: KeyHashable,

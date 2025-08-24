@@ -128,9 +128,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief same as `get_string_unchecked` for where the key length may be less than KeyBytes
-     **/
+    /// if the root JSON is an object, extract a string given by `key`
+    ///
+    /// will revert if the string does not exist
+    ///
+    /// the `StringBytes` parameter defines the maximum allowable length of the returned string
     pub(crate) fn get_string_unchecked<let StringBytes: u32, K>(
         self,
         key: K,
@@ -250,21 +252,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
     /// if the root JSON is an object, extract a JSONValue given by `key`
     ///
-    /// returns an Option<JSONValue> which will be null if the key does not exist
+    /// will revert if the string does not exist
     ///
     /// the `StringBytes` parameter defines the maximum allowable length of the returned value
-    pub(crate) fn get_value<let KeyBytes: u32, let StringBytes: u32>(
-        self,
-        key: [u8; KeyBytes],
-    ) -> Option<JSONValue<StringBytes>> {
-        self.get_value_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /**
-     * @brief if the root JSON is an object, extract a JSONValue given by `key`
-     * @description will revert if the string does not exist
-     * @note the `StringBytes` parameter defines the maximum allowable length of the returned value
-     **/
     pub(crate) fn get_value_unchecked<let KeyBytes: u32, let StringBytes: u32, K>(
         self,
         key: K,
@@ -282,13 +272,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief same as `get_value` for where the key length may be less than KeyBytes
-     **/
-    pub(crate) fn get_value_var<let KeyBytes: u32, let StringBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> Option<JSONValue<StringBytes>> {
+    /// if the root JSON is an object, extract a JSONValue given by `key`
+    ///
+    /// returns an Option<JSONValue> which will be null if the key does not exist
+    ///
+    /// the `StringBytes` parameter defines the maximum allowable length of the returned value
+    pub(crate) fn get_value<K, let StringBytes: u32>(self, key: K) -> Option<JSONValue<StringBytes>>
+    where
+        K: KeyHashable,
+    {
         let (exists, entry, _) = self.get_json_entry(key);
         let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
 
@@ -362,7 +354,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             valid = valid & child.is_some();
         }
 
-        let mut final = target.get_value_var(keys[PathDepth - 1]);
+        let mut final = target.get_value(keys[PathDepth - 1]);
         if final.is_some() & valid {
             final
         } else {

@@ -45,7 +45,9 @@ impl<let N: u32> KeyHashable for str<N> {
 /// helper methods for extracting data out of a processed JSON object
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
-    /// same as `get_json_entry` but the key length may be less than KeyBytes
+    /// If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
+    ///
+    /// returns an Option<JSONEntry> which will be null if the entry does not exist
     pub(crate) fn get_json_entry<K>(self, key: K) -> (bool, JSONEntry, u32)
     where
         K: KeyHashable,
@@ -57,12 +59,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         (exists, entry, key_index)
     }
 
-    /**
-    *
-     * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
-     * @note will revert if the key does not exist
-     *
-     **/
+    /// If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
+    ///
+    /// will revert if the key does not exist
     pub(crate) fn get_json_entry_unchecked<K>(self, key: K) -> JSONEntry
     where
         K: KeyHashable,
@@ -70,7 +69,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.get_json_entry_unchecked_with_key_index(key).0
     }
 
-    /// same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.json_entries_packed`
+    /// same as `get_json_entry_unchecked` but also returns the position of the JSONEntry in `self.json_entries_packed`
     pub(crate) fn get_json_entry_unchecked_with_key_index<K>(self, key: K) -> (JSONEntry, u32)
     where
         K: KeyHashable,

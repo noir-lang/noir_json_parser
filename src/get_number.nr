@@ -68,9 +68,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief same as `get_number_unchecked` for where the key length may be less than KeyBytes
-     **/
+    /// if the root JSON is an object, extract a u64 value given by `key`
+    ///
+    /// will revert if the number does not exist
     pub(crate) fn get_number_unchecked<K>(self, key: K) -> u64
     where
         K: KeyHashable,
