@@ -27,16 +27,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract an array given by `key`
     ///
     /// returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value
-    pub(crate) fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
-        self.get_array_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /// same as `get_array` for where the key length may be less than KeyBytes
-    pub(crate) fn get_array_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> Option<Self> {
-        let (exists, entry, key_index) = self.get_json_entry_var(key);
+    pub(crate) fn get_array<K>(self, key: K) -> Option<Self>
+    where
+        K: KeyHashable,
+    {
+        let (exists, entry, key_index) = self.get_json_entry(key);
         if !exists {
             assert_eq(
                 entry.entry_type,

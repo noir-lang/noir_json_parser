@@ -64,16 +64,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract a literal value given by `key`
     ///
     /// returns an Option<JSONLiteral> which will be null if the literal does not exist
-    pub(crate) fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
-        self.get_literal_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /// same as `get_literal` for where the key length may be less than KeyBytes
-    pub(crate) fn get_literal_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> Option<JSONLiteral> {
-        let (exists, entry, _) = self.get_json_entry_var(key);
+    pub(crate) fn get_literal<K>(self, key: K) -> Option<JSONLiteral>
+    where
+        K: KeyHashable,
+    {
+        let (exists, entry, _) = self.get_json_entry(key);
         assert(
             (entry.entry_type - LITERAL_TOKEN as Field) * exists as Field == 0,
             "get_literal_var: entry exists but is not a literal!",

@@ -761,7 +761,7 @@ fn test_numbers() {
     let e = json.get_number_unchecked("e".as_bytes());
     let f = json.get_number_unchecked(BoundedVec::from_parts_unchecked("ftrololol".as_bytes(), 1));
     let g = json.get_number("g".as_bytes()).unwrap();
-    let h = json.get_number_var(BoundedVec::from_parts_unchecked("h".as_bytes(), 1)).unwrap();
+    let h = json.get_number(BoundedVec::from_parts_unchecked("h".as_bytes(), 1)).unwrap();
     let i = json.get_number_unchecked("i".as_bytes());
     let j = json.get_number_unchecked("j".as_bytes());
     let k = json.get_number_unchecked("k".as_bytes());
@@ -846,7 +846,7 @@ fn test_parse_json() {
     assert(result.is_some() == false);
 
     let mut nested_json = json.get_object("bar".as_bytes()).unwrap();
-    let result: Option<u64> = nested_json.get_number_var(BoundedVec::from_parts_unchecked(
+    let result: Option<u64> = nested_json.get_number(BoundedVec::from_parts_unchecked(
         "foounusedkeybyteslolol".as_bytes(),
         3,
     ));
