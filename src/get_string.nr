@@ -1,6 +1,7 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::ARRAY_LAYER;
 use crate::enums::Token::STRING_TOKEN;
+use crate::getters::KeyHashable;
 use crate::json::JSON;
 use crate::json::JSONValue;
 use crate::json_entry::JSONEntry;
@@ -8,7 +9,6 @@ use crate::json_tables::{
     ESCAPE_SEQUENCE_END_CHARS, ESCAPE_SEQUENCE_REPLACEMENT, ESCAPE_SEQUENCE_START_CHARS,
 };
 use crate::utils::cast_num_to_u32;
-use crate::getters::KeyHashable;
 
 fn process_escape_sequences<let N: u32>(input: BoundedVec<u8, N>) -> BoundedVec<u8, N> {
     let string = input.storage();
@@ -108,18 +108,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.get_string_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /// if the root JSON is an object, extract a string given by `key`
-    ///
-    /// will revert if the string does not exist
-    ///
-    /// the `StringBytes` parameter defines the maximum allowable length of the returned string
-    pub(crate) fn get_string_unchecked<let KeyBytes: u32, let StringBytes: u32>(
-        self,
-        key: [u8; KeyBytes],
-    ) -> BoundedVec<u8, StringBytes> {
-        self.get_string_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
     /// same as `get_string` for where the key length may be less than KeyBytes
     pub(crate) fn get_string_var<let KeyBytes: u32, let StringBytes: u32>(
         self,
@@ -148,10 +136,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_string_unchecked` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_string_unchecked_var<let StringBytes: u32, K>(
+    pub(crate) fn get_string_unchecked<let StringBytes: u32, K>(
         self,
         key: K,
-    ) -> BoundedVec<u8, StringBytes> where K: KeyHashable {
+    ) -> BoundedVec<u8, StringBytes>
+    where
+        K: KeyHashable,
+    {
         let entry = self.get_json_entry_unchecked(key);
         assert_eq(
             entry.entry_type,
@@ -282,7 +273,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     pub(crate) fn get_value_unchecked<let KeyBytes: u32, let StringBytes: u32, K>(
         self,
         key: K,
-    ) -> JSONValue<StringBytes> where K: KeyHashable {
+    ) -> JSONValue<StringBytes>
+    where
+        K: KeyHashable,
+    {
         let entry = self.get_json_entry_unchecked(key);
         JSONValue {
             value: BoundedVec::from_parts_unchecked(
@@ -314,7 +308,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             Option::none()
         }
     }
-
 
     /// if the root JSON is an array, extract a value given by the position of the target in the source array
     ///

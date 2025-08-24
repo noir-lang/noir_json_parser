@@ -1,6 +1,7 @@
 use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::ARRAY_LAYER;
 use crate::enums::Token::END_ARRAY_TOKEN;
+use crate::getters::KeyHashable;
 use crate::json::JSON;
 use crate::json::JSONValue;
 use crate::json_entry::JSONEntry;
@@ -30,13 +31,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.get_array_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /// if the root JSON is an object, extract an array given by `key`
-    ///
-    /// will revert if the array does not exist
-    pub(crate) fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
-        self.get_array_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
     /// same as `get_array` for where the key length may be less than KeyBytes
     pub(crate) fn get_array_var<let KeyBytes: u32>(
         self,
@@ -60,14 +54,16 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /// same as `get_array_unchecked` for where the key length may be less than KeyBytes
-    pub(crate) fn get_array_unchecked_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> Self {
+    /// if the root JSON is an object, extract an array given by `key`
+    ///
+    /// will revert if the array does not exist
+    pub(crate) fn get_array_unchecked<K>(self, key: K) -> Self
+    where
+        K: KeyHashable,
+    {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
+        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index(key);
         assert(entry.entry_type == END_ARRAY_TOKEN as Field, "key does not describe an object");
 
         self.update_json_array(entry, key_index)

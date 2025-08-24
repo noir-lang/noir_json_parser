@@ -1,7 +1,7 @@
 use crate::enums::Token::LITERAL_TOKEN;
+use crate::getters::KeyHashable;
 use crate::json::JSON;
 use crate::utils::cast_num_to_u32;
-use crate::getters::KeyHashable;
 
 global MAX_LITERAL_LENGTH_AS_STRING: u32 = 5;
 global LITERAL_OFFSET_SHIFT: [Field; 6] =
@@ -91,14 +91,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_literal_unchecked` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_literal_unchecked<K>(
-        self,
-        key: K,
-    ) -> JSONLiteral where K: KeyHashable {
+    pub(crate) fn get_literal_unchecked<K>(self, key: K) -> JSONLiteral
+    where
+        K: KeyHashable,
+    {
         let entry = self.get_json_entry_unchecked(key);
         assert(
             entry.entry_type == LITERAL_TOKEN as Field,
-            "get_literal_unchecked_var: entry exists but is not a literal!",
+            "get_literal_unchecked: entry exists but is not a literal!",
         );
         let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
             self.extract_string_entry(entry);

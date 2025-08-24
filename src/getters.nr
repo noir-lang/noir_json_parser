@@ -45,62 +45,29 @@ impl<let N: u32> KeyHashable for str<N> {
 /// helper methods for extracting data out of a processed JSON object
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
-    /// If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
-    ///
-    /// returns an Option<JSONEntry> which will be null if the entry does not exist
-    pub(crate) fn get_json_entry<let KeyBytes: u32>(
-        self,
-        key: [u8; KeyBytes],
-    ) -> (bool, JSONEntry, u32) {
-        self.get_json_entry_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-
     /// same as `get_json_entry` but the key length may be less than KeyBytes
-    pub(crate) fn get_json_entry_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> (bool, JSONEntry, u32) {
+    pub(crate) fn get_json_entry_var<K>(self, key: K) -> (bool, JSONEntry, u32)
+    where
+        K: KeyHashable,
+    {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
-        let (exists, key_index) = self.key_exists_impl_var(key);
+        let (exists, key_index) = self.key_exists_impl(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         (exists, entry, key_index)
     }
 
-    /// same as `get_json_entry_unchecked` but the key length may be less than KeyBytes
-    pub(crate) fn get_json_entry_unchecked_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> JSONEntry {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
-        let keyhash = hasher.get_keyhash_var(key.storage(), 0, key.len());
-        let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
-
-        let keyhash = keyhash + self.root_id * two_pow_216;
-
-        // Safety: The assertion below checks that the keyhash is stored in the the index returned by the unconstrained function
-        let key_index = unsafe { find_key_in_map::<MaxNumValues>(self.key_hashes, keyhash) };
-
-        assert_eq(self.key_hashes[key_index], keyhash, "get_json_entry_unchecked: key not found");
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
-
-        entry
-    }
-
     /**
-    /**
+    *
      * @brief If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
      * @note will revert if the key does not exist
-     **/
+     *
      * @brief same as `get_json_entry_unchecked` but the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_json_entry_unchecked<K>(
-        self,
-        key: K,
-    ) -> JSONEntry where K: KeyHashable{
+    pub(crate) fn get_json_entry_unchecked<K>(self, key: K) -> JSONEntry
+    where
+        K: KeyHashable,
+    {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
         let keyhash = key.get_keyhash::<MaxKeyFields>();
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
@@ -116,26 +83,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         entry
     }
 
-
     /// same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.json_entries_packed`
-    pub(crate) fn get_json_entry_unchecked_with_key_index<let KeyBytes: u32>(
-        self,
-        key: [u8; KeyBytes],
-    ) -> (JSONEntry, u32) {
-        self.get_json_entry_unchecked_with_key_index_var(BoundedVec::from_parts_unchecked(
-            key,
-            KeyBytes,
-        ))
-    }
-    /// same as `get_json_entry_unchecked_var` but also returns the position of the JSONEntry in `self.json_entries_packed`
-    pub(crate) fn get_json_entry_unchecked_with_key_index_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> (JSONEntry, u32) {
+    pub(crate) fn get_json_entry_unchecked_with_key_index<K>(self, key: K) -> (JSONEntry, u32)
+    where
+        K: KeyHashable,
+    {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
-        let keyhash = hasher.get_keyhash_var(key.storage(), 0, key.len());
+        let keyhash = key.get_keyhash::<MaxKeyFields>();
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
 
         let keyhash = keyhash + self.root_id * two_pow_216;
@@ -170,8 +124,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /// returns a bool that describes whether a given key exists at the root of the JSON
-    pub(crate) fn key_exists<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> bool {
-        self.key_exists_impl_var(key).0
+    pub(crate) fn key_exists<K>(self, key: K) -> bool
+    where
+        K: KeyHashable,
+    {
+        self.key_exists_impl(key).0
     }
 
     /// implementation of `key_exists`. returns both a boolean and also the position in `self.json_entries_packed` of the key
@@ -179,19 +136,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// algorithm is O(1) because of the preprocessing we have done
     /// Method computes a key hash and checks whether key hash exists in the list of sorted preprocessed key hashes
     /// If it does *not* exist, we can find two adjacent entries in `key_hashes` where `key_hashes[i]` < target_key_hash < `key_hashes[i+1]`
-    pub(crate) fn key_exists_impl<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> (bool, u32) {
-        self.key_exists_impl_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /// implementation of `key_exists`. returns both a boolean and also the position in `self.json_entries_packed` of the key
-    ///
-    /// algorithm is O(1) because of the preprocessing we have done
-    /// Method computes a key hash and checks whether key hash exists in the list of sorted preprocessed key hashes
-    /// If it does *not* exist, we can find two adjacent entries in `key_hashes` where `key_hashes[i]` < target_key_hash < `key_hashes[i+1]`
-    pub(crate) fn key_exists_impl_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> (bool, u32) {
+    pub(crate) fn key_exists_impl<K>(self, key: K) -> (bool, u32)
+    where
+        K: KeyHashable,
+    {
         /*
             Option A: key exists
             Option B: key does NOT exist
@@ -200,9 +148,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             case 2: keyhash > last entry
             case 3: entry A > keyhash > entryB
         */
-        let hasher: ByteHasher<MaxKeyFields> = ByteHasher {};
-        let keyhash = hasher.get_keyhash_var(key.storage(), 0, key.len());
-
+        let keyhash = key.get_keyhash::<MaxKeyFields>();
         let HASH_MAXIMUM = 0x1000000000000000000000000000000000000000000000000000000000000 - 1;
         let two_pow_216 = 0x100000000000000000000000000000000000000000000000000000000;
 

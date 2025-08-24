@@ -1,8 +1,8 @@
 use crate::enums::Token::NUMERIC_TOKEN;
+use crate::getters::KeyHashable;
 use crate::json::JSON;
 use crate::json_tables::ASCII_TO_NUMBER;
 use crate::utils::cast_num_to_u32;
-use crate::getters::KeyHashable;
 
 global U64_LENGTH_AS_BASE10_STRING: u32 = 20;
 global NUMBER_OFFSET_SHIFT: [Field; 21] = [
@@ -76,10 +76,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_number_unchecked` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_number_unchecked<K>(
-        self,
-        key: K,
-    ) -> u64 where K: KeyHashable {
+    pub(crate) fn get_number_unchecked<K>(self, key: K) -> u64
+    where
+        K: KeyHashable,
+    {
         let entry = self.get_json_entry_unchecked(key);
         assert(
             entry.entry_type == NUMERIC_TOKEN as Field,
