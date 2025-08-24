@@ -1,52 +1,38 @@
-use crate::_comparison_tools::lt::lt_field_16_bit;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::END_OBJECT_TOKEN;
 use crate::json::JSON;
 use crate::json_entry::JSONEntry;
-use crate::utils::cast_num_to_u32;
 
-/**
- * @brief getter methods for extracting object types out of a JSON struct
- **/
+/// getter methods for extracting object types out of a JSON struct
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
-    /**
-     * @brief Updates the JSON object to point to a specific object entry
-     **/
+    /// Updates the JSON object to point to a specific object entry
     pub(crate) fn update_json_object(mut self, entry: JSONEntry, key_index: u32) -> Self {
-        self.layer_type_of_root = cast_num_to_u32(entry.parent_index);
         self.root_id = entry.id;
         self.layer_type_of_root = OBJECT_LAYER;
         self.root_index_in_transcript = key_index;
         self
     }
 
-    /**
-     * @brief if the root JSON is an object, extract a child object given by `key`
-     * @description returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value  
-     **/
+    /// if the root JSON is an object, extract a child object given by `key`
+    ///
+    /// returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value
     pub(crate) fn get_object<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
         self.get_object_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /**
-     * @brief if the root JSON is an object, extract a child object given by `key`
-     * @description will revert if the requested object does not exist
-     **/
+    /// if the root JSON is an object, extract a child object given by `key`
+    ///
+    /// will revert if the requested object does not exist
     pub(crate) fn get_object_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
         self.get_object_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
-    /**
-     * @brief same as `get_object` for where the key length may be less than KeyBytes
-     **/
+    /// same as `get_object` for where the key length may be less than KeyBytes
     pub(crate) fn get_object_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> Option<Self> {
-        assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-
-        let (exists, key_index) = self.key_exists_impl_var(key);
-        let entry: JSONEntry = self.json_entries_packed[key_index].into();
+        let (exists, entry, key_index) = self.get_json_entry_var(key);
         if exists {
             assert_eq(
                 entry.entry_type,
@@ -64,9 +50,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief same as `get_object_unchecked` for where the key length may be less than KeyBytes
-     **/
+    /// same as `get_object_unchecked` for where the key length may be less than KeyBytes
     pub(crate) fn get_object_unchecked_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
@@ -83,24 +67,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.update_json_object(entry, key_index)
     }
 
-    /**
-     * @brief if the root JSON is an array, extract an object given by the position of the target in the source array
-     * @description returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value  
-     **/
+    /// if the root JSON is an array, extract an object given by the position of the target in the source array
+    ///
+    /// returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value
     pub(crate) fn get_object_from_array(self, array_index: Field) -> Option<Self> {
-        assert_eq(
-            self.layer_type_of_root,
-            ARRAY_LAYER,
-            "can only acceess array elements from array",
-        );
-
-        let parent_entry: JSONEntry =
-            self.json_entries_packed[self.root_index_in_transcript].into();
-
-        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
-        let entry_index = (parent_entry.child_pointer + array_index) * valid as Field;
-
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
+        let (entry, valid, entry_index) = self.get_entry_from_array(array_index);
         if valid {
             assert_eq(
                 entry.entry_type,
@@ -109,7 +80,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
 
-        let result = self.update_json_object(entry, cast_num_to_u32(entry_index));
+        let result = self.update_json_object(entry, entry_index);
 
         if valid {
             Option::some(result)
@@ -118,32 +89,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /**
-     * @brief if the root JSON is an array, extract an object given by the position of the target in the source array
-     * @description will revert if the object does not exist
-     **/
+    /// if the root JSON is an array, extract an object given by the position of the target in the source array
+    ///
+    /// will revert if the object does not exist
     pub(crate) fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
-        assert_eq(
-            self.layer_type_of_root,
-            ARRAY_LAYER,
-            "can only acceess array elements from array",
-        );
-
-        let parent_entry: JSONEntry =
-            self.json_entries_packed[self.root_index_in_transcript].into();
-
-        let valid = lt_field_16_bit(array_index, parent_entry.num_children);
-        assert(valid, "array overflow");
-        let entry_index = (parent_entry.child_pointer + array_index);
-
-        let entry: JSONEntry = self.json_entries_packed[cast_num_to_u32(entry_index)].into();
-        assert_eq(
-            entry.entry_type,
-            END_OBJECT_TOKEN as Field,
-            "get_object_from_array_unchecked: entry exists but is not an object!",
-        );
-
-        self.update_json_object(entry, cast_num_to_u32(entry_index))
+        let result = self.get_object_from_array(array_index);
+        result.expect(f"array index out of bounds")
     }
 }
 
