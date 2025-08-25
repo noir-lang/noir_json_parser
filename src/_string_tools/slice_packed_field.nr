@@ -596,32 +596,46 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
     r
 }
 
-/// Given the index of the last limb in a sequence of 31-byte fields, return a path mask that indicates which fields contain actual data up until the second to last limb.
+/// Given the index of the last limb in a sequence of 31-byte fields, return a path mask that indicates which fields contain actual data.
 ///
-/// The path mask is a bit pattern where each bit represents whether the corresponding field contains data.
+/// The first return value is a path mask that indicates which fields contain actual data up until the second to last limb.
+/// The second return value is a path mask that indicates which fields contain actual data up until the last limb.
 ///
-pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Field; OutputFields] {
+pub fn get_last_limb_path<let OutputFields: u32>(
+    last_limb_index: Field,
+) -> ([Field; OutputFields], [Field; OutputFields]) {
     // The + 1 offset fixes a special case: when there are 0 bytes of data, last_limb_index becomes -1,
     // which would cause an error when trying to access the array. By adding 1, we turn -1 into 0,
     // which points to a special "empty" entry in the table. For all other cases,
     // the +1 just shifts us to the right spot in the table to get the correct bit pattern.
     // Then we offset by 1 again to exclude the last limb, which is calculated separately.
-    // For example, if last_limb_index is 3, it means there are 4 valid limbs, then path variable is 7 (i.e. 00000111)
-    // The return value path_valid_output represents the reverse of this number in array form [1, 1, 1, 0, 0, 0, 0, 0]
+    // For example, if last_limb_index is 3, it means there are 4 valid limbs, then path variable is 7 (i.e. 00000111) and path_with_last_limb is 15 (i.e. 00001111)
+    // The return value path_valid_output represents the reverse of this number in array form [1, 1, 1, 0, 0, 0, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]
     let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; // 2
+    let path_with_last_limb = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 2)]; // 3
     // Safety: check the comments below
     let path_valid_bits = unsafe { decompose(path) };
+    let path_valid_bits_with_last_limb = unsafe { decompose(path_with_last_limb) };
     let mut path_valid_sum: Field = 0;
+    let mut path_valid_sum_with_last_limb: Field = 0;
     let mut path_valid_output: [Field; OutputFields] = [0; OutputFields];
+    let mut path_valid_output_with_last_limb: [Field; OutputFields] = [0; OutputFields];
     for i in 0..OutputFields {
         // we check that the path valid bits are binary
         assert(path_valid_bits[i] * path_valid_bits[i] - path_valid_bits[i] == 0);
+        assert(
+            path_valid_bits_with_last_limb[i] * path_valid_bits_with_last_limb[i]
+                - path_valid_bits_with_last_limb[i]
+                == 0,
+        );
         path_valid_sum += (path_valid_bits[i] * (1 << i) as Field);
+        path_valid_sum_with_last_limb += (path_valid_bits_with_last_limb[i] * (1 << i) as Field);
         path_valid_output[i] = path_valid_bits[i];
+        path_valid_output_with_last_limb[i] = path_valid_bits_with_last_limb[i];
     }
     // we check that the path valid bits sum to the path
     assert(path_valid_sum == path);
-    path_valid_output
+    (path_valid_output, path_valid_output_with_last_limb)
 }
 
 /**
@@ -739,7 +753,9 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     // 5, 75.5
     // index_of_output_limb is -1 if num_bytes is 0 as num_bytes_div_31 is 0 and num_bytes_mod_31_is_0 is 1
     // path_valid_output[i] = 1 means field i should contain actual data, 0 means it should be 0. For example, it could be [1, 1, 0]
-    let path_valid_output: [Field; OutputFields] = get_last_limb_path(index_of_output_limb);
+
+    let (path_valid_output, path_valid_output_with_last_limb) =
+        get_last_limb_path::<OutputFields>(index_of_output_limb);
 
     // 2, 77.5
     // For each new limb, we need to combined the end of the previous limb with the start of the new limb,
@@ -796,16 +812,11 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     last_limb = last_limb * last_limb_shift;
     std::as_witness(last_limb);
 
-    // This blocks is used to fill the first limb that doesn't contain data with last_limb.
-    let mut path: [Field; OutputFields] = [0; OutputFields];
-    path[0] = (1 - path_valid_output[0]);
-    for i in 1..OutputFields {
-        // path[i] is set to 1 when path_valid_output[i] is 0 and path_valid_output[i-1] is 1, i.e. the first limb that that doesn't contain data,
-        // which is the limb that we will use to fill the last_limb data.
-        path[i] = path_valid_output[i] * -path_valid_output[i - 1] + path_valid_output[i - 1];
-    }
+    // This blocks is used to fill the last limb by first finding the first limb that doesn't contain data,
     for i in 0..OutputFields {
-        result[i] = (last_limb - result[i]) * path[i] + result[i];
+        result[i] = (last_limb - result[i])
+            * (path_valid_output_with_last_limb[i] - path_valid_output[i])
+            + result[i];
     }
 
     result
@@ -825,7 +836,7 @@ mod test {
             let test_cases: [[Field; 9]] =
                 [[0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0]];
             for i in 0..test_cases.len() {
-                let path = get_last_limb_path(i as Field);
+                let (path, _) = get_last_limb_path(i as Field);
                 let expected_path = test_cases[i];
                 assert_eq(
                     path,
