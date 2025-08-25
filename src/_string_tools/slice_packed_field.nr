@@ -596,14 +596,18 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
     r
 }
 
-// 5 gates?
-pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: u32) -> [Field; OutputFields] {
+/// Given the index of the last limb in a sequence of 31-byte fields, return a path mask that indicates which fields contain actual data.
+///
+/// The path mask is a bit pattern where each bit represents whether the corresponding field contains data.
+///
+/// The path mask is used to ensure that only valid fields contain data.
+///
+pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Field; OutputFields] {
     // The + 1 offset fixes a special case: when there are 0 bytes of data, last_limb_index becomes -1,
     // which would cause an error when trying to access the array. By adding 1, we turn -1 into 0,
     // which points to a special "empty" entry in the table. For all other cases,
     // the +1 just shifts us to the right spot in the table to get the correct bit pattern.
-    let path = LAST_LIMB_PATH[last_limb_index + 1]; // 2
-    println(f"path: {path}");
+    let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; // 2
     // Safety: check the comments below
     let path_valid_bits = unsafe { decompose(path) };
     let mut path_valid_sum: Field = 0;
@@ -669,7 +673,6 @@ pub fn slice_field(f: Field, num_bytes: u32) -> (Field, Field) {
 
 /**
  * @brief Given an array of fields that pack 31 bytes, return an array that slices the packed byte array at a given index for a given number of bytes
- * @description Some serious dark black magic nonsense going on here. TODO: document
  **/
 pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     data: [Field; InputFields],
@@ -731,7 +734,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
 
     // 1, 70.5
     // the index of the last limb that contains data
-    let index_of_output_limb = cast_num_to_u32(num_bytes_div_31 as Field - num_bytes_mod_31_is_0 as Field);
+    let index_of_output_limb = num_bytes_div_31 as Field - num_bytes_mod_31_is_0 as Field;
     // 5, 75.5
     // index_of_output_limb is -1 if num_bytes is 0 as num_bytes_div_31 is 0 and num_bytes_mod_31_is_0 is 1
     // path_valid_output[i] = 1 means field i should contain actual data, 0 means it should be 0. For example, it could be [1, 1, 0]
@@ -753,7 +756,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
         let slice_valid = path_valid_output[i];
         // 1
         // the index of the current limb in the input array
-        let data_index = (start_index as u32 + 1 + i);
+        let data_index = (start_index as u32 + i + 1);
         // 2, 3
         let input_slice = data[data_index];
         // 44, 47
@@ -792,16 +795,18 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     last_limb = last_limb * last_limb_shift;
     std::as_witness(last_limb);
 
-    // creates a path mask and applies it to ensure only valid fields contain data.
+    // This blocks is used to fill the first limb that doesn't contain data with last_limb.
     let mut path: [Field; OutputFields] = [0; OutputFields];
     path[0] = (1 - path_valid_output[0]);
     for i in 1..OutputFields {
+        // path[i] is set to 1 when path_valid_output[i] is 0 and path_valid_output[i-1] is 1, i.e. the first limb that that doesn't contain data,
+        // which is the limb that we will use to fill the last_limb data.
         path[i] = path_valid_output[i] * -path_valid_output[i - 1] + path_valid_output[i - 1];
     }
-
     for i in 0..OutputFields {
         result[i] = (last_limb - result[i]) * path[i] + result[i];
     }
+
     result
 }
 
@@ -816,12 +821,16 @@ mod test {
         fn returns_expected_values() {
             // test cases taken from documentation on `LAST_LIMB_PATH`, note that indices are offset by 1 from
             // the value passed to `get_last_limb_path`.
-            let test_cases: [[Field; 9]] = [[0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 1, 1]];
-
+            let test_cases: [[Field; 9]] =
+                [[0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0]];
             for i in 0..test_cases.len() {
-                let path = get_last_limb_path(i);
+                let path = get_last_limb_path(i as Field);
                 let expected_path = test_cases[i];
-                assert_eq(path, test_cases[i], f"Expected {path} to equal {expected_path} for index {i}");
+                assert_eq(
+                    path,
+                    test_cases[i],
+                    f"Expected {path} to equal {expected_path} for index {i}",
+                );
             }
         }
     }
@@ -900,13 +909,16 @@ mod test {
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
                     slice_fields(slices, start_byte as Field, num_bytes as Field);
+                println(
+                    f"i, j = {i}, {j}, result_slices = {result_slices}, expected_slices = {expected_slices}",
+                );
                 assert(result_slices == expected_slices);
             }
 
             for j in 0..18 {
                 let start_byte: u32 = text.len() - num_bytes - byte_positions[j];
                 let mut expected_slices: [Field; 3] =
-                    // Safety: this is a test
+                // Safety: this is a test
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
                     slice_fields(slices, start_byte as Field, num_bytes as Field);
