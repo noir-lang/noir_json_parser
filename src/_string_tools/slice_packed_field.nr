@@ -755,7 +755,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
         // 1 if this limb should contain actual data
         let slice_valid = path_valid_output[i];
         // 1
-        // the index of the current limb in the input array
+        // the index of the current limb in the input array, +1 because we already processed the first limb in tail
         let data_index = (start_index as u32 + i + 1);
         // 2, 3
         let input_slice = data[data_index];
@@ -857,7 +857,6 @@ mod test {
     fn test_slice_fields_nolength() {
         let text: [u8; 1405] = "Charlie is genius, right. He's made from a million pieces of old bubble gum. Imagine that! In the summer of 1976, on his way home from an Alice Cooper concert, Charlie started to melt onto the pavement. It was too hot in L.A., and he melted like a pink bitch. Luckily though, there was Eric Phillips, a local crocodile who dabbled in black magic. He took pity on Charlie and scraped him off the floor with a pair of fish slicers. He poured him into an antique soup ladle, and boarded his magic carpet. Destination: Alaska! Eric Phillips decided to refreeze Charlie, but in his cold-blooded reptilian haste, he refroze him into to the shape of a Hoover. Charlie wasn't fazed though, he just zoomed about the place, sucking up Inuits. Ha ha! Oh. The Inuits didn't mind; they loved it in Charlie's pink, tight warm belly pouch, and they refused to come out. Charlie said, \"I'm cool with that,\" and set fire to a posh hammer to make it official. he downside was that the Inuits suffocated immediately. It was air-tight in there. Charlie panicked and fired the tiny Inuit bullets into Eric's crocodile peepers. The green shape was frozen. After a quick drink, Charlie stole Eric Phillips's magic carpet and left for Seattle. Charlie was racked with guilt: he'd killed 50 Inuits, noone needs that. He decided to spend the rest of his life putting small hairstyles onto boots, monkey nuts, trumpets and spanners."
             .as_bytes();
-        println(f"text = {text}");
         let mut slices: [Field; 46 + 3] = [0; 46 + 3];
         for i in 0..46 {
             for j in 0..31 {
@@ -883,7 +882,6 @@ mod test {
     fn test_slice_fields() {
         let text: [u8; 1405] = "Charlie is genius, right. He's made from a million pieces of old bubble gum. Imagine that! In the summer of 1976, on his way home from an Alice Cooper concert, Charlie started to melt onto the pavement. It was too hot in L.A., and he melted like a pink bitch. Luckily though, there was Eric Phillips, a local crocodile who dabbled in black magic. He took pity on Charlie and scraped him off the floor with a pair of fish slicers. He poured him into an antique soup ladle, and boarded his magic carpet. Destination: Alaska! Eric Phillips decided to refreeze Charlie, but in his cold-blooded reptilian haste, he refroze him into to the shape of a Hoover. Charlie wasn't fazed though, he just zoomed about the place, sucking up Inuits. Ha ha! Oh. The Inuits didn't mind; they loved it in Charlie's pink, tight warm belly pouch, and they refused to come out. Charlie said, \"I'm cool with that,\" and set fire to a posh hammer to make it official. he downside was that the Inuits suffocated immediately. It was air-tight in there. Charlie panicked and fired the tiny Inuit bullets into Eric's crocodile peepers. The green shape was frozen. After a quick drink, Charlie stole Eric Phillips's magic carpet and left for Seattle. Charlie was racked with guilt: he'd killed 50 Inuits, noone needs that. He decided to spend the rest of his life putting small hairstyles onto boots, monkey nuts, trumpets and spanners."
             .as_bytes();
-        println(f"text = {text}");
         let mut slices: [Field; 46 + 3] = [0; 46 + 3];
         for i in 0..46 {
             for j in 0..31 {
@@ -909,16 +907,13 @@ mod test {
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
                     slice_fields(slices, start_byte as Field, num_bytes as Field);
-                println(
-                    f"i, j = {i}, {j}, result_slices = {result_slices}, expected_slices = {expected_slices}",
-                );
                 assert(result_slices == expected_slices);
             }
 
             for j in 0..18 {
                 let start_byte: u32 = text.len() - num_bytes - byte_positions[j];
                 let mut expected_slices: [Field; 3] =
-                // Safety: this is a test
+                    // Safety: this is a test
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
                     slice_fields(slices, start_byte as Field, num_bytes as Field);
@@ -934,7 +929,6 @@ mod test {
         let input_bytes: [u8; 32] = input.to_be_bytes();
 
         for i in 0..32 {
-            println(f"i = {i}");
             let num_bytes = i;
             let (head, tail) = slice_field(input, num_bytes);
             let mut expected_head: Field = 0;
