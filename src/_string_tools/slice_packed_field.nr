@@ -615,7 +615,7 @@ pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Fie
     for i in 0..OutputFields {
         // we check that the path valid bits are binary
         assert(path_valid_bits[i] * path_valid_bits[i] - path_valid_bits[i] == 0);
-        path_valid_sum += (path_valid_bits[i] * (1 << i as u8) as Field);
+        path_valid_sum += (path_valid_bits[i] * (1 << i) as Field);
         path_valid_output[i] = path_valid_bits[i];
     }
     // we check that the path valid bits sum to the path
