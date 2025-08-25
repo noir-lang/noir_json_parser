@@ -333,24 +333,24 @@ global tail_path_multipliers_chunk0: [Field; 32] = [
 // e.g. LAST_LIMB_PATH[5] produces 0x00000000f (15 in decimal),
 // which is decomposed into ... 0 0 0 0 1 1 1 1 , meaning limbs 0,1,2,3 from the end should contain data
 // Each 1 bit in the decomposed array indicates that the corresponding limb should contain valid data
-// array extends to 0x200000000 which is 2^33 => 33 31 byte limbs = 1,023 bytes
+// array extends to 0x3ffffffff which is 2^34 - 1 => 34 31 byte limbs = 1,055 bytes
 // this puts a hard limit on the max size of a key that this program supports.
 global LAST_LIMB_PATH: [Field; 36] = [
     0x000000000, // 0 0 0 0 0 0 0 0 0 <-- edge case because sometimes array index is -1, so we offset by 1
-    0x000000000, // 0 0 0 0 0 0 0 0 1
-    0x000000001, // 0 0 0 0 0 0 0 1 1
-    0x000000003, // 0 0 0 0 0 0 1 1 1
-    0x000000007, // 0 0 0 0 0 1 1 1 1
-    0x00000000f, // 0 0 0 0 1 1 1 1 1
-    0x00000001f, // 0 0 0 1 1 1 1 1 1
-    0x00000003f, // 0 0 1 1 1 1 1 1 1
-    0x00000007f, // 0 1 1 1 1 1 1 1 1
-    0x0000000ff, // 1 1 1 1 1 1 1 1 1
-    0x0000001ff, // 1 1 1 1 1 1 1 1 1 1
-    0x0000003ff,
-    0x0000007ff,
-    0x000000fff,
-    0x000001fff,
+    0x000000000, // 0 0 0 0 0 0 0 0 0
+    0x000000001, // 0 0 0 0 0 0 0 0 1
+    0x000000003, // 0 0 0 0 0 0 0 1 1
+    0x000000007, // 0 0 0 0 0 0 1 1 1
+    0x00000000f, // 0 0 0 0 0 1 1 1 1
+    0x00000001f, // 0 0 0 0 1 1 1 1 1
+    0x00000003f, // 0 0 0 1 1 1 1 1 1
+    0x00000007f, // 0 0 1 1 1 1 1 1 1
+    0x0000000ff, // 0 1 1 1 1 1 1 1 1
+    0x0000001ff, // 1 1 1 1 1 1 1 1 1
+    0x0000003ff, // 1 1 1 1 1 1 1 1 1 1
+    0x0000007ff, // 1 1 1 1 1 1 1 1 1 1 1
+    0x000000fff, // 1 1 1 1 1 1 1 1 1 1 1 1
+    0x000001fff, // 1 1 1 1 1 1 1 1 1 1 1 1 1
     0x000003fff,
     0x000007fff,
     0x00000ffff,
@@ -596,17 +596,18 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
     r
 }
 
-/// Given the index of the last limb in a sequence of 31-byte fields, return a path mask that indicates which fields contain actual data.
+/// Given the index of the last limb in a sequence of 31-byte fields, return a path mask that indicates which fields contain actual data up until the second to last limb.
 ///
 /// The path mask is a bit pattern where each bit represents whether the corresponding field contains data.
-///
-/// The path mask is used to ensure that only valid fields contain data.
 ///
 pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Field; OutputFields] {
     // The + 1 offset fixes a special case: when there are 0 bytes of data, last_limb_index becomes -1,
     // which would cause an error when trying to access the array. By adding 1, we turn -1 into 0,
     // which points to a special "empty" entry in the table. For all other cases,
     // the +1 just shifts us to the right spot in the table to get the correct bit pattern.
+    // Then we offset by 1 again to exclude the last limb, which is calculated separately.
+    // For example, if last_limb_index is 3, it means there are 4 valid limbs, then path variable is 7 (i.e. 00000111)
+    // The return value path_valid_output represents the reverse of this number in array form [1, 1, 1, 0, 0, 0, 0, 0]
     let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; // 2
     // Safety: check the comments below
     let path_valid_bits = unsafe { decompose(path) };
