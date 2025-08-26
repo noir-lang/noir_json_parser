@@ -25,5 +25,4 @@ pub(crate) mod Token {
 pub(crate) mod Layer {
     pub(crate) global OBJECT_LAYER: u32 = 0;
     pub(crate) global ARRAY_LAYER: u32 = 1;
-    pub(crate) global SINGLE_VALUE_LAYER: u32 = 2;
 }
