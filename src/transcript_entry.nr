@@ -2,21 +2,23 @@ use crate::json_tables::ASCII_TO_TOKEN_TABLE;
 use crate::utils::cast_num_to_u32;
 
 pub(crate) struct ValidationFlags {
-    pub(crate) push_layer: Field,
-    pub(crate) push_layer_type_of_root: Field,
-    pub(crate) pop_layer: Field,
+    pub(crate) push_layer: bool,
+    pub(crate) push_layer_type_of_root: bool,
+    pub(crate) pop_layer: bool,
 }
 
 impl ValidationFlags {
     pub(crate) fn to_field(self) -> Field {
-        self.push_layer + self.push_layer_type_of_root * 0x100 + self.pop_layer * 0x10000
+        self.push_layer as Field
+            + self.push_layer_type_of_root as Field * 0x100
+            + self.pop_layer as Field * 0x10000
     }
 
     unconstrained fn __from_field(f: Field) -> Self {
         let bytes: [u8; 4] = f.to_be_bytes();
-        let mut push_layer = bytes[3] as Field;
-        let push_layer_type_of_root = bytes[2] as Field;
-        let pop_layer = bytes[1] as Field;
+        let mut push_layer = bytes[3] != 0;
+        let push_layer_type_of_root = bytes[2] != 0;
+        let pop_layer = bytes[1] != 0;
         let error = bytes[0] as Field;
 
         assert(error == 0, "ValidationFlags: grammar error");
@@ -28,7 +30,6 @@ impl ValidationFlags {
         // an out of bounds error will be triggered
         // n.b. reason for doing this is that by only having 3 flags stored in our lookup table,
         // we can extract them all with 1 add gate. combined with 2 bool checks = 3 gates instead of 5/6 gates if we had 4 flags
-        push_layer = push_layer + error * 0x1000000;
         ValidationFlags { push_layer, push_layer_type_of_root, pop_layer }
     }
 
@@ -36,12 +37,8 @@ impl ValidationFlags {
     pub(crate) fn from_field(f: Field) -> Self {
         // Safety: check the comments below
         let r = unsafe { ValidationFlags::__from_field(f) };
-        // checks pop_layer is a valid boolean
-        assert(r.pop_layer * r.pop_layer == r.pop_layer);
-        // checks push_layer_type_of_root is a valid boolean
-        assert(r.push_layer_type_of_root * r.push_layer_type_of_root == r.push_layer_type_of_root);
-        // checks the input field is a valid combination of the outputs of the decomposition
-        assert(r.pop_layer * 0x10000 + r.push_layer_type_of_root * 0x100 + r.push_layer == f);
+        // checks the input field is a valid combination of the outputs of the decomposition d dddddd
+        assert_eq(r.to_field(), f);
         r
     }
 }
@@ -78,8 +75,7 @@ impl RawTranscriptEntry {
         result.length.assert_max_bit_size::<16>();
         result.index.assert_max_bit_size::<16>();
         result.encoded_ascii.assert_max_bit_size::<14>();
-
-        assert(result.encoded_ascii + result.index * 0x10000 + result.length * 0x100000000 == felt);
+        assert_eq(result.to_field(), felt);
         result
     }
 
@@ -195,7 +191,7 @@ impl TranscriptEntry {
         // checks that token is in range
         result.token.assert_max_bit_size::<8>();
         // checks that the input is a valid combination of the outputs of the decomposition
-        assert(result.token + result.index * 0x100 + result.length * 0x1000000 == felt);
+        assert_eq(result.to_field(), felt);
         result
     }
 
