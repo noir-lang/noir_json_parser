@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/noir-lang/noir_json_parser/compare/v0.4.0...v0.5.0) (2025-08-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* fix a bunch of visibility issues ([#38](https://github.com/noir-lang/noir_json_parser/issues/38))
+
+### Bug Fixes
+
+* Add missing generic ([#44](https://github.com/noir-lang/noir_json_parser/issues/44)) ([b6b35ef](https://github.com/noir-lang/noir_json_parser/commit/b6b35efa1e26dcb071acd0b9bd33f1c8247b9bf1))
+* Add validation for literals ([#64](https://github.com/noir-lang/noir_json_parser/issues/64)) ([8adc6a8](https://github.com/noir-lang/noir_json_parser/commit/8adc6a84e51e59fb1c224ac3206604186f869083))
+* Do not cast numbers to bool ([#45](https://github.com/noir-lang/noir_json_parser/issues/45)) ([eb041f7](https://github.com/noir-lang/noir_json_parser/commit/eb041f7f72c2370a0063c8b2e1ed0ee64b5b21ff))
+
+
+### Miscellaneous Chores
+
+* Fix a bunch of visibility issues ([#38](https://github.com/noir-lang/noir_json_parser/issues/38)) ([e45c9b9](https://github.com/noir-lang/noir_json_parser/commit/e45c9b9ba2419ac5310408939baed36def342db1))
+
 ## [0.4.0](https://github.com/noir-lang/noir_json_parser/compare/v0.3.0...v0.4.0) (2025-02-13)
 
 
