@@ -594,20 +594,6 @@ fn divmod_31(numerator: u16) -> (u16, u16) {
     (quotient, remainder)
 }
 
-/**
- * @brief converts a 16 bit value into 16 fake bools (Field elements that are 0 or 1)
- **/
-unconstrained fn decompose(val: Field) -> [Field; 16] {
-    let mut r: [Field; 16] = [0; 16];
-
-    let mut it = val as u32;
-    for i in 0..16 {
-        r[i] = (it & 1) as Field;
-        it >>= 1;
-    }
-    r
-}
-
 // 5 gates?
 pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [u1; OutputFields] {
     // TODO we offset by 1 explain why (0 byte length produces 0 - 1 which = invalid array index. we just add 1 and increase array length by 1 to compensate)
@@ -777,11 +763,12 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     let mut path: [Field; OutputFields] = [0; OutputFields];
     path[0] = (1 - path_valid_output[0] as Field);
     for i in 1..OutputFields {
-        path[i] = path_valid_output[i - 1] as Field - path_valid_output[i] as Field * path_valid_output[i - 1] as Field;
+        path[i] = path_valid_output[i - 1] as Field
+            - path_valid_output[i] as Field * path_valid_output[i - 1] as Field;
     }
 
     for i in 0..OutputFields {
-        result[i] = (last_limb - result[i]) * path[i]+ result[i];
+        result[i] = (last_limb - result[i]) * path[i] + result[i];
     }
     result
 }
