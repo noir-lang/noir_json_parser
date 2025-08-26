@@ -612,19 +612,9 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
 pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Field; OutputFields] {
     // TODO we offset by 1 explain why (0 byte length produces 0 - 1 which = invalid array index. we just add 1 and increase array length by 1 to compensate)
     let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; // 2
-    // Safety: check the comments below
-    let path_valid_bits = unsafe { decompose(path) };
-    let mut path_valid_sum: Field = 0;
-    let mut path_valid_output: [Field; OutputFields] = [0; OutputFields];
-    for i in 0..OutputFields {
-        // we check that the path valid bits are binary
-        assert(path_valid_bits[i] * path_valid_bits[i] - path_valid_bits[i] == 0);
-        path_valid_sum += (path_valid_bits[i] * (1 << i as u8) as Field);
-        path_valid_output[i] = path_valid_bits[i];
-    }
-    // we check that the path valid bits sum to the path
-    assert(path_valid_sum == path);
-    path_valid_output
+    let a = path.to_le_bits::<OutputFields>();
+    let result = a.map(|b| b as Field);
+    result
 }
 
 /**
