@@ -609,12 +609,10 @@ unconstrained fn decompose(val: Field) -> [Field; 16] {
 }
 
 // 5 gates?
-pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [Field; OutputFields] {
+pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [u1; OutputFields] {
     // TODO we offset by 1 explain why (0 byte length produces 0 - 1 which = invalid array index. we just add 1 and increase array length by 1 to compensate)
     let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; // 2
-    let a = path.to_le_bits::<OutputFields>();
-    let result = a.map(|b| b as Field);
-    result
+    path.to_le_bits::<OutputFields>()
 }
 
 /**
@@ -718,13 +716,13 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     // 1, 70.5
     let index_of_output_limb: Field = (num_bytes_div_31 as Field - num_bytes_mod_31_is_0 as Field);
     // 5, 75.5
-    let path_valid_output: [Field; OutputFields] = get_last_limb_path(index_of_output_limb);
+    let path_valid_output: [u1; OutputFields] = get_last_limb_path(index_of_output_limb);
 
     // 2, 77.5
     let tail_shift = BYTE_SHIFT[cast_num_to_u32(num_unused_bytes_in_start_limb)];
 
     // 51, 128.5
-    let mut result = [0; OutputFields];
+    let mut result: [Field; OutputFields] = [0; OutputFields];
     let mut previous = tail;
     for i in 0..(OutputFields - 1) {
         // 0
@@ -738,9 +736,9 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
         // 1, 48
         let combined = previous * tail_shift + head;
         // 1, 49
-        result[i] = combined * slice_valid;
+        result[i] = combined * (slice_valid as Field);
         // 2, 51
-        previous = (tail - previous) * slice_valid + previous;
+        previous = (tail - previous) * (slice_valid as Field) + previous;
     }
 
     // 2, 130.5
@@ -777,13 +775,13 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     std::as_witness(last_limb);
 
     let mut path: [Field; OutputFields] = [0; OutputFields];
-    path[0] = (1 - path_valid_output[0]);
+    path[0] = (1 - path_valid_output[0] as Field);
     for i in 1..OutputFields {
-        path[i] = path_valid_output[i] * -path_valid_output[i - 1] + path_valid_output[i - 1];
+        path[i] = path_valid_output[i - 1] as Field - path_valid_output[i] as Field * path_valid_output[i - 1] as Field;
     }
 
     for i in 0..OutputFields {
-        result[i] = (last_limb - result[i]) * path[i] + result[i];
+        result[i] = (last_limb - result[i]) * path[i]+ result[i];
     }
     result
 }
