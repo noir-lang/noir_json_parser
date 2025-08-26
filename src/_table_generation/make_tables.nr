@@ -1,6 +1,6 @@
 //! Contains methods used to generate tables in `json_tables.nr`. These table generation methods shouldn't be used inside of actual circuits.
 use crate::enums::CaptureMode::STRING_CAPTURE;
-use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
+use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::{
     BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN,
     KEY_TOKEN, LITERAL_TOKEN, NO_TOKEN, NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN,
@@ -60,10 +60,10 @@ unconstrained fn make_ascii_to_token_table() -> [Field; 1024] {
     result
 }
 
-unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKENS * 3] {
+unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKENS * 2] {
     // index = layer type, current token and next token
     // output is layer type
-    // 11 tokens , 3 layers = 11 * 11 * 3 = 121 * 3 = 343
+    // 11 tokens , 2 layers = 11 * 11 * 2 = 121 * 2 = 242
     // object contexts
     let no_change = ValidationFlags { push_layer: 0, push_layer_type_of_root: 0, pop_layer: 0 };
     let error_flags =
@@ -153,9 +153,6 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
 
     let mut object_layer_flags: [[Field; NUM_TOKENS]; NUM_TOKENS] = [[0; NUM_TOKENS]; NUM_TOKENS];
     let mut array_layer_flags: [[Field; NUM_TOKENS]; NUM_TOKENS] = [[0; NUM_TOKENS]; NUM_TOKENS];
-    let mut single_value_layer_flags: [[Field; NUM_TOKENS]; NUM_TOKENS] =
-        [[0; NUM_TOKENS]; NUM_TOKENS];
-
     let no_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
         let mut result = error_flags.to_field();
         if (token == NO_TOKEN) {
@@ -264,36 +261,13 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     array_layer_flags[NUMERIC_TOKEN] = array_layer_value_token_outcomes;
     array_layer_flags[LITERAL_TOKEN] = array_layer_value_token_outcomes;
     array_layer_flags[KEY_TOKEN] = error_token_outcomes;
-
-    let single_value_layer_value_token_outcomes: [Field; NUM_TOKENS] = token_ids.map(|token| {
-        let mut result = error_flags.to_field();
-        // we have reached the end of json
-        if (token == NO_TOKEN) {
-            result = no_change.to_field();
-        }
-        result
-    });
-    single_value_layer_flags[NO_TOKEN] = no_token_outcomes;
-    single_value_layer_flags[BEGIN_OBJECT_TOKEN] = error_token_outcomes;
-    single_value_layer_flags[END_OBJECT_TOKEN] = single_value_layer_value_token_outcomes;
-    single_value_layer_flags[BEGIN_ARRAY_TOKEN] = error_token_outcomes;
-    single_value_layer_flags[END_ARRAY_TOKEN] = single_value_layer_value_token_outcomes;
-    single_value_layer_flags[KEY_SEPARATOR_TOKEN] = object_layer_key_separator_token_outcomes;
-    single_value_layer_flags[VALUE_SEPARATOR_TOKEN] = error_token_outcomes;
-    single_value_layer_flags[STRING_TOKEN] = single_value_layer_value_token_outcomes;
-    single_value_layer_flags[NUMERIC_TOKEN] = single_value_layer_value_token_outcomes;
-    single_value_layer_flags[LITERAL_TOKEN] = single_value_layer_value_token_outcomes;
-    single_value_layer_flags[KEY_TOKEN] = no_token_outcomes;
-
-    let mut flattened_flags: [Field; NUM_TOKENS * NUM_TOKENS * 3] =
-        [0; NUM_TOKENS * NUM_TOKENS * 3];
+    let mut flattened_flags: [Field; NUM_TOKENS * NUM_TOKENS * 2] =
+        [0; NUM_TOKENS * NUM_TOKENS * 2];
     let NN = (NUM_TOKENS * NUM_TOKENS);
     for j in 0..NUM_TOKENS {
         for k in 0..NUM_TOKENS {
             flattened_flags[OBJECT_LAYER * NN + j * NUM_TOKENS + k] = object_layer_flags[j][k];
             flattened_flags[ARRAY_LAYER * NN + j * NUM_TOKENS + k] = array_layer_flags[j][k];
-            flattened_flags[SINGLE_VALUE_LAYER * NN + j * NUM_TOKENS + k] =
-                single_value_layer_flags[j][k];
         }
     }
     flattened_flags

@@ -763,11 +763,12 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     let mut path: [Field; OutputFields] = [0; OutputFields];
     path[0] = (1 - path_valid_output[0] as Field);
     for i in 1..OutputFields {
-        path[i] = path_valid_output[i - 1] as Field - path_valid_output[i] as Field * path_valid_output[i - 1] as Field;
+        path[i] = path_valid_output[i - 1] as Field
+            - path_valid_output[i] as Field * path_valid_output[i - 1] as Field;
     }
 
     for i in 0..OutputFields {
-        result[i] = (last_limb - result[i]) * path[i]+ result[i];
+        result[i] = (last_limb - result[i]) * path[i] + result[i];
     }
     result
 }
@@ -856,7 +857,7 @@ mod test {
             for j in 0..18 {
                 let start_byte: u32 = text.len() - num_bytes - byte_positions[j];
                 let mut expected_slices: [Field; 3] =
-                // Safety: this is a test
+                    // Safety: this is a test
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
                     slice_fields(slices, start_byte as Field, num_bytes as Field);
