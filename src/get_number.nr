@@ -54,7 +54,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract a numeric value given by `key`
      * @description returns an Option<u64> which will be null if the key does not exist
      **/
-    pub(crate) fn get_number<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<u64> {
+    pub fn get_number<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<u64> {
         self.get_number_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
@@ -62,17 +62,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an object, extract a u64 value given by `key`
      * @description will revert if the number does not exist
      **/
-    fn get_number_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> u64 {
+    pub fn get_number_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> u64 {
         self.get_number_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /**
      * @brief same as `get_number` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_number_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> Option<u64> {
+    pub fn get_number_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<u64> {
         let (exists, entry) = self.get_json_entry_var(key);
         assert(
             (entry.entry_type - NUMERIC_TOKEN as Field) * exists as Field == 0,
@@ -90,10 +87,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /**
      * @brief same as `get_number_unchecked` for where the key length may be less than KeyBytes
      **/
-    pub(crate) fn get_number_unchecked_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> u64 {
+    pub fn get_number_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> u64 {
         let entry = self.get_json_entry_unchecked_var(key);
         assert(
             entry.entry_type == NUMERIC_TOKEN as Field,
@@ -108,7 +102,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract a numeric value given by the position of the target in the source array
      * @description returns an Option<u64> which will be null if the number does not exist
      **/
-    fn get_number_from_array(self, array_index: Field) -> Option<u64> {
+    pub fn get_number_from_array(self, array_index: Field) -> Option<u64> {
         assert(
             self.layer_type_of_root == ARRAY_LAYER,
             "can only acceess array elements from array",
@@ -143,7 +137,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief if the root JSON is an array, extract a numeric value given by the position of the target in the source array
      * @description will revert if the number does not exist
      **/
-    fn get_number_from_array_unchecked(self, array_index: Field) -> u64 {
+    pub fn get_number_from_array_unchecked(self, array_index: Field) -> u64 {
         assert(
             self.layer_type_of_root == ARRAY_LAYER,
             "can only acceess array elements from array",
