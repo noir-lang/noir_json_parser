@@ -587,7 +587,9 @@ fn divmod_31(numerator: u16) -> (u16, u16) {
 /// The first return value is a path mask that indicates which fields contain actual data up until the second to last limb.
 /// The second return value is a path mask that indicates which fields contain actual data up until the last limb.
 ///
-pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> ([u1; OutputFields], [u1; OutputFields]) {
+pub fn get_last_limb_path<let OutputFields: u32>(
+    last_limb_index: Field,
+) -> ([u1; OutputFields], [u1; OutputFields]) {
     // The + 1 offset fixes a special case: when there are 0 bytes of data, last_limb_index becomes -1,
     // which would cause an error when trying to access the array. By adding 1, we turn -1 into 0,
     // which points to a special "empty" entry in the table. For all other cases,
@@ -595,8 +597,8 @@ pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> ([u1
     // Then we offset by 1 again to exclude the last limb, which is calculated separately.
     // For example, if last_limb_index is 3, it means there are 4 valid limbs, then path variable is 7 (i.e. 00000111) and path_with_last_limb is 15 (i.e. 00001111)
     // The return value path_valid_output represents the reverse of this number in array form [1, 1, 1, 0, 0, 0, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]
-    let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; 
-    let path_with_last_limb = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 2)]; 
+    let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)];
+    let path_with_last_limb = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 2)];
     (path.to_le_bits::<OutputFields>(), path_with_last_limb.to_le_bits::<OutputFields>())
 }
 
