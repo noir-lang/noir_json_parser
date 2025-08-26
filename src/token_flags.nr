@@ -1,6 +1,6 @@
 /// Describes information extracted from [TOKEN_FLAGS_TABLE], given a [Token] enum and a layer type (todo more data)
 /// * `create_json_entry` : is this token linked to the creating of a [JSONEntry] object?
-///     - we generate corresponding [JSONEntry] objects for `STRING_TOKEN`, `NUMERIC_TOKEN`, `LITERAL_TOKEN`, `END_OBJECT_TOKEN`, `END_ARRAY_TOKEN` 
+///     - we generate corresponding [JSONEntry] objects for `STRING_TOKEN`, `NUMERIC_TOKEN`, `LITERAL_TOKEN`, `END_OBJECT_TOKEN`, `END_ARRAY_TOKEN`
 /// * `is_end_of_object_or_array`: `token == END_OBJECT_TOKEN || token == END_ARRAY_TOKEN`
 /// * `is_start_of_object_or_array`: `token == START_OBJECT_TOKEN || token == `START_ARRAY_TOKEN`
 /// * `new_context`: describes whether the next token being scanned belongs to an object or array
@@ -11,7 +11,7 @@
 /// * `is_value_token`: `token == STRING_TOKEN || token == NUMERIC_TOKEN || token == LITERAL_TOKEN`
 /// * `preserve_num_entries`: `!(is_start_of_object_or_array || is_end_of_object_or_array)`
 /// *   - as we parse our tokens, we keep track of how many children the current parent object contains.
-///     - when `preserve_num_entries == 1` implies the current parent object has not changed (could do with renaming this variable) 
+///     - when `preserve_num_entries == 1` implies the current parent object has not changed (could do with renaming this variable)
 pub(crate) struct TokenFlags {
     pub(crate) create_json_entry: bool,
     pub(crate) is_end_of_object_or_array: bool,

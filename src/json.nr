@@ -307,14 +307,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // See comments in token_flags.nr for more details
             // 13 gates
             let TokenFlags {
-                create_json_entry,
-                is_end_of_object_or_array,
-                is_start_of_object_or_array,
-                new_context,
-                is_key_token: update_key,
-                is_value_token,
-                preserve_num_entries,
-            } = TokenFlags::from_field(
+    create_json_entry,
+    is_end_of_object_or_array,
+    is_start_of_object_or_array,
+    new_context,
+    is_key_token: update_key,
+    is_value_token,
+    preserve_num_entries,} = TokenFlags::from_field(
                 TOKEN_FLAGS_TABLE[cast_num_to_u32(token) + context * NUM_TOKENS],
             );
 
@@ -337,7 +336,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             current_key_index_and_length = diff * update_key + current_key_index_and_length;
             std::as_witness(current_key_index_and_length);
 
-
             // If the current token is BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
             // we need to push a new parent object into `parent_context_stack`.
             // We apply a trick here to avoid branching: regardless of the token type,
@@ -359,7 +357,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             parent_context_stack[cast_num_to_u32(depth)] = new_context_stack_entry;
 
             // `previous_stack_entry` = Extract information about the parent of the current token
-            // If the current token = END_OBJECT_TOKEN or END_ARRAY_TOKEN, previous_stack_entry = data that describes the object or array we are about to create 
+            // If the current token = END_OBJECT_TOKEN or END_ARRAY_TOKEN, previous_stack_entry = data that describes the object or array we are about to create
             // 9.5 gates
             let depth_index: Field = (depth - 1);
             let previous_stack_entry_packed = parent_context_stack[cast_num_to_u32(depth_index)];
@@ -440,7 +438,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             //      next_identity_value += is_start_of_object_or_array;
             //  }
             //
-            // 4 gates 
+            // 4 gates
             {
                 let old = current_identity_value;
                 current_identity_value = (next_identity_value * is_start_of_object_or_array);
@@ -479,7 +477,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             //   context = previous_stack_entry.context
             // } else {
             //   context = new_context
-            // } 
+            // }
             // 1 gate
             // if `is_end_of_object_or_array == 1`, `new_context = 0` so we can do something cheaper than a conditional select:
             context = cast_num_to_u32(
@@ -576,12 +574,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 2 gates
             let capture_flags = JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)];
             // 5 gates
-            let ScanData {
-                scan_token,
-                push_transcript,
-                increase_length,
-                is_potential_escape_sequence,
-            } = ScanData::from_field(capture_flags);
+            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
+                ScanData::from_field(capture_flags);
 
             // 2 gates
             let raw: Field = raw_transcript[cast_num_to_u32(transcript_ptr)];
