@@ -54,18 +54,6 @@ pub fn lt_field_16_bit(x: Field, y: Field) -> bool {
     predicate
 }
 
-pub fn lt_field_8_bit(x: Field, y: Field) -> bool {
-    // Safety: check the comments below
-    let predicate = unsafe { get_lt_predicate_f(x, y) };
-    let delta = y as Field - x as Field;
-    let lt_parameter = 2 * (predicate as Field) * delta - predicate as Field - delta;
-    // checks that the bit length of lt_parameter is 8
-    // i.e. checks the sign of lt_parameter
-    lt_parameter.assert_max_bit_size::<8>();
-
-    predicate
-}
-
 pub fn assert_gt_240_bit(lhs: Field, rhs: Field) {
     // lhs > rhs
     // -> lhs - rhs > 0

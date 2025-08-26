@@ -1,18 +1,16 @@
 //! Contains methods used to generate tables in `json_tables.nr`. These table generation methods shouldn't be used inside of actual circuits.
-
-pub(crate) mod CaptureMode {
-    pub(crate) global GRAMMAR_CAPTURE: Field = 0;
-    pub(crate) global STRING_CAPTURE: Field = 1;
-    pub(crate) global NUMERIC_CAPTURE: Field = 2;
-    pub(crate) global LITERAL_CAPTURE: Field = 3;
-    pub(crate) global ERROR_CAPTURE: Field = 4;
-}
+use crate::enums::CaptureMode::STRING_CAPTURE;
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
 use crate::enums::Token::{
     BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN,
     KEY_TOKEN, LITERAL_TOKEN, NO_TOKEN, NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN,
     VALUE_SEPARATOR_TOKEN,
 };
+use crate::json_tables::ASCII_TO_TOKEN_TABLE;
+use crate::json_tables::JSON_CAPTURE_TABLE;
+use crate::json_tables::PROCESS_RAW_TRANSCRIPT_TABLE;
+use crate::json_tables::TOKEN_FLAGS_TABLE;
+use crate::json_tables::TOKEN_VALIDATION_TABLE;
 use crate::token_flags::TokenFlags;
 use crate::transcript_entry::ValidationFlags;
 use super::make_tables_subtables::{
@@ -24,7 +22,6 @@ use super::make_tables_subtables::{
     STRING_CAPTURE_ERROR_FLAG, STRING_CAPTURE_INCREASE_LENGTH, STRING_CAPTURE_PUSH_TRANSCRIPT,
     STRING_CAPTURE_TABLE, STRING_CAPTURE_TOKEN, TOKEN_IS_NUMERIC_OR_LITERAL,
 };
-use CaptureMode::STRING_CAPTURE;
 
 global CAPTURE_TABLE: [[Field; 128]; 4] =
     [GRAMMAR_CAPTURE_TABLE, STRING_CAPTURE_TABLE, NUMERIC_CAPTURE_TABLE, LITERAL_CAPTURE_TABLE];
@@ -48,28 +45,6 @@ global CAPTURE_ERROR_FLAG: [[bool; 128]; 4] = [
     NUMERIC_CAPTURE_ERROR_FLAG,
     LITERAL_CAPTURE_ERROR_FLAG,
 ];
-
-unconstrained fn make_capture_table_full() -> [[Field; 128]; 4] {
-    let mut result: [[Field; 128]; 4] = [[0; 128]; 4];
-    for i in 0..4 {
-        for j in 0..128 {
-            let table = CAPTURE_TABLE[i][j];
-            let token = CAPTURE_TOKEN[i][j];
-            let push_transcript = CAPTURE_PUSH_TRANSCRIPT[i][j] as Field;
-            let increase_length = CAPTURE_INCREASE_LENGTH[i][j] as Field;
-            let error = CAPTURE_ERROR_FLAG[i][j] as Field;
-
-            let full = table
-                + token as Field * 0x100
-                + push_transcript * 0x10000
-                + increase_length * 0x1000000
-                + error * 0x100000000;
-            result[i][j] = full;
-        }
-    }
-
-    result
-}
 
 unconstrained fn make_ascii_to_token_table() -> [Field; 1024] {
     let mut result: [Field; 256 * 4] = [0; 256 * 4];
@@ -313,8 +288,8 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     let mut flattened_flags: [Field; NUM_TOKENS * NUM_TOKENS * 3] =
         [0; NUM_TOKENS * NUM_TOKENS * 3];
     let NN = (NUM_TOKENS * NUM_TOKENS);
-    for j in 0..NUM_TOKENS as u32 {
-        for k in 0..NUM_TOKENS as u32 {
+    for j in 0..NUM_TOKENS {
+        for k in 0..NUM_TOKENS {
             flattened_flags[OBJECT_LAYER * NN + j * NUM_TOKENS + k] = object_layer_flags[j][k];
             flattened_flags[ARRAY_LAYER * NN + j * NUM_TOKENS + k] = array_layer_flags[j][k];
             flattened_flags[SINGLE_VALUE_LAYER * NN + j * NUM_TOKENS + k] =
@@ -324,16 +299,6 @@ unconstrained fn make_token_validation_table() -> [Field; NUM_TOKENS * NUM_TOKEN
     flattened_flags
 }
 
-// #[test]
-// fn test_make_validation_flags() {
-//     let f = make_token_validation_table();
-//     println(f"global TOKEN_VALIDATION_TABLE: [Field; 363] = {f};");
-// }
-// #[test]
-// fn test_make_ascii_to_token_table() {
-//     let r = make_ascii_to_token_table();
-//     println(f"table = {r}");
-// }
 unconstrained fn make_json_capture_table() -> [Field; 2048] {
     let backslash: u32 = "\\".as_bytes()[0] as u32;
     let quotes: u32 = "\"".as_bytes()[0] as u32;
@@ -373,11 +338,6 @@ unconstrained fn make_json_capture_table() -> [Field; 2048] {
 
     result
 }
-// #[test]
-// fn test_make_JSON_CAPTURE_TABLE() {
-//     let r = make_JSON_CAPTURE_TABLE();
-//     println(f"table = {r}");
-// }
 
 unconstrained fn make_process_raw_transcript_table() -> [Field; 1024] {
     let mut result: [Field; 1024] = [0; 1024];
@@ -397,101 +357,96 @@ unconstrained fn make_process_raw_transcript_table() -> [Field; 1024] {
     }
     result
 }
-// #[test]
-// fn test_make_process_raw_transcript_table() {
-//     let r = make_process_raw_transcript_table();
-//     println(f"table = {r}");
-// }
 
 unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
-    let mut flags: [TokenFlags; NUM_TOKENS * 2] = [TokenFlags::default(); NUM_TOKENS * 2];
+    let mut flags: [TokenFlags; NUM_TOKENS * 2] = std::mem::zeroed();
 
     let mut no_token_flags: TokenFlags = TokenFlags {
-        create_json_entry: 0,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 0,
-        new_context: OBJECT_LAYER as Field,
-        is_key_token: 0,
-        is_value_token: 0,
-        preserve_num_entries: 1,
+        create_json_entry: false,
+        is_end_of_object_or_array: false,
+        is_start_of_object_or_array: false,
+        new_context: OBJECT_LAYER != 0,
+        is_key_token: false,
+        is_value_token: false,
+        preserve_num_entries: true,
     };
     let mut key_token_flags: TokenFlags = TokenFlags {
-        create_json_entry: 0,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 0,
-        new_context: OBJECT_LAYER as Field,
-        is_key_token: 1,
-        is_value_token: 0,
-        preserve_num_entries: 1,
+        create_json_entry: false,
+        is_end_of_object_or_array: false,
+        is_start_of_object_or_array: false,
+        new_context: OBJECT_LAYER != 0,
+        is_key_token: true,
+        is_value_token: false,
+        preserve_num_entries: true,
     };
     let begin_object_flags = TokenFlags {
-        create_json_entry: 0,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 1,
-        new_context: OBJECT_LAYER as Field,
-        is_key_token: 0,
-        is_value_token: 0,
-        preserve_num_entries: 0,
+        create_json_entry: false,
+        is_end_of_object_or_array: false,
+        is_start_of_object_or_array: true,
+        new_context: OBJECT_LAYER != 0,
+        is_key_token: false,
+        is_value_token: false,
+        preserve_num_entries: false,
     };
 
     let begin_array_flags = TokenFlags {
-        create_json_entry: 0,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 1,
-        new_context: ARRAY_LAYER as Field,
-        is_key_token: 0,
-        is_value_token: 0,
-        preserve_num_entries: 0,
+        create_json_entry: false,
+        is_end_of_object_or_array: false,
+        is_start_of_object_or_array: true,
+        new_context: ARRAY_LAYER != 0,
+        is_key_token: false,
+        is_value_token: false,
+        preserve_num_entries: false,
     };
 
     let mut end_object_flags = TokenFlags {
-        create_json_entry: 1,
-        is_end_of_object_or_array: 1,
-        is_start_of_object_or_array: 0,
-        new_context: 0,
-        is_key_token: 0,
-        is_value_token: 0,
-        preserve_num_entries: 0,
+        create_json_entry: true,
+        is_end_of_object_or_array: true,
+        is_start_of_object_or_array: false,
+        new_context: false,
+        is_key_token: false,
+        is_value_token: false,
+        preserve_num_entries: false,
     };
 
     let mut end_array_flags = TokenFlags {
-        create_json_entry: 1,
-        is_end_of_object_or_array: 1,
-        is_start_of_object_or_array: 0,
-        new_context: 0,
-        is_key_token: 0,
-        is_value_token: 0,
-        preserve_num_entries: 0,
+        create_json_entry: true,
+        is_end_of_object_or_array: true,
+        is_start_of_object_or_array: false,
+        new_context: false,
+        is_key_token: false,
+        is_value_token: false,
+        preserve_num_entries: false,
     };
 
     let mut string_flags = TokenFlags {
-        create_json_entry: 1,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 0,
-        new_context: OBJECT_LAYER as Field,
-        is_key_token: 0,
-        is_value_token: 1,
-        preserve_num_entries: 1,
+        create_json_entry: true,
+        is_end_of_object_or_array: false,
+        is_start_of_object_or_array: false,
+        new_context: OBJECT_LAYER != 0,
+        is_key_token: false,
+        is_value_token: true,
+        preserve_num_entries: true,
     };
 
     let mut numeric_flags = TokenFlags {
-        create_json_entry: 1,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 0,
-        new_context: OBJECT_LAYER as Field,
-        is_key_token: 0,
-        is_value_token: 1,
-        preserve_num_entries: 1,
+        create_json_entry: true,
+        is_end_of_object_or_array: false,
+        is_start_of_object_or_array: false,
+        new_context: OBJECT_LAYER != 0,
+        is_key_token: false,
+        is_value_token: true,
+        preserve_num_entries: true,
     };
 
     let mut literal_flags = TokenFlags {
-        create_json_entry: 1,
-        is_end_of_object_or_array: 0,
-        is_start_of_object_or_array: 0,
-        new_context: OBJECT_LAYER as Field,
-        is_key_token: 0,
-        is_value_token: 1,
-        preserve_num_entries: 1,
+        create_json_entry: true,
+        is_end_of_object_or_array: false,
+        is_start_of_object_or_array: false,
+        new_context: OBJECT_LAYER != 0,
+        is_key_token: false,
+        is_value_token: true,
+        preserve_num_entries: true,
     };
 
     flags[NO_TOKEN] = no_token_flags;
@@ -506,39 +461,66 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
     flags[LITERAL_TOKEN] = literal_flags;
     flags[KEY_TOKEN] = key_token_flags;
 
-    no_token_flags.new_context = ARRAY_LAYER as Field;
-    key_token_flags.new_context = ARRAY_LAYER as Field;
-    string_flags.new_context = ARRAY_LAYER as Field;
-    numeric_flags.new_context = ARRAY_LAYER as Field;
-    literal_flags.new_context = ARRAY_LAYER as Field;
+    no_token_flags.new_context = ARRAY_LAYER != 0;
+    key_token_flags.new_context = ARRAY_LAYER != 0;
+    string_flags.new_context = ARRAY_LAYER != 0;
+    numeric_flags.new_context = ARRAY_LAYER != 0;
+    literal_flags.new_context = ARRAY_LAYER != 0;
 
-    flags[NUM_TOKENS + (NO_TOKEN as u32)] = no_token_flags;
-    flags[NUM_TOKENS + (BEGIN_OBJECT_TOKEN as u32)] = begin_object_flags;
-    flags[NUM_TOKENS + (END_OBJECT_TOKEN as u32)] = end_object_flags;
-    flags[NUM_TOKENS + (BEGIN_ARRAY_TOKEN as u32)] = begin_array_flags;
-    flags[NUM_TOKENS + (END_ARRAY_TOKEN as u32)] = end_array_flags;
-    flags[NUM_TOKENS + (KEY_SEPARATOR_TOKEN as u32)] = no_token_flags;
-    flags[NUM_TOKENS + (VALUE_SEPARATOR_TOKEN as u32)] = no_token_flags;
-    flags[NUM_TOKENS + (STRING_TOKEN as u32)] = string_flags;
-    flags[NUM_TOKENS + (NUMERIC_TOKEN as u32)] = numeric_flags;
-    flags[NUM_TOKENS + (LITERAL_TOKEN as u32)] = literal_flags;
-    flags[NUM_TOKENS + (KEY_TOKEN as u32)] = key_token_flags;
+    flags[NUM_TOKENS + NO_TOKEN] = no_token_flags;
+    flags[NUM_TOKENS + BEGIN_OBJECT_TOKEN] = begin_object_flags;
+    flags[NUM_TOKENS + END_OBJECT_TOKEN] = end_object_flags;
+    flags[NUM_TOKENS + BEGIN_ARRAY_TOKEN] = begin_array_flags;
+    flags[NUM_TOKENS + END_ARRAY_TOKEN] = end_array_flags;
+    flags[NUM_TOKENS + KEY_SEPARATOR_TOKEN] = no_token_flags;
+    flags[NUM_TOKENS + VALUE_SEPARATOR_TOKEN] = no_token_flags;
+    flags[NUM_TOKENS + STRING_TOKEN] = string_flags;
+    flags[NUM_TOKENS + NUMERIC_TOKEN] = numeric_flags;
+    flags[NUM_TOKENS + LITERAL_TOKEN] = literal_flags;
+    flags[NUM_TOKENS + KEY_TOKEN] = key_token_flags;
 
     let mut result: [Field; NUM_TOKENS * 2] = [0; NUM_TOKENS * 2];
-    for i in 0..(NUM_TOKENS as u32 * 2) {
+    for i in 0..(NUM_TOKENS * 2) {
         result[i] = flags[i].to_field();
     }
     result
 }
 
-// #[test]
-// fn test_generate_token_flags_table() {
-//     let r = generate_token_flags_table();
-//     println(f"global TOKEN_FLAGS_TABLE: [Field; NUM_TOKENS_MUL_2] = {r};");
-// }
+#[test]
+fn test_generate_token_flags_table() {
+    unsafe {
+        let r = generate_token_flags_table();
+        assert(r == TOKEN_FLAGS_TABLE);
+    }
+}
 
-// #[test]
-// fn test_make_json_capture_table() {
-//     let r = make_json_capture_table();
-//     println(f"global JSON_CAPTURE_TABLE: [Field; 2048] = {r};");
-// }
+#[test]
+fn test_make_json_capture_table() {
+    unsafe {
+        let r = make_json_capture_table();
+        assert(r == JSON_CAPTURE_TABLE);
+    }
+}
+
+#[test]
+fn test_make_validation_flags() {
+    unsafe {
+        let f = make_token_validation_table();
+        assert(f == TOKEN_VALIDATION_TABLE);
+    }
+}
+#[test]
+fn test_make_ascii_to_token_table() {
+    unsafe {
+        let r = make_ascii_to_token_table();
+        assert(r == ASCII_TO_TOKEN_TABLE);
+    }
+}
+
+#[test]
+fn test_make_process_raw_transcript_table() {
+    unsafe {
+        let r = make_process_raw_transcript_table();
+        assert(r == PROCESS_RAW_TRANSCRIPT_TABLE);
+    }
+}

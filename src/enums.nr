@@ -1,5 +1,9 @@
-pub(crate) mod ScanMode {
-    pub(crate) global GRAMMAR_SCAN: Field = 0;
+pub(crate) mod CaptureMode {
+    pub(crate) global GRAMMAR_CAPTURE: Field = 0;
+    pub(crate) global STRING_CAPTURE: Field = 1;
+    pub(crate) global NUMERIC_CAPTURE: Field = 2;
+    pub(crate) global LITERAL_CAPTURE: Field = 3;
+    pub(crate) global ERROR_CAPTURE: Field = 4;
 }
 
 pub(crate) mod Token {

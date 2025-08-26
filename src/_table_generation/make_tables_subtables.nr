@@ -1,4 +1,4 @@
-use crate::_table_generation::make_tables::CaptureMode::{
+use crate::enums::CaptureMode::{
     ERROR_CAPTURE, GRAMMAR_CAPTURE, LITERAL_CAPTURE, NUMERIC_CAPTURE, STRING_CAPTURE,
 };
 use crate::enums::Token::{

@@ -125,7 +125,7 @@ impl JSONEntry {
         // Safety: we check all the outputs are in the correct range and we can construct the input from the outputs of the decomposition
         let (id, parent_index, mid, entry_type) =
             unsafe { JSONEntry::__extract_entry_type_id_and_parent_index_from_field(f) };
-        id.assert_max_bit_size::<8>(); // 1.25
+        id.assert_max_bit_size::<16>(); // 1.5
         parent_index.assert_max_bit_size::<16>(); // 1.5
         entry_type.assert_max_bit_size::<16>(); // 1.5
         mid.assert_max_bit_size::<136>(); // 5.5
@@ -141,7 +141,7 @@ impl JSONEntry {
     }
     fn extract_entry_type_and_id_from_field(f: Field) -> (Field, Field) {
         let (id, mid, entry_type) = unsafe { JSONEntry::__extract_entry_type_and_id_from_field(f) };
-        id.assert_max_bit_size::<8>(); // 1.25
+        id.assert_max_bit_size::<16>(); // 1.5
         entry_type.assert_max_bit_size::<16>(); // 1.5
         mid.assert_max_bit_size::<136>(); // 5.5
         assert(id + mid * 0x10000 + entry_type * 0x100000000000000000000000000000000000000 == f);
