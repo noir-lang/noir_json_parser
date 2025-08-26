@@ -28,10 +28,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /// same as `get_object` for where the key length may be less than KeyBytes
-    pub fn get_object_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> Option<Self> {
+    pub fn get_object_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<Self> {
         let (exists, entry, key_index) = self.get_json_entry_var(key);
         if exists {
             assert_eq(
