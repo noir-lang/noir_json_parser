@@ -833,10 +833,19 @@ mod test {
         fn returns_expected_values() {
             // test cases taken from documentation on `LAST_LIMB_PATH`, note that indices are offset by 1 from
             // the value passed to `get_last_limb_path`.
-            let test_cases: [[Field; 9]] =
-                [[0, 0, 0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 0, 0, 0, 0, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0, 0], [1, 1, 1, 1, 1, 0, 0, 0, 0], [1, 1, 1, 1, 1, 1, 0, 0, 0], [1, 1, 1, 1, 1, 1, 1, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 0]];
-            for i in 0..test_cases.len() -1 {
-                let (path,path2) = get_last_limb_path(i as Field);
+            let test_cases: [[Field; 9]] = [
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0],
+                [1, 1, 0, 0, 0, 0, 0, 0, 0],
+                [1, 1, 1, 0, 0, 0, 0, 0, 0],
+                [1, 1, 1, 1, 0, 0, 0, 0, 0],
+                [1, 1, 1, 1, 1, 0, 0, 0, 0],
+                [1, 1, 1, 1, 1, 1, 0, 0, 0],
+                [1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [1, 1, 1, 1, 1, 1, 1, 1, 0],
+            ];
+            for i in 0..test_cases.len() - 1 {
+                let (path, path2) = get_last_limb_path(i as Field);
                 let expected_path = test_cases[i];
                 let expected_path2 = test_cases[i + 1];
                 assert_eq(
