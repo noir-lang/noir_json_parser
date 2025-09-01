@@ -1,6 +1,6 @@
 use crate::_comparison_tools::bounds_checker::get_validity_flags;
 use crate::enums::CaptureMode::GRAMMAR_CAPTURE;
-use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
+use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::{
     BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN, KEY_TOKEN, LITERAL_TOKEN,
     NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN,
@@ -52,7 +52,7 @@ pub struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u
     pub(crate) key_hashes: [Field; MaxNumValues], // a sorted list of key hashes
     pub(crate) unsorted_json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
     pub(crate) json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
-    pub(crate) layer_type_of_root: u32, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
+    pub(crate) layer_type_of_root: u32, // is the root an OBJECT_LAYER, ARRAY_LAYER
     pub(crate) root_id: Field, // the unique identifier of the root (if an object or array)
     pub(crate) root_index_in_transcript: u32, // location in json_entries_packed of the root
 }
@@ -207,17 +207,17 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             // 1 gate
             // we encode an error flag into `push_layer` by making its value such that `depth` will exceed the size of `parent_layer_stack`
-            depth += push_layer - pop_layer;
+            depth += push_layer as Field - pop_layer as Field;
             std::as_witness(depth);
 
             // 6.5 gates
             let parent_layer = parent_layer_stack[cast_num_to_u32(depth)];
-            let mut updated_layer = (1 - pop_layer - push_layer);
+            let mut updated_layer = (1 - pop_layer as Field - push_layer as Field);
             std::as_witness(updated_layer);
             updated_layer =
                 updated_layer * current_layer as Field + push_layer_type_of_root as Field;
             std::as_witness(updated_layer);
-            updated_layer = updated_layer + parent_layer * pop_layer;
+            updated_layer = updated_layer + parent_layer as Field * pop_layer as Field;
             std::as_witness(updated_layer);
             current_layer = cast_num_to_u32(updated_layer);
 
@@ -712,8 +712,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             OBJECT_LAYER
         } else if (first.token == BEGIN_ARRAY_TOKEN as Field) {
             ARRAY_LAYER
-        } else if (first.token == STRING_TOKEN as Field) {
-            SINGLE_VALUE_LAYER
         } else {
             self.layer_type_of_root
         };
