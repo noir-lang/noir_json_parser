@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756828332673,
+  "lastUpdate": 1756828339597,
   "repoUrl": "https://github.com/noir-lang/noir_json_parser",
   "entries": {
     "ACIR Opcodes": [
@@ -8379,6 +8379,120 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/noir-lang/noir_json_parser/commit/fdeb176d31b81f817e9f44c7f92f0595e5a050ba"
         },
         "date": 1756721106535,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "get_array_JSON16kb_Bench",
+            "value": 18499,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_array_JSON512b_Bench",
+            "value": 2627,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_keys_at_root_JSON16kb_Bench",
+            "value": 43577,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_keys_at_root_JSON512b_Bench",
+            "value": 27704,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_literal_JSON16kb_Bench",
+            "value": 22291,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_literal_JSON512b_Bench",
+            "value": 6418,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_number_JSON16kb_Bench",
+            "value": 22601,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_number_JSON512b_Bench",
+            "value": 6728,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_object_JSON16kb_Bench",
+            "value": 18499,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_object_JSON512b_Bench",
+            "value": 2627,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_string_JSON16kb_Bench",
+            "value": 24349,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_string_JSON512b_Bench",
+            "value": 8476,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_value_JSON16kb_Bench",
+            "value": 23399,
+            "unit": "opcodes"
+          },
+          {
+            "name": "get_value_JSON512b_Bench",
+            "value": 7526,
+            "unit": "opcodes"
+          },
+          {
+            "name": "key_exists_JSON16kb_Bench",
+            "value": 18131,
+            "unit": "opcodes"
+          },
+          {
+            "name": "key_exists_JSON512b_Bench",
+            "value": 2259,
+            "unit": "opcodes"
+          },
+          {
+            "name": "parse_json_from_string_JSON16kb_Bench",
+            "value": 16563,
+            "unit": "opcodes"
+          },
+          {
+            "name": "parse_json_from_string_JSON512b_Bench",
+            "value": 16552,
+            "unit": "opcodes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "26174818+jialinli98@users.noreply.github.com",
+            "name": "Jialin Li",
+            "username": "jialinli98"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "601ec4999c5f3c7a7d175edacdcf37233d36a8a8",
+          "message": "feat: make get functions public (#91)",
+          "timestamp": "2025-09-02T16:44:32+01:00",
+          "tree_id": "8750c549e2f9f2d7000d58e379ed30fe6af2cfb3",
+          "url": "https://github.com/noir-lang/noir_json_parser/commit/601ec4999c5f3c7a7d175edacdcf37233d36a8a8"
+        },
+        "date": 1756828339580,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
