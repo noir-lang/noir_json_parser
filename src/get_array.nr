@@ -16,7 +16,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self
     }
     /// if the root JSON is an array, return its length
-    pub(crate) fn get_length(self) -> u32 {
+    pub fn get_length(self) -> u32 {
         assert(self.layer_type_of_root == ARRAY_LAYER, "can only get length of an array type");
         let parent_entry: JSONEntry =
             self.json_entries_packed[self.root_index_in_transcript].into();
@@ -26,22 +26,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract an array given by `key`
     ///
     /// returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value
-    pub(crate) fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
+    pub fn get_array<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
         self.get_array_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /// if the root JSON is an object, extract an array given by `key`
     ///
     /// will revert if the array does not exist
-    pub(crate) fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
+    pub fn get_array_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
         self.get_array_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /// same as `get_array` for where the key length may be less than KeyBytes
-    pub(crate) fn get_array_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> Option<Self> {
+    pub fn get_array_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<Self> {
         let (exists, entry, key_index) = self.get_json_entry_var(key);
         if !exists {
             assert_eq(
@@ -61,10 +58,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /// same as `get_array_unchecked` for where the key length may be less than KeyBytes
-    pub(crate) fn get_array_unchecked_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> Self {
+    pub fn get_array_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Self {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
 
         let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
@@ -76,7 +70,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an array, extract an array given by the position of the target in the source array
     ///
     /// returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value
-    pub(crate) fn get_array_from_array(self, array_index: Field) -> Option<Self> {
+    pub fn get_array_from_array(self, array_index: Field) -> Option<Self> {
         let (entry, valid, entry_index) = self.get_entry_from_array(array_index);
         if valid {
             assert_eq(
@@ -98,7 +92,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an array, extract an array given by the position of the target in the source array
     ///
     /// will revert if the array does not exist
-    pub(crate) fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
+    pub fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
         let result = self.get_array_from_array(array_index);
         result.expect(f"array index out of bounds")
     }

@@ -717,7 +717,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         };
     }
 
-    fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {
+    pub fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {
         assert(StringBytes <= NumBytes, "json length exceeds NumBytes!");
         let mut text: [u8; NumBytes] = [0; NumBytes];
         for i in 0..StringBytes {

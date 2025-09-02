@@ -63,19 +63,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract a literal value given by `key`
     ///
     /// returns an Option<JSONLiteral> which will be null if the literal does not exist
-    pub(crate) fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
+    pub fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
         self.get_literal_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /// if the root JSON is an object, extract a literal value given by `key`
     ///
     /// will revert if the literal does not exist
-    fn get_literal_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> JSONLiteral {
+    pub fn get_literal_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> JSONLiteral {
         self.get_literal_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
     }
 
     /// same as `get_literal` for where the key length may be less than KeyBytes
-    pub(crate) fn get_literal_var<let KeyBytes: u32>(
+    pub fn get_literal_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> Option<JSONLiteral> {
@@ -95,7 +95,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /// same as `get_literal_unchecked` for where the key length may be less than KeyBytes
-    pub(crate) fn get_literal_unchecked_var<let KeyBytes: u32>(
+    pub fn get_literal_unchecked_var<let KeyBytes: u32>(
         self,
         key: BoundedVec<u8, KeyBytes>,
     ) -> JSONLiteral {
@@ -137,7 +137,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an array, extract a literal given by the position of the target in the source array
     ///
     /// will revert if the literal does not exist
-    fn get_literal_from_array_unchecked(self, array_index: Field) -> JSONLiteral {
+    pub fn get_literal_from_array_unchecked(self, array_index: Field) -> JSONLiteral {
         let result = self.get_literal_from_array(array_index);
         result.expect(f"array index out of bounds")
     }
