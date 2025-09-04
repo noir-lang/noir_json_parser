@@ -1,5 +1,6 @@
 use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::END_OBJECT_TOKEN;
+use crate::getters::KeyHashable;
 use crate::json::JSON;
 use crate::json_entry::JSONEntry;
 
@@ -16,20 +17,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract a child object given by `key`
     ///
     /// returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value
-    pub fn get_object<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<Self> {
-        self.get_object_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /// if the root JSON is an object, extract a child object given by `key`
-    ///
-    /// will revert if the requested object does not exist
-    pub fn get_object_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Self {
-        self.get_object_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /// same as `get_object` for where the key length may be less than KeyBytes
-    pub fn get_object_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<Self> {
-        let (exists, entry, key_index) = self.get_json_entry_var(key);
+    pub(crate) fn get_object<K>(self, key: K) -> Option<Self>
+    where
+        K: KeyHashable,
+    {
+        let (exists, entry, key_index) = self.get_json_entry(key);
         if exists {
             assert_eq(
                 entry.entry_type,
@@ -47,13 +39,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /// same as `get_object_unchecked` for where the key length may be less than KeyBytes
-    pub fn get_object_unchecked_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> Self {
+    // if the root JSON is an object, extract a child object given by `key`
+    ///
+    /// will revert if the requested object does not exist
+    pub(crate) fn get_object_unchecked<K>(self, key: K) -> Self
+    where
+        K: KeyHashable,
+    {
         assert(self.layer_type_of_root != ARRAY_LAYER, "cannot extract array elements via a key");
-        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index_var(key);
+        let (entry, key_index) = self.get_json_entry_unchecked_with_key_index(key);
         let entry: JSONEntry = self.json_entries_packed[key_index].into();
         assert_eq(
             entry.entry_type,
@@ -117,19 +111,19 @@ fn test_object() {
     let not_real = B.get_object("bartholomew tony Harrison IV".as_bytes());
     assert(not_real.is_some() == false);
 
-    let C = B.get_object_unchecked_var(BoundedVec::from_parts_unchecked(
+    let C = B.get_object_unchecked(BoundedVec::from_parts_unchecked(
         "bartholomew tony Harrison III".as_bytes(),
         29,
     ));
     assert_eq(JSONEntry::from(C.json_entries_packed[C.root_index_in_transcript]).num_children, 1);
 
-    let C = B.get_object_var(BoundedVec::from_parts_unchecked(
+    let C = B.get_object(BoundedVec::from_parts_unchecked(
         "bartholomew tony Harrison III".as_bytes(),
         28,
     ));
     assert(C.is_some() == false);
 
-    let C = B.get_object_var(BoundedVec::from_parts_unchecked(
+    let C = B.get_object(BoundedVec::from_parts_unchecked(
         "bartholomew tony Harrison IIIekurfgaeoiurh".as_bytes(),
         29,
     ));

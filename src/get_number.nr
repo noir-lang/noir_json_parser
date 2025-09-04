@@ -1,4 +1,5 @@
 use crate::enums::Token::NUMERIC_TOKEN;
+use crate::getters::KeyHashable;
 use crate::json::JSON;
 use crate::json_tables::ASCII_TO_NUMBER;
 use crate::utils::cast_num_to_u32;
@@ -49,20 +50,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract a numeric value given by `key`
     ///
     /// returns an Option<u64> which will be null if the key does not exist
-    pub fn get_number<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<u64> {
-        self.get_number_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /// if the root JSON is an object, extract a u64 value given by `key`
-    ///
-    /// will revert if the number does not exist
-    pub fn get_number_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> u64 {
-        self.get_number_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /// same as `get_number` for where the key length may be less than KeyBytes
-    pub fn get_number_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> Option<u64> {
-        let (exists, entry, _) = self.get_json_entry_var(key);
+    pub(crate) fn get_number<K>(self, key: K) -> Option<u64>
+    where
+        K: KeyHashable,
+    {
+        let (exists, entry, _) = self.get_json_entry(key);
         assert(
             (entry.entry_type - NUMERIC_TOKEN as Field) * exists as Field == 0,
             "get_number: entry exists but is not a number!",
@@ -76,9 +68,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /// same as `get_number_unchecked` for where the key length may be less than KeyBytes
-    pub fn get_number_unchecked_var<let KeyBytes: u32>(self, key: BoundedVec<u8, KeyBytes>) -> u64 {
-        let entry = self.get_json_entry_unchecked_var(key);
+    /// if the root JSON is an object, extract a u64 value given by `key`
+    ///
+    /// will revert if the number does not exist
+    pub(crate) fn get_number_unchecked<K>(self, key: K) -> u64
+    where
+        K: KeyHashable,
+    {
+        let entry = self.get_json_entry_unchecked(key);
         assert(
             entry.entry_type == NUMERIC_TOKEN as Field,
             "get_number_unchecked: entry exists but is not a number!",

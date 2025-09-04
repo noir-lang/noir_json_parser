@@ -307,13 +307,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // See comments in token_flags.nr for more details
             // 13 gates
             let TokenFlags {
-    create_json_entry,
-    is_end_of_object_or_array,
-    is_start_of_object_or_array,
-    new_context,
-    is_key_token: update_key,
-    is_value_token,
-    preserve_num_entries,} = TokenFlags::from_field(
+                create_json_entry,
+                is_end_of_object_or_array,
+                is_start_of_object_or_array,
+                new_context,
+                is_key_token: update_key,
+                is_value_token,
+                preserve_num_entries,
+            } = TokenFlags::from_field(
                 TOKEN_FLAGS_TABLE[cast_num_to_u32(token) + context * NUM_TOKENS],
             );
 
@@ -574,8 +575,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 2 gates
             let capture_flags = JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)];
             // 5 gates
-            let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
-                ScanData::from_field(capture_flags);
+            let ScanData {
+                scan_token,
+                push_transcript,
+                increase_length,
+                is_potential_escape_sequence,
+            } = ScanData::from_field(capture_flags);
 
             // 2 gates
             let raw: Field = raw_transcript[cast_num_to_u32(transcript_ptr)];
@@ -790,8 +795,8 @@ unconstrained fn __build_transcript<let NumBytes: u32, let MaxNumTokens: u32>(
         let encoded_ascii = previous_was_potential_escape_sequence as Field * 1024
             + scan_mode * 256
             + ascii as Field;
-        let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence } =
-            ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
+        let ScanData { scan_token, push_transcript, increase_length, is_potential_escape_sequence }
+             = ScanData::from_field(JSON_CAPTURE_TABLE[cast_num_to_u32(encoded_ascii)]);
 
         if push_transcript {
             let new_entry = RawTranscriptEntry::to_field(
@@ -873,10 +878,9 @@ fn test_numbers() {
     let c = json.get_number_unchecked("c".as_bytes());
     let d = json.get_number_unchecked("d".as_bytes());
     let e = json.get_number_unchecked("e".as_bytes());
-    let f =
-        json.get_number_unchecked_var(BoundedVec::from_parts_unchecked("ftrololol".as_bytes(), 1));
+    let f = json.get_number_unchecked(BoundedVec::from_parts_unchecked("ftrololol".as_bytes(), 1));
     let g = json.get_number("g".as_bytes()).unwrap();
-    let h = json.get_number_var(BoundedVec::from_parts_unchecked("h".as_bytes(), 1)).unwrap();
+    let h = json.get_number(BoundedVec::from_parts_unchecked("h".as_bytes(), 1)).unwrap();
     let i = json.get_number_unchecked("i".as_bytes());
     let j = json.get_number_unchecked("j".as_bytes());
     let k = json.get_number_unchecked("k".as_bytes());
@@ -961,7 +965,7 @@ fn test_parse_json() {
     assert(result.is_some() == false);
 
     let mut nested_json = json.get_object("bar".as_bytes()).unwrap();
-    let result: Option<u64> = nested_json.get_number_var(BoundedVec::from_parts_unchecked(
+    let result: Option<u64> = nested_json.get_number(BoundedVec::from_parts_unchecked(
         "foounusedkeybyteslolol".as_bytes(),
         3,
     ));
