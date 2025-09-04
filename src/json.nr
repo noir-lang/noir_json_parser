@@ -1,6 +1,6 @@
 use crate::_comparison_tools::bounds_checker::get_validity_flags;
 use crate::enums::CaptureMode::GRAMMAR_CAPTURE;
-use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER, SINGLE_VALUE_LAYER};
+use crate::enums::Layer::{ARRAY_LAYER, OBJECT_LAYER};
 use crate::enums::Token::{
     BEGIN_ARRAY_TOKEN, BEGIN_OBJECT_TOKEN, KEY_SEPARATOR_TOKEN, KEY_TOKEN, LITERAL_TOKEN,
     NUM_TOKENS, NUMERIC_TOKEN, STRING_TOKEN,
@@ -52,7 +52,7 @@ pub struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u
     pub(crate) key_hashes: [Field; MaxNumValues], // a sorted list of key hashes
     pub(crate) unsorted_json_entries_packed: [JSONEntryPacked; MaxNumValues], // a list of all the processed json values (objects, arrays, numerics, literals, strings)
     pub(crate) json_entries_packed: [JSONEntryPacked; MaxNumValues], // a sorted list of all the processed json values (objects, arrays, numerics, literals, strings)
-    pub(crate) layer_type_of_root: u32, // is the root an OBJECT_LAYER, ARRAY_LAYER or SINGLE_VALUE_LAYER?
+    pub(crate) layer_type_of_root: u32, // is the root an OBJECT_LAYER, ARRAY_LAYER
     pub(crate) root_id: Field, // the unique identifier of the root (if an object or array)
     pub(crate) root_index_in_transcript: u32, // location in json_entries_packed of the root
 }
@@ -207,17 +207,17 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
             // 1 gate
             // we encode an error flag into `push_layer` by making its value such that `depth` will exceed the size of `parent_layer_stack`
-            depth += push_layer - pop_layer;
+            depth += push_layer as Field - pop_layer as Field;
             std::as_witness(depth);
 
             // 6.5 gates
             let parent_layer = parent_layer_stack[cast_num_to_u32(depth)];
-            let mut updated_layer = (1 - pop_layer - push_layer);
+            let mut updated_layer = (1 - pop_layer as Field - push_layer as Field);
             std::as_witness(updated_layer);
             updated_layer =
                 updated_layer * current_layer as Field + push_layer_type_of_root as Field;
             std::as_witness(updated_layer);
-            updated_layer = updated_layer + parent_layer * pop_layer;
+            updated_layer = updated_layer + parent_layer as Field * pop_layer as Field;
             std::as_witness(updated_layer);
             current_layer = cast_num_to_u32(updated_layer);
 
@@ -226,35 +226,63 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         assert(depth == 0, "validate_tokens: unclosed objects or arrays");
     }
 
-    /**
-     * @brief given a processed transcript of json tokens, compute a list of json entries that describes the values within the JSON blob
-     * @details a 'value' here is either an Object, Array, String, Numeric or Literal.
-     *          e.g. "[ 1, 2, 3 ]" contains 4 values (3 Numeric types and the Array that contains them)
-     *
-     *          To avoid branches and if statements, we construct a state transition function out of the lookup table TOKEN_FLAGS_TABLE
-     *          This table takes as an input the following:
-     *              1. The token value of an element in the transcript
-     *              2. The layer type the previous token is located in (i.e. are we in an array or an object?)
-     *          The table outputs the following data:
-     *              1. Should we create a new json entry? (i.e. is the token a STRING_TOKEN, LITERAL_TOKEN, NUMERIC_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN)
-     *              2. Is the token `}` or `]`?
-     *              3. Is the token `{` or `[`?
-     *              4. Given the current layer type and the token being queried, what should the new layer type be?
-     *              5. Is the token `KEY_TOKEN`?
-     *              6. Is the token a `STRING_TOKEN`, `NUMERIC_TOKEN` OR `VALUE_TOKEN`?
-     *              7. Is the token one that we should skip over? `,` or `:`
-     **/
+    /// Parses [`Self::transcript`] to populate [`Self::json_entries_packed`] and [`Self::key_data`]
+    /// Given a processed transcript of json tokens, compute a list of json entries that describes the values within the JSON blob
+    ///
+    /// [`Self::json_entries_packed`] is a [JSONEntry] struct whose members have been packed into a single Field element.
+    ///
+    /// A 'value' here is either an Object, Array, String, Numeric or Literal.
+    ///         e.g. "[ 1, 2, 3 ]" contains 4 values (3 Numeric types and the Array that contains them)
+    ///
+    ///         To avoid branches and if statements, we construct a state transition function out of the lookup table TOKEN_FLAGS_TABLE
+    ///         This table takes as an input the following:
+    ///             1. The token value of an element in the transcript
+    ///             2. The layer type the previous token is located in (i.e. are we in an array or an object?)
+    ///         The table outputs the following data:
+    ///             1. Should we create a new json entry? (i.e. is the token a STRING_TOKEN, LITERAL_TOKEN, NUMERIC_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN)
+    ///             2. Is the token `}` or `]`?
+    ///             3. Is the token `{` or `[`?
+    ///             4. Given the current layer type and the token being queried, what should the new layer type be?
+    ///             5. Is the token `KEY_TOKEN`?
+    ///             6. Is the token a `STRING_TOKEN`, `NUMERIC_TOKEN` OR `VALUE_TOKEN`?
+    ///             7. Is the token one that we should skip over? `,` or `:`
+    ///
+    /// ## explanation of `parent_context_stack`
+    /// When recording a JSONEntry, we need to understand how many children (if any) a JSONEntry has,
+    /// as well as a way of accessing children given the parent JSONEntry object
+    /// Note: OBJECT_TOKEN and ARRAY_TOKEN have children. single values (NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN) do not.
+    /// We define a "context stack" via `parent_context_stack` to track this data.
+    /// The front of `parent_context_stack` contains a JSONContextStackEntry (packed into a single Field for the purposes of efficient lookups) for the current parent
+    /// If we parse a token that creates a new parent (BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN), we push a new parent onto the stack
+    /// If we reach the end of an object or array (END_OBJECT_TOKEN, END_ARRAY_TOKEN) we pop the current parent off of the stack
+    /// Note: "stack" is used loosely here. We have a fixed-size array of packed JSONContextStackEntry vals and a pointer to the head of the stack.
+    /// (the array size defines the maximum number of entities the stack can contain, currently set at 32)
+    /// Note: the size param `32` is a magic number we should replace with a defined const global variable
+    /// To push: we increment the pointer by 1 and write a new entry at the pointer value
+    /// To pop: we decrement the pointer by 1 (we don't need to delete data because new data is written every time the pointer is incremented)
     fn create_json_entries(&mut self) {
+        let mut parent_context_stack: [Field; 32] = [0; 32];
         let mut entry_ptr = 0;
+        // depth = points to the next unused slot in parent_context_stack
+        // Note: parent_context_stack[0] = the root JSON object
         let mut depth: Field = 1;
+        // how many children does the current parent have?
         let mut num_entries_at_current_depth: Field = 0;
-        let mut next_identity_value: Field = 1;
+
+        // current_identity_value = unique identifier for all JSON objects/arrays we create
         let mut current_identity_value: Field = 0;
+        // next_identity_value = smallest integer that we've not yet assigned as a unique identifier to the JSON objects/arrays we create
+        let mut next_identity_value: Field = 1;
+        // context = is the current parent an object or array?
         let mut context = OBJECT_LAYER;
 
+        // current_key_index_and_length encodes 2 bits of data in a single Field element (to save some gates)
+        // note: would be more readable if we had a custom struct that wrapped a Field element with defined update methods
+        // 1. what is the key index? (index = unique identifier, starts at 0)
+        // 2. what is the size of the key in bytes?
+        // current_key_index_and_length = index + length * 0x10000 (assumes index does not exceed 2^16. I don't think we check for this, there is an assumption that the size of the circuit would be too large to compile/run if the JSON blob has over 2^16 unique keys)
         let mut current_key_index_and_length: Field = 0;
 
-        let mut parent_context_stack: [Field; 32] = [0; 32];
         let mut tokens: [Field; MaxNumTokens] = [0; MaxNumTokens];
         //  maybe 71.75 gates per iteration
         for i in 0..MaxNumTokens {
@@ -265,6 +293,18 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 TranscriptEntry::from_field(self.transcript[i]);
 
             tokens[i] = token;
+
+            // The TOKEN_FLAGS_TABLE table encodes the following information:
+            // Given the current token and the context (whether the parent is an object or array),
+            // we can extract the following information from TOKEN_FLAGS_TABLE via a simple lookup:
+            // 1. Should we create a new JSONEntry object?
+            //  - i.e is the token END_ARRAY_TOKEN, END_OBJECT_TOKEN, STRING_TOKEN, NUMERIC_TOKEN, LITERAL_TOKEN
+            // 2. If the token creates a new parent (BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN), what is the context value? (0 = object, 1 = array)
+            // 3. Has the parent entity changed?
+            //  - `preserve_num_entries` = 1 if the parent entity changes, not the best variable name
+            // 5. Various bools that describe the token, which are cheaper to acquire this way than via comparison operators
+            // - `is_end_of_object_or_array, `is_start_of_object_or_array`, `is_key_token`, `is_value_token`
+            // See comments in token_flags.nr for more details
             // 13 gates
             let TokenFlags {
                 create_json_entry,
@@ -278,6 +318,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 TOKEN_FLAGS_TABLE[cast_num_to_u32(token) + context * NUM_TOKENS],
             );
 
+            // Determine what the current key index is and the key size in bytes
+            // (key index = byte location in the original JSON of the key)
+            // Pseudocode equivalent:
+            // current_key_index_and_length = update_key ? (index + length * 0x10000) : current_key_index_and_length
             // We convert these booleans into Fields so that we can use them in arithmetic operations.
             let create_json_entry = create_json_entry as Field;
             let is_end_of_object_or_array = is_end_of_object_or_array as Field;
@@ -293,6 +337,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             current_key_index_and_length = diff * update_key + current_key_index_and_length;
             std::as_witness(current_key_index_and_length);
 
+            // If the current token is BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
+            // we need to push a new parent object into `parent_context_stack`.
+            // We apply a trick here to avoid branching: regardless of the token type,
+            // we *always* write a new stack entry into `parent_context_stack[depth]`.
+            // If the current token is not BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
+            // the data we write never gets read.
+            // Note: we only update the value of `depth` if token == BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
             // 2 gates
             let new_context_stack_entry = JSONContextStackEntry::to_field(
                 JSONContextStackEntry {
@@ -303,60 +354,114 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                     current_identity: current_identity_value,
                 },
             );
-            // subtotal 22.25
-            // 1 gate
-            let depth_index: Field = (depth - 1);
             // 3.5 gates
-            let previous_stack_entry_packed = parent_context_stack[cast_num_to_u32(depth_index)];
+            parent_context_stack[cast_num_to_u32(depth)] = new_context_stack_entry;
 
+            // `previous_stack_entry` = Extract information about the parent of the current token
+            // If the current token = END_OBJECT_TOKEN or END_ARRAY_TOKEN, previous_stack_entry = data that describes the object or array we are about to create
             // 9.5 gates
+            let depth_index: Field = (depth - 1);
+            let previous_stack_entry_packed = parent_context_stack[cast_num_to_u32(depth_index)];
             let previous_stack_entry =
                 JSONContextStackEntry::from_field(previous_stack_entry_packed);
 
-            let object_or_array_entry: JSONEntry = JSONEntry {
-                array_pointer: previous_stack_entry.num_entries,
-                entry_type: token,
-                child_pointer: 0,
-                num_children: num_entries_at_current_depth,
-                json_pointer: previous_stack_entry.json_index,
-                json_length: length,
-                parent_index: previous_stack_entry.current_identity,
-                id: current_identity_value,
-            };
-            // 0
-            let value_entry: JSONEntry = JSONEntry {
-                array_pointer: num_entries_at_current_depth,
-                entry_type: token,
-                child_pointer: 0,
-                num_children: 0,
-                json_pointer: index,
-                json_length: length,
-                parent_index: current_identity_value,
-                id: 0,
-            };
+            // update the depth of the context stack
+            // 1 gate
+            depth = depth + is_start_of_object_or_array - is_end_of_object_or_array;
 
-            // 3 gates
-            let object_or_array_entry_packed = object_or_array_entry.to_field();
-            // 2 gates
-            let value_entry_packed = value_entry.to_field();
+            /* PSEUDOCODE FOR FOLLOWING BLOCK:
+            let mut new_entry: JSONEntry = JSONEntry::default()
+            if create_json_entry {
+                let array_entry = object_or_array_entry_packed ? object_or_array_entry_packed : value_entry_packed;
+                self.json_entries_packed[cast_num_to_u32(entry_ptr)] = array_entry;   }
+            */
+            {
+                // If token = END_OBJECT_TOKEN or END_ARRAY_TOKEN, we derive the following:
+                // array_pointer = if *this entity's parent is an array*, `array_pointer` will point to the index in the array where the current object/array is located
+                // entry_type = END_OBJECT_TOKEN or END_ARRAY_TOKEN
+                // child_pointer = points to the first child object, is set in compute_keyhash_and_sort_json_entries
+                // num_children = how many entities does this object/array contain?
+                // json_pointer = byte index of the original json where this object/array starts
+                // parent_index = what's the ID of the object/array's parent?
+                let object_or_array_entry: JSONEntry = JSONEntry {
+                    array_pointer: previous_stack_entry.num_entries,
+                    entry_type: token,
+                    child_pointer: 0,
+                    num_children: num_entries_at_current_depth,
+                    json_pointer: previous_stack_entry.json_index,
+                    json_length: length,
+                    parent_index: previous_stack_entry.current_identity,
+                    id: current_identity_value,
+                };
+                // If token = STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN, we derive the following:
+                // array_pointer = if *this entity's parent is an array*, `array_pointer` will point to the index in the array where the current string/number/literal is located
+                // entry_type = STRING_TOKEN, NUMERIC_TOKEN or LITERAL_TOKEN
+                // child_pointer = not relevant for value entries (cannot contain children)
+                // num_children = not relevant for value entries (cannot contain children)
+                // json_pointer = byte index of the original json where this string/number/literal starts
+                // parent_index = what's the ID of the string/number/literal's parent?
+                let value_entry: JSONEntry = JSONEntry {
+                    array_pointer: num_entries_at_current_depth,
+                    entry_type: token,
+                    child_pointer: 0,
+                    num_children: 0,
+                    json_pointer: index,
+                    json_length: length,
+                    parent_index: current_identity_value,
+                    id: 0,
+                };
+                // 3 gates
+                let object_or_array_entry_packed = object_or_array_entry.to_field();
+                // 2 gates
+                let value_entry_packed = value_entry.to_field();
+                // 2 gates
+                let diff = object_or_array_entry_packed - value_entry_packed;
+                std::as_witness(diff);
+                let new_entry = diff * is_end_of_object_or_array + value_entry_packed;
+                std::as_witness(new_entry);
+                // 4.5 gates
+                self.json_entries_packed[cast_num_to_u32(entry_ptr)] =
+                    JSONEntryPacked { value: new_entry * create_json_entry };
+            }
+            // Update `next_identity_value` and `current_identity_value` (unique identfiers for JSON entries)
+            // If we've ended an object/array, set `current_identity_value` to the value of the object/array's parent (whose context we're now in)
+            // If we've started an object/array, set `current_identity_value` to `next_identity_value` (the next unused unique identifier)
+            // If we've started an object/array, also increment `next_identity_value` to a new unique value
+            // Pseudocode for the following:
+            //
+            //  if !preserve_num_entries {
+            //      if is_start_of_object_or_array {
+            //          current_identity_value = next_identity_value;
+            //      }
+            //      else if is_end_of_object_or_array {
+            //          current_identity_value = previous_stack_entry.current_identity;
+            //      }
+            //      next_identity_value += is_start_of_object_or_array;
+            //  }
+            //
+            // 4 gates
+            {
+                let old = current_identity_value;
+                current_identity_value = (next_identity_value * is_start_of_object_or_array);
+                std::as_witness(current_identity_value);
+                current_identity_value = current_identity_value
+                    + (previous_stack_entry.current_identity * is_end_of_object_or_array);
+                std::as_witness(current_identity_value);
+                current_identity_value = current_identity_value + old * preserve_num_entries;
+                std::as_witness(current_identity_value);
+                // If the current token creates an object or array, subsequent entries will be a child of this object
+                // i.e. we need to assign them a new identifier so increase `next_identity_value`
+                next_identity_value = next_identity_value + is_start_of_object_or_array;
+                std::as_witness(next_identity_value);
+            }
 
-            // 2 gates
-            let diff = object_or_array_entry_packed - value_entry_packed;
-            std::as_witness(diff);
-            let new_entry = diff * is_end_of_object_or_array + value_entry_packed;
-            std::as_witness(new_entry);
-
-            // 3 gates
-            // subtotal 24 + 22.25 = 46.25
-            let old = current_identity_value;
-            current_identity_value = (next_identity_value * is_start_of_object_or_array);
-            std::as_witness(current_identity_value);
-            current_identity_value = current_identity_value
-                + (previous_stack_entry.current_identity * is_end_of_object_or_array);
-            std::as_witness(current_identity_value);
-            current_identity_value = current_identity_value + old * preserve_num_entries;
-            std::as_witness(current_identity_value);
-
+            // Update the number of entries in the parent object/array
+            // Pseudocode:
+            // if (!preserve_num_entries && is_value_token) {
+            //  num_entries_at_current_depth += 1;
+            // } else if (is_end_of_object_or_array) {
+            //  num_entries_at_current_depth = previous_stack_entry.num_entries + 1;
+            // }
             // 2 gates
             num_entries_at_current_depth =
                 num_entries_at_current_depth * preserve_num_entries + is_value_token;
@@ -365,12 +470,40 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 + (previous_stack_entry.num_entries + 1) * is_end_of_object_or_array;
             std::as_witness(num_entries_at_current_depth);
 
+            // Set the value of `context` (badly named: are we in an object or array? context == 0 => object, context == 1 => array)
+            // If current token is END_OBJECT_TOKEN or END_ARRAY_TOKEN, set context to the context value in previous_stack_entry
+            // (i.e. restore the context to whatever the parent of the object/array is)
+            // Pseudocode:
+            // if (is_end_of_object_or_array) {
+            //   context = previous_stack_entry.context
+            // } else {
+            //   context = new_context
+            // }
             // 1 gate
             // if `is_end_of_object_or_array == 1`, `new_context = 0` so we can do something cheaper than a conditional select:
             context = cast_num_to_u32(
                 previous_stack_entry.context * is_end_of_object_or_array + new_context,
             );
             std::as_witness(context as Field);
+
+            // Update data that describes the key for the current token.
+            // If we are creating a JSON entry, we also populate `self.key_data` with info that describes the current entry's key
+            // key_data contains 3 members that are packed into a Field:
+            // * the key index (where in the original JSON blob does the key start?)
+            // * the key length (length of the key in bytes)
+            // * current_identity_value (unique identifier for the key's JSON object. starts at 0)
+            // * in the current parent object/array, how many JSON entries deep is the key's associated JSON object?
+            // TODO: would be much more readable if we have a custom struct `KeyData` that wrapped a Field elemenet with sensible helper methods
+            // Pseudocode:
+            // if (create_json_entry) {
+            //   let mut new_key_data;
+            //   if (is_value_token) {
+            //     new_key_data = make_key(current_key_index_and_length, current_identity_value, num_entries_at_current_depth - 1);
+            //   } else if (is_end_of_object_or_array) {
+            //     new_key_data = make_key(previous_stack_entry.current_key_index_and_length, current_identity_value, num_entries_at_current_depth - 1);
+            //   }
+            //   self.key_data[entry_ptr] = new_key_data;
+            // }
             // 3 gates
             let common_term = current_identity_value
                 + context as Field * (num_entries_at_current_depth - 1) * 0x1000000000000;
@@ -383,29 +516,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                     * is_end_of_object_or_array
                     * 0x10000;
             std::as_witness(new_key_data);
-
             // 3.5 gates
             self.key_data[cast_num_to_u32(entry_ptr)] = new_key_data * create_json_entry;
 
-            // 3.5 gates
-            parent_context_stack[cast_num_to_u32(depth)] = new_context_stack_entry;
-
-            // 4.5 gates
-            self.json_entries_packed[cast_num_to_u32(entry_ptr)] =
-                JSONEntryPacked { value: new_entry * create_json_entry };
-
+            // Update `entry_ptr` (points to the head of self.key_data and self.json_entries_packed)
             // 1 gate
-            next_identity_value = next_identity_value + is_start_of_object_or_array;
-            std::as_witness(next_identity_value);
-
-            // 1 gate
-            depth = depth + is_start_of_object_or_array - is_end_of_object_or_array;
-
-            // 1 gate
-            // 2105 + 46.25
-            // subtotal 66.75?
             entry_ptr += create_json_entry;
             std::as_witness(entry_ptr);
+
+            // subtotal 66.75?
         }
         self.validate_tokens(tokens);
     }
@@ -464,10 +583,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             } = ScanData::from_field(capture_flags);
 
             // 2 gates
-            let raw = raw_transcript[cast_num_to_u32(transcript_ptr)];
+            let raw: Field = raw_transcript[cast_num_to_u32(transcript_ptr)];
 
+            // TODO: document this
+            // TODO: why are we comparing a derived quantity against `raw_transcript` instead of constructing `raw_transcript` directly (faster)
             // 1 gate
-            let diff = raw
+            let diff: Field = raw
                 - RawTranscriptEntry::to_field(
                     RawTranscriptEntry { encoded_ascii, index: i as Field - length, length },
                 );
@@ -596,14 +717,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             OBJECT_LAYER
         } else if (first.token == BEGIN_ARRAY_TOKEN as Field) {
             ARRAY_LAYER
-        } else if (first.token == STRING_TOKEN as Field) {
-            SINGLE_VALUE_LAYER
         } else {
             self.layer_type_of_root
         };
     }
 
-    fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {
+    pub fn parse_json<let StringBytes: u32>(stringbytes: [u8; StringBytes]) -> Self {
         assert(StringBytes <= NumBytes, "json length exceeds NumBytes!");
         let mut text: [u8; NumBytes] = [0; NumBytes];
         for i in 0..StringBytes {

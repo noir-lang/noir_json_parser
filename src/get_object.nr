@@ -61,7 +61,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an array, extract an object given by the position of the target in the source array
     ///
     /// returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value
-    pub(crate) fn get_object_from_array(self, array_index: Field) -> Option<Self> {
+    pub fn get_object_from_array(self, array_index: Field) -> Option<Self> {
         let (entry, valid, entry_index) = self.get_entry_from_array(array_index);
         if valid {
             assert_eq(
@@ -83,7 +83,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an array, extract an object given by the position of the target in the source array
     ///
     /// will revert if the object does not exist
-    pub(crate) fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
+    pub fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
         let result = self.get_object_from_array(array_index);
         result.expect(f"array index out of bounds")
     }

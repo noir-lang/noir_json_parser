@@ -128,7 +128,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an array, extract a literal given by the position of the target in the source array
     ///
     /// will revert if the literal does not exist
-    fn get_literal_from_array_unchecked(self, array_index: Field) -> JSONLiteral {
+    pub fn get_literal_from_array_unchecked(self, array_index: Field) -> JSONLiteral {
         let result = self.get_literal_from_array(array_index);
         result.expect(f"array index out of bounds")
     }

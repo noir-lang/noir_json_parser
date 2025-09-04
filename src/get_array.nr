@@ -17,7 +17,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self
     }
     /// if the root JSON is an array, return its length
-    pub(crate) fn get_length(self) -> u32 {
+    pub fn get_length(self) -> u32 {
         assert(self.layer_type_of_root == ARRAY_LAYER, "can only get length of an array type");
         let parent_entry: JSONEntry =
             self.json_entries_packed[self.root_index_in_transcript].into();
@@ -67,7 +67,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an array, extract an array given by the position of the target in the source array
     ///
     /// returns an Option<JSON> where, if the array exists, the JSON object will have the requested array as its root value
-    pub(crate) fn get_array_from_array(self, array_index: Field) -> Option<Self> {
+    pub fn get_array_from_array(self, array_index: Field) -> Option<Self> {
         let (entry, valid, entry_index) = self.get_entry_from_array(array_index);
         if valid {
             assert_eq(
@@ -89,7 +89,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an array, extract an array given by the position of the target in the source array
     ///
     /// will revert if the array does not exist
-    pub(crate) fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
+    pub fn get_array_from_array_unchecked(self, array_index: Field) -> Self {
         let result = self.get_array_from_array(array_index);
         result.expect(f"array index out of bounds")
     }
