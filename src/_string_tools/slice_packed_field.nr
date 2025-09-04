@@ -338,14 +338,14 @@ global tail_path_multipliers_chunk0: [Field; 32] = [
 global LAST_LIMB_PATH: [Field; 36] = [
     0x000000000, // 0 0 0 0 0 0 0 0 0 <-- edge case because sometimes array index is -1, so we offset by 1
     0x000000000, // 0 0 0 0 0 0 0 0 0
-    0x000000001, // 0 0 0 0 0 0 0 0 1
-    0x000000003, // 0 0 0 0 0 0 0 1 1
-    0x000000007, // 0 0 0 0 0 0 1 1 1
-    0x00000000f, // 0 0 0 0 0 1 1 1 1
-    0x00000001f, // 0 0 0 0 1 1 1 1 1
-    0x00000003f, // 0 0 0 1 1 1 1 1 1
-    0x00000007f, // 0 0 1 1 1 1 1 1 1
-    0x0000000ff, // 0 1 1 1 1 1 1 1 1
+    0x000000001, // 1 0 0 0 0 0 0 0 0
+    0x000000003, // 1 1 0 0 0 0 0 0 0
+    0x000000007, // 1 1 1 0 0 0 0 0 0
+    0x00000000f, // 1 1 1 1 0 0 0 0 0
+    0x00000001f, // 1 1 1 1 1 0 0 0 0
+    0x00000003f, // 1 1 1 1 1 1 0 0 0
+    0x00000007f, // 1 1 1 1 1 1 1 0 0
+    0x0000000ff, // 1 1 1 1 1 1 1 10
     0x0000001ff, // 1 1 1 1 1 1 1 1 1
     0x0000003ff, // 1 1 1 1 1 1 1 1 1 1
     0x0000007ff, // 1 1 1 1 1 1 1 1 1 1 1
@@ -584,22 +584,18 @@ fn divmod_31(numerator: u16) -> (u16, u16) {
 
 /// Given the index of the last limb in a sequence of 31-byte fields, return a path mask that indicates which fields contain actual data.
 ///
-/// The first return value is a path mask that indicates which fields contain actual data up until the second to last limb.
-/// The second return value is a path mask that indicates which fields contain actual data up until the last limb.
+/// The return value is a path mask that indicates which fields contain actual data up until the second to last limb.
 ///
-pub fn get_last_limb_path<let OutputFields: u32>(
-    last_limb_index: Field,
-) -> ([u1; OutputFields], [u1; OutputFields]) {
+pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [u1; OutputFields] {
     // The + 1 offset fixes a special case: when there are 0 bytes of data, last_limb_index becomes -1,
     // which would cause an error when trying to access the array. By adding 1, we turn -1 into 0,
     // which points to a special "empty" entry in the table. For all other cases,
     // the +1 just shifts us to the right spot in the table to get the correct bit pattern.
     // Then we offset by 1 again to exclude the last limb, which is calculated separately.
-    // For example, if last_limb_index is 3, it means there are 4 valid limbs, then path variable is 7 (i.e. 00000111) and path_with_last_limb is 15 (i.e. 00001111)
-    // The return value path_valid_output represents the reverse of this number in array form [1, 1, 1, 0, 0, 0, 0, 0], [1, 1, 1, 1, 0, 0, 0, 0]
+    // For example, if last_limb_index is 3, it means there are 4 valid limbs, then path variable is 7 (i.e. 00000111)
+    // The return value path_valid_output represents the reverse of this number in array form [1, 1, 1, 0, 0, 0, 0, 0]
     let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)];
-    let path_with_last_limb = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 2)];
-    (path.to_le_bits::<OutputFields>(), path_with_last_limb.to_le_bits::<OutputFields>())
+    path.to_le_bits::<OutputFields>()
 }
 
 /**
@@ -718,8 +714,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     // index_of_output_limb is -1 if num_bytes is 0 as num_bytes_div_31 is 0 and num_bytes_mod_31_is_0 is 1
     // path_valid_output[i] = 1 means field i should contain actual data, 0 means it should be 0. For example, it could be [1, 1, 0]
 
-    let (path_valid_output, path_valid_output_with_last_limb) =
-        get_last_limb_path::<OutputFields>(index_of_output_limb);
+    let path_valid_output = get_last_limb_path::<OutputFields>(index_of_output_limb);
 
     // 2, 77.5
     // For each new limb, we need to combined the end of the previous limb with the start of the new limb,
@@ -784,9 +779,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     }
 
     for i in 0..OutputFields {
-        result[i] = (last_limb - result[i])
-            * (path_valid_output_with_last_limb[i] - path_valid_output[i]) as Field
-            + result[i];
+        result[i] = (last_limb - result[i]) * path[i] + result[i];
     }
 
     result
@@ -803,30 +796,20 @@ mod test {
         fn returns_expected_values() {
             // test cases taken from documentation on `LAST_LIMB_PATH`, note that indices are offset by 1 from
             // the value passed to `get_last_limb_path`.
-            let test_cases: [[u1; 9]] = [
-                [0, 0, 0, 0, 0, 0, 0, 0, 0],
-                [1, 0, 0, 0, 0, 0, 0, 0, 0],
-                [1, 1, 0, 0, 0, 0, 0, 0, 0],
-                [1, 1, 1, 0, 0, 0, 0, 0, 0],
-                [1, 1, 1, 1, 0, 0, 0, 0, 0],
-                [1, 1, 1, 1, 1, 0, 0, 0, 0],
-                [1, 1, 1, 1, 1, 1, 0, 0, 0],
-                [1, 1, 1, 1, 1, 1, 1, 0, 0],
-                [1, 1, 1, 1, 1, 1, 1, 1, 0],
-            ];
-            for i in 0..test_cases.len() - 1 {
-                let (path, path2) = get_last_limb_path::<9>(i as Field);
+            let mut test_cases: [[u1; 36]] = [[0; 36]; 36];
+            for i in 0..36 {
+                test_cases[i] = [0; 36];
+                for j in 0..i {
+                    test_cases[i][j] = 1;
+                }
+            }
+            for i in 0..35 {
+                let path = get_last_limb_path::<36>(i as Field);
                 let expected_path = test_cases[i];
-                let expected_path2 = test_cases[i + 1];
                 assert_eq(
                     path,
                     test_cases[i],
                     f"Expected {path} to equal {expected_path} for index {i}",
-                );
-                assert_eq(
-                    path2,
-                    test_cases[i + 1],
-                    f"Expected {path2} to equal {expected_path2} for index {i}",
                 );
             }
         }
