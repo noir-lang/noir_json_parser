@@ -330,62 +330,50 @@ global tail_path_multipliers_chunk0: [Field; 32] = [
 ];
 
 // these path variables describe the location of a limb in an array
-// e.g. LAST_LIMB_PATH[5] produces 2^{5-1},
-// which is decomposed into 1 0 0 0 0, and the decompositions turned into an array M
-// M[4] = 1 i.e. the limbs[4] should contain the last limb
-// array extends to 0x200000000 which is 2^33 => 33 31 byte limbs = 1,023 bytes
+// e.g. LAST_LIMB_PATH[5] produces 0x00000000f (15 in decimal),
+// which is decomposed into ... 0 0 0 0 1 1 1 1 , meaning limbs 0,1,2,3 from the end should contain data
+// Each 1 bit in the decomposed array indicates that the corresponding limb should contain valid data
+// array extends to 0x3ffffffff which is 2^34 - 1 => 34 31 byte limbs = 1,055 bytes
 // this puts a hard limit on the max size of a key that this program supports.
 global LAST_LIMB_PATH: [Field; 36] = [
-    0x000000000, // 0 0 0 0 0 0 0 0 0 <-- edge case because sometimes array index is -1, so we offset by 1 TODO explain better
-    0x000000000, // 0 0 0 0 0 0 0 0 1
-    0x000000001, // 0 0 0 0 0 0 0 1 0
-    0x000000003, // 0 0 0 0 0 0 1 0 0
-    0x000000007, // 0 0 0 0 0 1 0 0 0
-    0x00000000f, // 0 0 0 0 1 0 0 0 0
-    0x00000001f, // 0 0 0 1 0 0 0 0 0
-    0x00000003f, // 0 0 1 0 0 0 0 0 0
-    0x00000007f, // 0 1 0 0 0 0 0 0 0
-    0x0000000ff, // 1 0 0 0 0 0 0 0 0
-    0x0000001ff, // 0 0 0 0 0 0 0 1 0
-    0x0000003ff, // 0 0 0 0 0 0 1 0 0
-    0x0000007ff, // 0 0 0 0 0 1 0 0 0
-    0x000000fff, // 0 0 0 0 1 0 0 0 0
-    0x000001fff, // 0 0 0 1 0 0 0 0 0
-    0x000003fff, // 0 0 1 0 0 0 0 0 0
-    0x000007fff, // 0 1 0 0 0 0 0 0 0
-    0x00000ffff, // 0 0 0 0 0 0 0 0 1
-    0x00001ffff, // 0 0 0 0 0 0 0 1 0
-    0x00003ffff, // 0 0 0 0 0 0 1 0 0
-    0x00007ffff, // 0 0 0 0 0 1 0 0 0
-    0x0000fffff, // 0 0 0 0 1 0 0 0 0
-    0x0001fffff, // 0 0 0 1 0 0 0 0 0
-    0x0003fffff, // 0 0 1 0 0 0 0 0 0
-    0x0007fffff, // 0 1 0 0 0 0 0 0 0
-    0x000ffffff, // 0 0 0 0 0 0 0 0 1
-    0x001ffffff, // 0 0 0 0 0 0 0 1 0
-    0x003ffffff, // 0 0 0 0 0 0 1 0 0
-    0x007ffffff, // 0 0 0 0 0 1 0 0 0
-    0x00fffffff, // 0 0 0 0 1 0 0 0 0
-    0x01fffffff, // 0 0 0 1 0 0 0 0 0
-    0x03fffffff, // 0 0 1 0 0 0 0 0 0
-    0x07fffffff, // 0 1 0 0 0 0 0 0 0
+    0x000000000, // 0 0 0 0 0 0 0 0 0 <-- edge case because sometimes array index is -1, so we offset by 1
+    0x000000000, // 0 0 0 0 0 0 0 0 0
+    0x000000001, // 1 0 0 0 0 0 0 0 0
+    0x000000003, // 1 1 0 0 0 0 0 0 0
+    0x000000007, // 1 1 1 0 0 0 0 0 0
+    0x00000000f, // 1 1 1 1 0 0 0 0 0
+    0x00000001f, // 1 1 1 1 1 0 0 0 0
+    0x00000003f, // 1 1 1 1 1 1 0 0 0
+    0x00000007f, // 1 1 1 1 1 1 1 0 0
+    0x0000000ff, // 1 1 1 1 1 1 1 10
+    0x0000001ff, // 1 1 1 1 1 1 1 1 1
+    0x0000003ff, // 1 1 1 1 1 1 1 1 1 1
+    0x0000007ff, // 1 1 1 1 1 1 1 1 1 1 1
+    0x000000fff, // 1 1 1 1 1 1 1 1 1 1 1 1
+    0x000001fff, // 1 1 1 1 1 1 1 1 1 1 1 1 1
+    0x000003fff,
+    0x000007fff,
+    0x00000ffff,
+    0x00001ffff,
+    0x00003ffff,
+    0x00007ffff,
+    0x0000fffff,
+    0x0001fffff,
+    0x0003fffff,
+    0x0007fffff,
+    0x000ffffff,
+    0x001ffffff,
+    0x003ffffff,
+    0x007ffffff,
+    0x00fffffff,
+    0x01fffffff,
+    0x03fffffff,
+    0x07fffffff,
     0x0ffffffff,
     0x1ffffffff,
     0x3ffffffff,
 ];
 
-global INTEGER_UP_TO_62_IS_GREATER_THAN_31: [bool; 63] = [
-    false, false, false, false, false, false, false, false, false, false, false, false, false,
-    false, false, false, false, false, false, false, false, false, false, false, false, false,
-    false, false, false, false, false, false, true, true, true, true, true, true, true, true, true,
-    true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
-    true, true, true, true, true, true,
-];
-global NUM_BYTES_MOD_31_IS_ZERO: [bool; 31] = [
-    true, false, false, false, false, false, false, false, false, false, false, false, false, false,
-    false, false, false, false, false, false, false, false, false, false, false, false, false,
-    false, false, false, false,
-];
 global BYTE_SHIFT: [Field; 32] = [
     1,
     0x1000000000000000000000000000000000000000000000000000000000000,
@@ -584,9 +572,9 @@ fn divmod_31(numerator: u16) -> (u16, u16) {
     let rf = remainder as Field;
 
     // note: these range checks are because we know the denominator is 31
-    // TODO: need more checks, atm remainder could equal 31
     qf.assert_max_bit_size::<14>();
     rf.assert_max_bit_size::<5>();
+    assert(remainder != 31);
 
     // n / d = q
     // d * q + r = n
@@ -594,10 +582,19 @@ fn divmod_31(numerator: u16) -> (u16, u16) {
     (quotient, remainder)
 }
 
-// 5 gates?
+/// Given the index of the last limb in a sequence of 31-byte fields, return a path mask that indicates which fields contain actual data.
+///
+/// The return value is a path mask that indicates which fields contain actual data up until the second to last limb.
+///
 pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [u1; OutputFields] {
-    // TODO we offset by 1 explain why (0 byte length produces 0 - 1 which = invalid array index. we just add 1 and increase array length by 1 to compensate)
-    let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)]; // 2
+    // The + 1 offset fixes a special case: when there are 0 bytes of data, last_limb_index becomes -1,
+    // which would cause an error when trying to access the array. By adding 1, we turn -1 into 0,
+    // which points to a special "empty" entry in the table. For all other cases,
+    // the +1 just shifts us to the right spot in the table to get the correct bit pattern.
+    // Then we offset by 1 again to exclude the last limb, which is calculated separately.
+    // For example, if last_limb_index is 3, it means there are 4 valid limbs, then path variable is 7 (i.e. 00000111)
+    // The return value path_valid_output represents the reverse of this number in array form [1, 1, 1, 0, 0, 0, 0, 0]
+    let path = LAST_LIMB_PATH[cast_num_to_u32(last_limb_index + 1)];
     path.to_le_bits::<OutputFields>()
 }
 
@@ -651,35 +648,44 @@ pub fn slice_field(f: Field, num_bytes: u32) -> (Field, Field) {
 
 /**
  * @brief Given an array of fields that pack 31 bytes, return an array that slices the packed byte array at a given index for a given number of bytes
- * @description Some serious dark black magic nonsense going on here. TODO: document
  **/
 pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     data: [Field; InputFields],
-    start_byte: Field,
-    num_bytes: Field,
+    start_byte: Field, // starting byte position
+    num_bytes: Field, // number of bytes to extract
 ) -> [Field; OutputFields] {
     start_byte.assert_max_bit_size::<16>();
     num_bytes.assert_max_bit_size::<16>();
     // 3.5
+    // calculate Starting Position
+    // start_index: which field contains the starting byte
+    // start_mod_31: Byte offset within that field (0-30)
+    // num_underflow_bytes: same as start_mod_31 (bytes to skip in first field)
     let (start_index, start_mod_31) = divmod_31(start_byte as u16);
     let num_underflow_bytes = start_mod_31;
     // 3.5, 7
+
+    // num_bytes_div_31: Number of complete 31-byte fields needed
+    // num_bytes_mod_31: Remaining bytes in the last field
     let (num_bytes_div_31, num_bytes_mod_31) = divmod_31(num_bytes as u16);
 
     // 2, 9
-    let num_bytes_mod_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_mod_31 as u32];
+    //num_bytes_mod_31_is_0: True if num_bytes is a multiple of 31
+    //num_bytes_div_31_is_0: True if num_bytes < 31
+    let num_bytes_mod_31_is_0 = num_bytes_mod_31 == 0;
     // 2, 11
-    let num_bytes_div_31_is_0 = NUM_BYTES_MOD_31_IS_ZERO[num_bytes_div_31 as u32];
+    let num_bytes_div_31_is_0 = num_bytes_div_31 == 0;
 
-    // 1, 12
-    let lookup = 62 - num_bytes_div_31_is_0 as Field * num_bytes - start_mod_31 as Field;
-    std::as_witness(lookup);
+    // Determines if all bytes can fit within the starting field.
     // 3, 15
     let bytes_fit_into_limb =
-        INTEGER_UP_TO_62_IS_GREATER_THAN_31[cast_num_to_u32(lookup)] & num_bytes_div_31_is_0;
+        start_mod_31 as u32 + cast_num_to_u32(num_bytes) < 31 & num_bytes_div_31_is_0;
     std::as_witness(bytes_fit_into_limb as Field);
 
     // 2, 17
+    // calculate bytes used in first Limb
+    // if bytes fit: use all num_bytes
+    // if bytes don't fit: use remaining bytes in first field
     let num_unused_bytes_in_start_limb = if bytes_fit_into_limb {
         num_bytes
     } else {
@@ -689,32 +695,44 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     let num_remaining_bytes = num_bytes - num_unused_bytes_in_start_limb;
 
     // 4.5, 21.5
+    // process remaining bytes
     num_remaining_bytes.assert_max_bit_size::<16>();
     let mut (num_whole_limbs, num_overflow_bytes) = divmod_31(num_remaining_bytes as u16);
     // 44, 65.5
+    // extracts the tail portion of the starting field (bytes we want to keep) and discards the head.
     let (_, tail) = slice_field(data[start_index as u32], num_underflow_bytes as u32);
 
     // 4, 69.5
-    let int_greater_than_61 =
-        INTEGER_UP_TO_62_IS_GREATER_THAN_31[(31 + num_overflow_bytes - start_mod_31) as u32];
-    let extra_head_section = int_greater_than_61 & !bytes_fit_into_limb;
+    // 31 - start_mod_31 is the number of bytes we need from the first limb,  num_overflow_bytes is the number of bytes we need from the last limb
+    // if the sum is greater than 31, we need to start a new limb at the end. The data from first limb and last limb don't fit into one.
+    let extra_head_section = 31 - start_mod_31 + num_overflow_bytes > 31 & !bytes_fit_into_limb;
 
     // 1, 70.5
-    let index_of_output_limb: Field = (num_bytes_div_31 as Field - num_bytes_mod_31_is_0 as Field);
+    // the index of the last limb that contains data
+    let index_of_output_limb = num_bytes_div_31 as Field - num_bytes_mod_31_is_0 as Field;
     // 5, 75.5
-    let path_valid_output: [u1; OutputFields] = get_last_limb_path(index_of_output_limb);
+    // index_of_output_limb is -1 if num_bytes is 0 as num_bytes_div_31 is 0 and num_bytes_mod_31_is_0 is 1
+    // path_valid_output[i] = 1 means field i should contain actual data, 0 means it should be 0. For example, it could be [1, 1, 0]
+
+    let path_valid_output = get_last_limb_path::<OutputFields>(index_of_output_limb);
 
     // 2, 77.5
+    // For each new limb, we need to combined the end of the previous limb with the start of the new limb,
+    // so we need to shift the previous limb by the number of bytes it has remaining
     let tail_shift = BYTE_SHIFT[cast_num_to_u32(num_unused_bytes_in_start_limb)];
 
     // 51, 128.5
-    let mut result: [Field; OutputFields] = [0; OutputFields];
+    // process middle fields
+    let mut result = [0; OutputFields];
+    // starting with the remaining bytes from the first limb
     let mut previous = tail;
     for i in 0..(OutputFields - 1) {
         // 0
+        // 1 if this limb should contain actual data
         let slice_valid = path_valid_output[i];
         // 1
-        let data_index = (start_index as u32 + 1 + i);
+        // the index of the current limb in the input array, +1 because we already processed the first limb in tail
+        let data_index = (start_index as u32 + i + 1);
         // 2, 3
         let input_slice = data[data_index];
         // 44, 47
@@ -724,39 +742,32 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
         // 1, 49
         result[i] = combined * (slice_valid as Field);
         // 2, 51
-        previous = (tail - previous) * (slice_valid as Field) + previous;
+        // set to tail if slice_valid is 1, no change if slice_valid is 0
+        previous = (tail - previous) * slice_valid as Field + previous;
     }
 
-    // 2, 130.5
+    // handles the last limb
+    // number of bytes to take from the last limb: if all bytes fit in one limb (last limb is first limb): use num_bytes + start_mod_31, else num_overflow_bytes
     let slice_size = (bytes_fit_into_limb as Field) * (num_bytes + start_mod_31 as Field)
         + num_overflow_bytes as Field;
-
-    // 1, 131.5
+    // use_previous_for_last_limb = does `previous` contain all the data we need for last limb?
     let use_previous_for_last_limb: Field =
         extra_head_section as Field + bytes_fit_into_limb as Field;
-
-    // 1, 132.5
     let index_of_overflow_limb = start_index + num_whole_limbs + 1;
-    // 2, 134.5
     let last_limb_from_data = data[index_of_overflow_limb as u32];
-    // 2, 136.5
+    // if use_previous_for_last_limb = 1: slice_source = previous
+    // if use_previous_for_last_limb = 0: slice_source = last_limb_from_data
     let slice_source =
         (previous - last_limb_from_data) * use_previous_for_last_limb + last_limb_from_data;
-
-    // 44, 180.5
     let (head, _) = slice_field(slice_source, cast_num_to_u32(slice_size));
 
-    // 3, 183.5
+    // assembled the final field
     let previous_shift = BYTE_SHIFT[31 - num_overflow_bytes as u32]; // could save 1 gate by making different shift table
-    // 2, 185.5
     let last_limb_shift = BYTE_SHIFT[num_bytes_mod_31 as u32];
-    // 1, 186.5
     let mut last_limb = (previous * previous_shift);
     std::as_witness(last_limb);
-    // 1, 187.5
     last_limb = last_limb * (-use_previous_for_last_limb) + last_limb + head;
     std::as_witness(last_limb);
-    // 1, 188.5
     last_limb = last_limb * last_limb_shift;
     std::as_witness(last_limb);
 
@@ -770,12 +781,39 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     for i in 0..OutputFields {
         result[i] = (last_limb - result[i]) * path[i] + result[i];
     }
+
     result
 }
 
 mod test {
     use crate::_string_tools::slice_packed_field::slice_field;
     use crate::_string_tools::slice_packed_field::slice_fields;
+
+    mod get_last_limb_path {
+        use crate::_string_tools::slice_packed_field::get_last_limb_path;
+
+        #[test]
+        fn returns_expected_values() {
+            // test cases taken from documentation on `LAST_LIMB_PATH`, note that indices are offset by 1 from
+            // the value passed to `get_last_limb_path`.
+            let mut test_cases: [[u1; 36]] = [[0; 36]; 36];
+            for i in 0..36 {
+                test_cases[i] = [0; 36];
+                for j in 0..i {
+                    test_cases[i][j] = 1;
+                }
+            }
+            for i in 0..35 {
+                let path = get_last_limb_path::<36>(i as Field);
+                let expected_path = test_cases[i];
+                assert_eq(
+                    path,
+                    test_cases[i],
+                    f"Expected {path} to equal {expected_path} for index {i}",
+                );
+            }
+        }
+    }
 
     unconstrained fn build_slices_for_test<let N: u32>(
         bytes: [u8; N],
@@ -799,7 +837,6 @@ mod test {
     fn test_slice_fields_nolength() {
         let text: [u8; 1405] = "Charlie is genius, right. He's made from a million pieces of old bubble gum. Imagine that! In the summer of 1976, on his way home from an Alice Cooper concert, Charlie started to melt onto the pavement. It was too hot in L.A., and he melted like a pink bitch. Luckily though, there was Eric Phillips, a local crocodile who dabbled in black magic. He took pity on Charlie and scraped him off the floor with a pair of fish slicers. He poured him into an antique soup ladle, and boarded his magic carpet. Destination: Alaska! Eric Phillips decided to refreeze Charlie, but in his cold-blooded reptilian haste, he refroze him into to the shape of a Hoover. Charlie wasn't fazed though, he just zoomed about the place, sucking up Inuits. Ha ha! Oh. The Inuits didn't mind; they loved it in Charlie's pink, tight warm belly pouch, and they refused to come out. Charlie said, \"I'm cool with that,\" and set fire to a posh hammer to make it official. he downside was that the Inuits suffocated immediately. It was air-tight in there. Charlie panicked and fired the tiny Inuit bullets into Eric's crocodile peepers. The green shape was frozen. After a quick drink, Charlie stole Eric Phillips's magic carpet and left for Seattle. Charlie was racked with guilt: he'd killed 50 Inuits, noone needs that. He decided to spend the rest of his life putting small hairstyles onto boots, monkey nuts, trumpets and spanners."
             .as_bytes();
-        println(f"text = {text}");
         let mut slices: [Field; 46 + 3] = [0; 46 + 3];
         for i in 0..46 {
             for j in 0..31 {
@@ -825,7 +862,6 @@ mod test {
     fn test_slice_fields() {
         let text: [u8; 1405] = "Charlie is genius, right. He's made from a million pieces of old bubble gum. Imagine that! In the summer of 1976, on his way home from an Alice Cooper concert, Charlie started to melt onto the pavement. It was too hot in L.A., and he melted like a pink bitch. Luckily though, there was Eric Phillips, a local crocodile who dabbled in black magic. He took pity on Charlie and scraped him off the floor with a pair of fish slicers. He poured him into an antique soup ladle, and boarded his magic carpet. Destination: Alaska! Eric Phillips decided to refreeze Charlie, but in his cold-blooded reptilian haste, he refroze him into to the shape of a Hoover. Charlie wasn't fazed though, he just zoomed about the place, sucking up Inuits. Ha ha! Oh. The Inuits didn't mind; they loved it in Charlie's pink, tight warm belly pouch, and they refused to come out. Charlie said, \"I'm cool with that,\" and set fire to a posh hammer to make it official. he downside was that the Inuits suffocated immediately. It was air-tight in there. Charlie panicked and fired the tiny Inuit bullets into Eric's crocodile peepers. The green shape was frozen. After a quick drink, Charlie stole Eric Phillips's magic carpet and left for Seattle. Charlie was racked with guilt: he'd killed 50 Inuits, noone needs that. He decided to spend the rest of his life putting small hairstyles onto boots, monkey nuts, trumpets and spanners."
             .as_bytes();
-        println(f"text = {text}");
         let mut slices: [Field; 46 + 3] = [0; 46 + 3];
         for i in 0..46 {
             for j in 0..31 {
@@ -873,7 +909,6 @@ mod test {
         let input_bytes: [u8; 32] = input.to_be_bytes();
 
         for i in 0..32 {
-            println(f"i = {i}");
             let num_bytes = i;
             let (head, tail) = slice_field(input, num_bytes);
             let mut expected_head: Field = 0;
