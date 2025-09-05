@@ -134,7 +134,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             }
 
             let old_transcript = self.transcript[i];
-            // only change is set the token to be KEY_TOKEN
+            // The only difference between old_transcript and new_transcript is that the token is set to KEY_TOKEN
             let new_transcript = TranscriptEntry::to_field(
                 TranscriptEntry {
                     token: KEY_TOKEN as Field,
@@ -262,40 +262,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// Note: the size param `32` is a magic number we should replace with a defined const global variable
     /// To push: we increment the pointer by 1 and write a new entry at the pointer value
     /// To pop: we decrement the pointer by 1 (we don't need to delete data because new data is written every time the pointer is incremented)
-    /// Parses [`Self::transcript`] to populate [`Self::json_entries_packed`] and [`Self::key_data`]
-    /// Given a processed transcript of json tokens, compute a list of json entries that describes the values within the JSON blob
-    ///
-    /// [`Self::json_entries_packed`] is a [JSONEntry] struct whose members have been packed into a single Field element.
-    ///
-    /// A 'value' here is either an Object, Array, String, Numeric or Literal.
-    ///         e.g. "[ 1, 2, 3 ]" contains 4 values (3 Numeric types and the Array that contains them)
-    ///
-    ///         To avoid branches and if statements, we construct a state transition function out of the lookup table TOKEN_FLAGS_TABLE
-    ///         This table takes as an input the following:
-    ///             1. The token value of an element in the transcript
-    ///             2. The layer type the previous token is located in (i.e. are we in an array or an object?)
-    ///         The table outputs the following data:
-    ///             1. Should we create a new json entry? (i.e. is the token a STRING_TOKEN, LITERAL_TOKEN, NUMERIC_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN)
-    ///             2. Is the token `}` or `]`?
-    ///             3. Is the token `{` or `[`?
-    ///             4. Given the current layer type and the token being queried, what should the new layer type be?
-    ///             5. Is the token `KEY_TOKEN`?
-    ///             6. Is the token a `STRING_TOKEN`, `NUMERIC_TOKEN` OR `VALUE_TOKEN`?
-    ///             7. Is the token one that we should skip over? `,` or `:`
-    ///
-    /// ## explanation of `parent_context_stack`
-    /// When recording a JSONEntry, we need to understand how many children (if any) a JSONEntry has,
-    /// as well as a way of accessing children given the parent JSONEntry object
-    /// Note: OBJECT_TOKEN and ARRAY_TOKEN have children. single values (NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN) do not.
-    /// We define a "context stack" via `parent_context_stack` to track this data.
-    /// The front of `parent_context_stack` contains a JSONContextStackEntry (packed into a single Field for the purposes of efficient lookups) for the current parent
-    /// If we parse a token that creates a new parent (BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN), we push a new parent onto the stack
-    /// If we reach the end of an object or array (END_OBJECT_TOKEN, END_ARRAY_TOKEN) we pop the current parent off of the stack
-    /// Note: "stack" is used loosely here. We have a fixed-size array of packed JSONContextStackEntry vals and a pointer to the head of the stack.
-    /// (the array size defines the maximum number of entities the stack can contain, currently set at 32)
-    /// Note: the size param `32` is a magic number we should replace with a defined const global variable
-    /// To push: we increment the pointer by 1 and write a new entry at the pointer value
-    /// To pop: we decrement the pointer by 1 (we don't need to delete data because new data is written every time the pointer is incremented)
     fn create_json_entries(&mut self) {
         let mut parent_context_stack: [Field; 32] = [0; 32];
         let mut entry_ptr: u32 = 0;
@@ -303,10 +269,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Note: parent_context_stack[0] = the root JSON object
         let mut depth: Field = 1;
         // how many children does the current parent have?
-        // how many children does the current parent have?
         let mut num_entries_at_current_depth: Field = 0;
-
-        // current_identity_value = unique identifier for all JSON objects/arrays we create
 
         // current_identity_value = unique identifier for all JSON objects/arrays we create
         let mut current_identity_value: Field = 0;
@@ -316,11 +279,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // context: 0 for object, 1 for array
         let mut context = OBJECT_LAYER;
 
-        // current_key_index_and_length encodes 2 bits of data in a single Field element (to save some gates)
-        // note: would be more readable if we had a custom struct that wrapped a Field element with defined update methods
-        // 1. what is the key index? (index = unique identifier, starts at 0)
-        // 2. what is the size of the key in bytes?
-        // current_key_index_and_length = index + length * 0x10000 (assumes index does not exceed 2^16. I don't think we check for this, there is an assumption that the size of the circuit would be too large to compile/run if the JSON blob has over 2^16 unique keys)
         // current_key_index_and_length encodes 2 bits of data in a single Field element (to save some gates)
         // note: would be more readable if we had a custom struct that wrapped a Field element with defined update methods
         // 1. what is the key index? (index = unique identifier, starts at 0)
@@ -352,33 +310,19 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // - `is_end_of_object_or_array, `is_start_of_object_or_array`, `is_key_token`, `is_value_token`
             // See comments in token_flags.nr for more details
 
-            // The TOKEN_FLAGS_TABLE table encodes the following information:
-            // Given the current token and the context (whether the parent is an object or array),
-            // we can extract the following information from TOKEN_FLAGS_TABLE via a simple lookup:
-            // 1. Should we create a new JSONEntry object?
-            //  - i.e is the token END_ARRAY_TOKEN, END_OBJECT_TOKEN, STRING_TOKEN, NUMERIC_TOKEN, LITERAL_TOKEN
-            // 2. If the token creates a new parent (BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN), what is the context value? (0 = object, 1 = array)
-            // 3. Has the parent entity changed?
-            //  - `preserve_num_entries` = 1 if the parent entity changes, not the best variable name
-            // 5. Various bools that describe the token, which are cheaper to acquire this way than via comparison operators
-            // - `is_end_of_object_or_array, `is_start_of_object_or_array`, `is_key_token`, `is_value_token`
-            // See comments in token_flags.nr for more details
             // 13 gates
             let TokenFlags {
-    create_json_entry,
-    is_end_of_object_or_array,
-    is_start_of_object_or_array,
-    new_context,
-    is_key_token,
-    is_value_token,
-    preserve_num_entries,} = TokenFlags::from_field(
+                create_json_entry,
+                is_end_of_object_or_array,
+                is_start_of_object_or_array,
+                new_context,
+                is_key_token,
+                is_value_token,
+                preserve_num_entries,
+            } = TokenFlags::from_field(
                 TOKEN_FLAGS_TABLE[cast_num_to_u32(token) + context * NUM_TOKENS],
             );
 
-            // Determine what the current key index is and the key size in bytes
-            // (key index = byte location in the original JSON of the key)
-            // Pseudocode equivalent:
-            // current_key_index_and_length = update_key ? (index + length * 0x10000) : current_key_index_and_length
             // We convert these booleans into Fields so that we can use them in arithmetic operations.
             let create_json_entry = create_json_entry as Field;
             let is_end_of_object_or_array = is_end_of_object_or_array as Field;
@@ -408,14 +352,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // If the current token is not BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
             // the data we write never gets read.
             // Note: we only update the value of `depth` if token == BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
-            // If the current token is BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
-            // we need to push a new parent object into `parent_context_stack`.
-            // We apply a trick here to avoid branching: regardless of the token type,
-            // we *always* write a new stack entry into `parent_context_stack[depth]`.
-            // If the current token is not BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
-            // the data we write never gets read.
-            // Note: we only update the value of `depth` if token == BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
-            // 2 gates
             let new_context_stack_entry = JSONContextStackEntry::to_field(
                 JSONContextStackEntry {
                     num_entries: num_entries_at_current_depth,
@@ -425,15 +361,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                     current_identity: current_identity_value,
                 },
             );
-            // subtotal 22.25
 
             parent_context_stack[cast_num_to_u32(depth)] = new_context_stack_entry;
 
             // `previous_stack_entry` = Extract information about the parent of the current token
             // If the current token = END_OBJECT_TOKEN or END_ARRAY_TOKEN, previous_stack_entry = data that describes the object or array we are about to create
             // 9.5 gates
-            let depth_index: Field = (depth - 1);
-            let previous_stack_entry_packed = parent_context_stack[cast_num_to_u32(depth_index)];
             let depth_index: Field = (depth - 1);
             let previous_stack_entry_packed = parent_context_stack[cast_num_to_u32(depth_index)];
             let previous_stack_entry =
@@ -518,7 +451,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // - When `is_end_of_object_or_array = 1` -> `preserve_num_entries = 0` (end object/array)
             // - When `preserve_num_entries = 1` -> both flags = 0 (normal token)
             //
-            // 4 gates
             {
                 let old = current_identity_value;
                 current_identity_value = (next_identity_value * is_start_of_object_or_array);
@@ -535,14 +467,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             }
 
             // Update the number of entries in the parent object/array
-            // Pseudocode:
-            // if (!preserve_num_entries && is_value_token) {
-            //  num_entries_at_current_depth += 1;
-            // } else if (is_end_of_object_or_array) {
-            //  num_entries_at_current_depth = previous_stack_entry.num_entries + 1;
-            // }
-            // 2 gates
-            // If we ses a value token (string/number/literal), we add 1 to count. If we see , or :, no change.
+            // If we see a value token (string/number/literal), we add 1 to count. If we see , or :, no change.
             // If preserve_num_entries is 0 (i.e. start or end of object or array) then we reset variable to 0.
             num_entries_at_current_depth =
                 num_entries_at_current_depth * preserve_num_entries + is_value_token;
@@ -560,19 +485,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // } else {
             //   context = new_context
             // }
-            // Set the value of `context` (badly named: are we in an object or array? context == 0 => object, context == 1 => array)
-            // If current token is END_OBJECT_TOKEN or END_ARRAY_TOKEN, set context to the context value in previous_stack_entry
-            // (i.e. restore the context to whatever the parent of the object/array is)
-            // Pseudocode:
-            // if (is_end_of_object_or_array) {
-            //   context = previous_stack_entry.context
-            // } else {
-            //   context = new_context
-            // }
-            // 1 gate
             // if `is_end_of_object_or_array == 1`, `new_context = 0` so we can do something cheaper than a conditional select:
-            // If is_end_of_object_or_array is 1, then new_context is 0, so set context = previous_stack_entry.context
-            // If is_end_of_object_or_array is 0, then set context = new_context
             context = cast_num_to_u32(
                 previous_stack_entry.context * is_end_of_object_or_array + new_context,
             );
@@ -585,7 +498,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // * the key length (length of the key in bytes)
             // * current_identity_value (unique identifier for the key's JSON object. starts at 0)
             // * in the current parent object/array, how many JSON entries deep is the key's associated JSON object?
-            // TODO: would be much more readable if we have a custom struct `KeyData` that wrapped a Field elemenet with sensible helper methods
+            // TODO: would be much more readable if we have a custom struct `KeyData` that wrapped a Field element with sensible helper methods
             // Pseudocode:
             // if (create_json_entry) {
             //   let mut new_key_data;
@@ -597,24 +510,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             //   self.key_data[entry_ptr] = new_key_data;
             // }
 
-            // Update data that describes the key for the current token.
-            // If we are creating a JSON entry, we also populate `self.key_data` with info that describes the current entry's key
-            // key_data contains 3 members that are packed into a Field:
-            // * the key index (where in the original JSON blob does the key start?)
-            // * the key length (length of the key in bytes)
-            // * current_identity_value (unique identifier for the key's JSON object. starts at 0)
-            // * in the current parent object/array, how many JSON entries deep is the key's associated JSON object?
-            // TODO: would be much more readable if we have a custom struct `KeyData` that wrapped a Field elemenet with sensible helper methods
-            // Pseudocode:
-            // if (create_json_entry) {
-            //   let mut new_key_data;
-            //   if (is_value_token) {
-            //     new_key_data = make_key(current_key_index_and_length, current_identity_value, num_entries_at_current_depth - 1);
-            //   } else if (is_end_of_object_or_array) {
-            //     new_key_data = make_key(previous_stack_entry.current_key_index_and_length, current_identity_value, num_entries_at_current_depth - 1);
-            //   }
-            //   self.key_data[entry_ptr] = new_key_data;
-            // }
             // 3 gates
             // If context is 0 (object context), then don't take the num_entries_at_current_depth term into account
             // because searching for a key only depends of the key name, not position, as opposed to array context where we need to look up by position/index.
@@ -632,7 +527,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 3.5 gates
             self.key_data[entry_ptr] = new_key_data * create_json_entry as Field;
 
-            // Update `entry_ptr` (points to the head of self.key_data and self.json_entries_packed)
             // Update `entry_ptr` (points to the head of self.key_data and self.json_entries_packed)
             // 1 gate
             entry_ptr += create_json_entry as u32;
@@ -675,7 +569,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let raw_transcript = unsafe { __build_transcript::<NumBytes, MaxNumTokens>(self.json) };
 
         // steps to verify the transcript is correct
-        // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
+        // 14 gates per iteration, plus fixed cost for initializing a 2,048 size lookup table (4,096 gates)
         let mut previous_was_potential_escape_sequence: bool = false;
         for i in 0..NumBytes {
             let ascii = self.json[i];
@@ -699,8 +593,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 2 gates
             let raw: Field = raw_transcript[cast_num_to_u32(transcript_ptr)];
 
-            // TODO: document this
-            // TODO: why are we comparing a derived quantity against `raw_transcript` instead of constructing `raw_transcript` directly (faster)
+            // Compare a derived quantity against `raw_transcript` instead of constructing `raw_transcript` directly to avoid writing to arrays in a constrained function
             // 1 gate
             let diff: Field = raw
                 - RawTranscriptEntry::to_field(
