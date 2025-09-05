@@ -122,6 +122,64 @@ e.g. to take the existing 1kb JSON parameters, but also support 124-byte keys, u
 
 If you are deriving a key to look up in-circuit and you do not know the maximum length of the key, all query methods accept the key as a `BoundedVec`
 
+#  Architecture
+### Overview
+The JSON parser uses 5 steps to efficiently parse and index JSON data:
+
+1. **build_transcript** - Convert raw bytes to a transcript of tokens using state machine defined by by JSON_CAPTURE_TABLE. Categorize each character as string, number, ...
+2. **capture_missing_tokens & keyswap** - Fix missing tokens and correctly identify keys. Complete a second scan of the tokens, check for missing tokens (e.g.commas after literals), and for strings that are keys to an object, relabel them as keys, 
+3. **compute_json_packed** - Pack bytes into Field elements for efficient substring extraction
+4. **create_json_entries** - Create structured JSON entries with parent-child relationships
+5. **compute_keyhash_and_sort_json_entries** - Sort entries by key hash for efficient lookups
+
+### Key Design Patterns
+- **Using table lookups**: Uses many lookup tables to avoid branching logic to reduce circuit size
+- **Packing data to Field elements**: Combines multiple fields that encodes different features into a single Field element for comparison
+
+### Table Generation
+The parser uses several lookup tables generated from `src/_table_generation/`:
+- `TOKEN_FLAGS_TABLE`: State transitions for token processing
+- `JSON_CAPTURE_TABLE`: Character-by-character parsing rules
+- `TOKEN_VALIDATION_TABLE`: JSON grammar validation
+
+### Example walkthrough
+We can take a look at raw Json text {"name": "Alice", "age": 30} and how it is being parsed.
+First, The parser reads the JSON one character at a time and uses lookup tables to decide what to do with each character. For {"name": "Alice"}, 
+Character: {  → "Start scanning an object (grammar_capture)"
+Character: "  → "Start scanning a string" 
+Character: n  → "Continue scanning the string"
+Character: a  → "Continue scanning the string"
+Character: m  → "Continue scanning the string"
+Character: e  → "Continue scanning the string"
+Character: "  → "End the string"
+Character: :  → "Key-value separator"
+Character: "  → "Start scanning a string"
+Character: A  → "Continue scanning the string"
+Character: l  → "Continue scanning the string"
+Character: i  → "Continue scanning the string"
+Character: c  → "Continue scanning the string"
+Character: e  → "Continue scanning the string"
+Character: "  → "End the string"
+Character: }  → "End the object"
+
+The parser builds a list of "tokens", the basic building blocks of the JSON, which becomes
+1. BEGIN_OBJECT_TOKEN ({)
+2. STRING_TOKEN ("name")
+3. KEY_SEPARATOR_TOKEN (:)
+4. STRING_TOKEN ("Alice")
+5. END_OBJECT_TOKEN (})
+
+The parser converts tokens into structured entries with parent-child relationships.
+Each entry knows:
+What type it is (object, string, number, etc.)
+Who its parent is
+How many children it has
+Where it is in the original JSON
+
+Finally, the parser sorts entries by their key hashes for fast lookups.
+Original order: [{"name": "Alice"}, {"age": 30}]
+Sorted order:   [{"age": 30}, {"name": "Alice"}]
+
 # Acknowledgements
 
 Many thanks to the authors of the OG noir json library https://github.com/RontoSOFT/noir-json-parser
