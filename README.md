@@ -104,9 +104,9 @@ For numbers larger than 64 bits, the method `get_value` will work, which will re
 
 ### Fine-grained maximum parameter control
 
-If the predefined JSON types are not sufficient for your use case, you can define a JSON object with a custom parametrisation:
+If the predefined JSON types are not sufficient for your use case, you can define a JSON object with a custom parameterization:
 
-The JSON struct in `dep::json_parser::json::JSON` is parametrised with the following parameters:
+The JSON struct in `dep::json_parser::json::JSON` is parameterized with the following parameters:
 
 `struct JSON<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32>`
 
@@ -116,11 +116,11 @@ The JSON struct in `dep::json_parser::json::JSON` is parametrised with the follo
 - `MaxNumValues`: the maximum number of values in the json blob _plus one_
 - `MaxKeyFields`: the largest size a key can take (in bytes) equals `MaxKeyFields * 31`
 
-e.g. to take the existing 1kb JSON paramters, but also support 124-byte keys, use `JSON<1024, 37, 128, 65, 4>`
+e.g. to take the existing 1kb JSON parameters, but also support 124-byte keys, use `JSON<1024, 37, 128, 65, 4>`
 
 ### Making queries with keys of unknown length
 
-If you are deriving a key to look up in-circuit and you do not know the maximum length of the key, all query methods have a version with a `_var` suffix (e.g. `JSON::get_string_var`), which accepts the key as a `BoundedVec`
+If you are deriving a key to look up in-circuit and you do not know the maximum length of the key, all query methods accept the key as a `BoundedVec`
 
 #  Architecture
 ### Overview

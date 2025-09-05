@@ -1,4 +1,5 @@
 use crate::enums::Token::LITERAL_TOKEN;
+use crate::getters::KeyHashable;
 use crate::json::JSON;
 use crate::utils::cast_num_to_u32;
 
@@ -63,26 +64,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract a literal value given by `key`
     ///
     /// returns an Option<JSONLiteral> which will be null if the literal does not exist
-    pub fn get_literal<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> Option<JSONLiteral> {
-        self.get_literal_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /// if the root JSON is an object, extract a literal value given by `key`
-    ///
-    /// will revert if the literal does not exist
-    pub fn get_literal_unchecked<let KeyBytes: u32>(self, key: [u8; KeyBytes]) -> JSONLiteral {
-        self.get_literal_unchecked_var(BoundedVec::from_parts_unchecked(key, KeyBytes))
-    }
-
-    /// same as `get_literal` for where the key length may be less than KeyBytes
-    pub fn get_literal_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> Option<JSONLiteral> {
-        let (exists, entry, _) = self.get_json_entry_var(key);
+    pub(crate) fn get_literal<K>(self, key: K) -> Option<JSONLiteral>
+    where
+        K: KeyHashable,
+    {
+        let (exists, entry, _) = self.get_json_entry(key);
         assert(
             (entry.entry_type - LITERAL_TOKEN as Field) * exists as Field == 0,
-            "get_literal_var: entry exists but is not a literal!",
+            "get_literal: entry exists but is not a literal!",
         );
         let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
             self.extract_string_entry(entry);
@@ -94,15 +83,17 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /// same as `get_literal_unchecked` for where the key length may be less than KeyBytes
-    pub fn get_literal_unchecked_var<let KeyBytes: u32>(
-        self,
-        key: BoundedVec<u8, KeyBytes>,
-    ) -> JSONLiteral {
-        let entry = self.get_json_entry_unchecked_var(key);
+    /// if the root JSON is an object, extract a literal value given by `key`
+    ///
+    /// will revert if the literal does not exist
+    pub(crate) fn get_literal_unchecked<K>(self, key: K) -> JSONLiteral
+    where
+        K: KeyHashable,
+    {
+        let entry = self.get_json_entry_unchecked(key);
         assert(
             entry.entry_type == LITERAL_TOKEN as Field,
-            "get_literal_unchecked_var: entry exists but is not a literal!",
+            "get_literal_unchecked: entry exists but is not a literal!",
         );
         let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
             self.extract_string_entry(entry);
