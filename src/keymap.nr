@@ -50,7 +50,7 @@ impl KeyIndexData {
 }
 
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
-    fn compute_keyhash_and_sort_json_entries(&mut self) {
+    pub(crate) fn compute_keyhash_and_sort_json_entries(&mut self) {
         let hasher: FieldHasher<MaxKeyFields> = FieldHasher {};
 
         let mut hashlist: [Field; MaxNumValues] = [0; MaxNumValues];
