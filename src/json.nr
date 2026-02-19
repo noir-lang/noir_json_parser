@@ -77,8 +77,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 }
 
-unconstrained fn __check_entry_ptr_bounds(entry_ptr: Field, max: u32) {
-    entry_ptr.assert_max_bit_size::<32>();
+unconstrained fn __check_entry_ptr_bounds(entry_ptr: u32, max: u32) {
     // n.b. even though this assert is in an unconstrained function, an out of bounds error will be triggered when writing into self.key_data[entry_ptr]
     assert(entry_ptr as u32 < max - 1, "create_json_entries: MaxNumValues limit exceeded!");
 }
@@ -117,6 +116,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     // TODO: when impl is more mature, merge this into create_json_entries
+    // correctly identify and label key tokens that are previous labeled as string tokens
     fn keyswap(&mut self) {
         // TODO: this won't work if 1st entry is a key!
         let mut current = TranscriptEntry::from_field(self.transcript[0]);
@@ -125,6 +125,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         for i in 0..MaxNumTokens - 1 {
             next = TranscriptEntry::from_field(self.transcript[i + 1]);
 
+            //if next token is :, current token is a key, so next_is_key = 1 and we can swap the token
             let next_is_key = next.token == KEY_SEPARATOR_TOKEN as Field;
 
             let valid_token = TOKEN_IS_STRING[cast_num_to_u32(current.token)];
@@ -133,6 +134,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             }
 
             let old_transcript = self.transcript[i];
+            // The only difference between old_transcript and new_transcript is that the token is set to KEY_TOKEN
             let new_transcript = TranscriptEntry::to_field(
                 TranscriptEntry {
                     token: KEY_TOKEN as Field,
@@ -262,7 +264,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// To pop: we decrement the pointer by 1 (we don't need to delete data because new data is written every time the pointer is incremented)
     fn create_json_entries(&mut self) {
         let mut parent_context_stack: [Field; 32] = [0; 32];
-        let mut entry_ptr = 0;
+        let mut entry_ptr: u32 = 0;
         // depth = points to the next unused slot in parent_context_stack
         // Note: parent_context_stack[0] = the root JSON object
         let mut depth: Field = 1;
@@ -274,6 +276,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // next_identity_value = smallest integer that we've not yet assigned as a unique identifier to the JSON objects/arrays we create
         let mut next_identity_value: Field = 1;
         // context = is the current parent an object or array?
+        // context: 0 for object, 1 for array
         let mut context = OBJECT_LAYER;
 
         // current_key_index_and_length encodes 2 bits of data in a single Field element (to save some gates)
@@ -283,6 +286,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // current_key_index_and_length = index + length * 0x10000 (assumes index does not exceed 2^16. I don't think we check for this, there is an assumption that the size of the circuit would be too large to compile/run if the JSON blob has over 2^16 unique keys)
         let mut current_key_index_and_length: Field = 0;
 
+        //stack won't pop elements, but will push new elements by overwriting the top element
         let mut tokens: [Field; MaxNumTokens] = [0; MaxNumTokens];
         //  maybe 71.75 gates per iteration
         for i in 0..MaxNumTokens {
@@ -305,36 +309,40 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 5. Various bools that describe the token, which are cheaper to acquire this way than via comparison operators
             // - `is_end_of_object_or_array, `is_start_of_object_or_array`, `is_key_token`, `is_value_token`
             // See comments in token_flags.nr for more details
+
             // 13 gates
             let TokenFlags {
                 create_json_entry,
                 is_end_of_object_or_array,
                 is_start_of_object_or_array,
                 new_context,
-                is_key_token: update_key,
+                is_key_token,
                 is_value_token,
                 preserve_num_entries,
             } = TokenFlags::from_field(
                 TOKEN_FLAGS_TABLE[cast_num_to_u32(token) + context * NUM_TOKENS],
             );
 
-            // Determine what the current key index is and the key size in bytes
-            // (key index = byte location in the original JSON of the key)
-            // Pseudocode equivalent:
-            // current_key_index_and_length = update_key ? (index + length * 0x10000) : current_key_index_and_length
             // We convert these booleans into Fields so that we can use them in arithmetic operations.
             let create_json_entry = create_json_entry as Field;
             let is_end_of_object_or_array = is_end_of_object_or_array as Field;
             let is_start_of_object_or_array = is_start_of_object_or_array as Field;
             let new_context = new_context as Field;
-            let update_key = update_key as Field;
+            let is_key_token = is_key_token as Field;
             let is_value_token = is_value_token as Field;
             let preserve_num_entries = preserve_num_entries as Field;
 
+            // Determine what the current key index is and the key size in bytes
+            // (key index = byte location in the original JSON of the key)
+            // Pseudocode equivalent:
+            // current_key_index_and_length = update_key ? (index + length * 0x10000) : current_key_index_and_length
+
             // 2 gates
+            // only update current_key_index_and_length if the token is a key token
             let diff = (index + length * 0x10000) - current_key_index_and_length;
             std::as_witness(diff);
-            current_key_index_and_length = diff * update_key + current_key_index_and_length;
+            current_key_index_and_length =
+                diff * is_key_token as Field + current_key_index_and_length;
             std::as_witness(current_key_index_and_length);
 
             // If the current token is BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
@@ -344,7 +352,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // If the current token is not BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
             // the data we write never gets read.
             // Note: we only update the value of `depth` if token == BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN,
-            // 2 gates
             let new_context_stack_entry = JSONContextStackEntry::to_field(
                 JSONContextStackEntry {
                     num_entries: num_entries_at_current_depth,
@@ -354,7 +361,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                     current_identity: current_identity_value,
                 },
             );
-            // 3.5 gates
+
             parent_context_stack[cast_num_to_u32(depth)] = new_context_stack_entry;
 
             // `previous_stack_entry` = Extract information about the parent of the current token
@@ -420,13 +427,13 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 let new_entry = diff * is_end_of_object_or_array + value_entry_packed;
                 std::as_witness(new_entry);
                 // 4.5 gates
-                self.json_entries_packed[cast_num_to_u32(entry_ptr)] =
-                    JSONEntryPacked { value: new_entry * create_json_entry };
+                self.json_entries_packed[entry_ptr] =
+                    JSONEntryPacked { value: new_entry * create_json_entry as Field };
             }
-            // Update `next_identity_value` and `current_identity_value` (unique identfiers for JSON entries)
+            // Update `next_identity_value` and `current_identity_value` (unique identifiers for JSON entries)
             // If we've ended an object/array, set `current_identity_value` to the value of the object/array's parent (whose context we're now in)
-            // If we've started an object/array, set `current_identity_value` to `next_identity_value` (the next unused unique identifier)
-            // If we've started an object/array, also increment `next_identity_value` to a new unique value
+            // If we've started an object/array, set `current_identity_value` to `next_identity_value` (the next unused unique identifier), also increment `next_identity_value` to a new unique value
+            //  When processing normal tokens: keep current ID unchanged
             // Pseudocode for the following:
             //
             //  if !preserve_num_entries {
@@ -439,7 +446,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             //      next_identity_value += is_start_of_object_or_array;
             //  }
             //
-            // 4 gates
+            // Note: `preserve_num_entries` is mutually exclusive with `is_start_of_object_or_array` and `is_end_of_object_or_array`
+            // - When `is_start_of_object_or_array = 1` -> `preserve_num_entries = 0` (start new object/array)
+            // - When `is_end_of_object_or_array = 1` -> `preserve_num_entries = 0` (end object/array)
+            // - When `preserve_num_entries = 1` -> both flags = 0 (normal token)
+            //
             {
                 let old = current_identity_value;
                 current_identity_value = (next_identity_value * is_start_of_object_or_array);
@@ -456,13 +467,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             }
 
             // Update the number of entries in the parent object/array
-            // Pseudocode:
-            // if (!preserve_num_entries && is_value_token) {
-            //  num_entries_at_current_depth += 1;
-            // } else if (is_end_of_object_or_array) {
-            //  num_entries_at_current_depth = previous_stack_entry.num_entries + 1;
-            // }
-            // 2 gates
+            // If we see a value token (string/number/literal), we add 1 to count. If we see , or :, no change.
+            // If preserve_num_entries is 0 (i.e. start or end of object or array) then we reset variable to 0.
             num_entries_at_current_depth =
                 num_entries_at_current_depth * preserve_num_entries + is_value_token;
             std::as_witness(num_entries_at_current_depth);
@@ -479,7 +485,6 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // } else {
             //   context = new_context
             // }
-            // 1 gate
             // if `is_end_of_object_or_array == 1`, `new_context = 0` so we can do something cheaper than a conditional select:
             context = cast_num_to_u32(
                 previous_stack_entry.context * is_end_of_object_or_array + new_context,
@@ -493,7 +498,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // * the key length (length of the key in bytes)
             // * current_identity_value (unique identifier for the key's JSON object. starts at 0)
             // * in the current parent object/array, how many JSON entries deep is the key's associated JSON object?
-            // TODO: would be much more readable if we have a custom struct `KeyData` that wrapped a Field elemenet with sensible helper methods
+            // TODO: would be much more readable if we have a custom struct `KeyData` that wrapped a Field element with sensible helper methods
             // Pseudocode:
             // if (create_json_entry) {
             //   let mut new_key_data;
@@ -504,7 +509,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             //   }
             //   self.key_data[entry_ptr] = new_key_data;
             // }
+
             // 3 gates
+            // If context is 0 (object context), then don't take the num_entries_at_current_depth term into account
+            // because searching for a key only depends of the key name, not position, as opposed to array context where we need to look up by position/index.
             let common_term = current_identity_value
                 + context as Field * (num_entries_at_current_depth - 1) * 0x1000000000000;
             std::as_witness(common_term);
@@ -517,12 +525,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                     * 0x10000;
             std::as_witness(new_key_data);
             // 3.5 gates
-            self.key_data[cast_num_to_u32(entry_ptr)] = new_key_data * create_json_entry;
+            self.key_data[entry_ptr] = new_key_data * create_json_entry as Field;
 
             // Update `entry_ptr` (points to the head of self.key_data and self.json_entries_packed)
             // 1 gate
-            entry_ptr += create_json_entry;
-            std::as_witness(entry_ptr);
+            entry_ptr += create_json_entry as u32;
 
             // subtotal 66.75?
         }
@@ -561,13 +568,14 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         // Safety: check the comments below
         let raw_transcript = unsafe { __build_transcript::<NumBytes, MaxNumTokens>(self.json) };
 
-        // 14 gates per iteration, plus fixed cost for initing 2,048 size lookup table (4,096 gates)
+        // steps to verify the transcript is correct
+        // 14 gates per iteration, plus fixed cost for initializing a 2,048 size lookup table (4,096 gates)
         let mut previous_was_potential_escape_sequence: bool = false;
         for i in 0..NumBytes {
             let ascii = self.json[i];
 
             // 1 gate
-            let encoded_ascii = previous_was_potential_escape_sequence as Field * 1024
+            let encoded_ascii: Field = previous_was_potential_escape_sequence as Field * 1024
                 + scan_mode * 256
                 + ascii as Field;
             std::as_witness(encoded_ascii);
@@ -585,8 +593,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             // 2 gates
             let raw: Field = raw_transcript[cast_num_to_u32(transcript_ptr)];
 
-            // TODO: document this
-            // TODO: why are we comparing a derived quantity against `raw_transcript` instead of constructing `raw_transcript` directly (faster)
+            // Compare a derived quantity against `raw_transcript` instead of constructing `raw_transcript` directly to avoid writing to arrays in a constrained function
             // 1 gate
             let diff: Field = raw
                 - RawTranscriptEntry::to_field(
@@ -608,10 +615,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             scan_mode = scan_token;
         }
 
-        // we encode error flag into the scan_token value, which must be less than 4
+        // we encode error flag into the scan_token value, which must be less than 4 (object, array, string, literal)
         // the lookup into JSON_CAPTURE_TABLE applies an implicit 2-bit range check on `scan_token`
         // however this does not get triggered if the final byte scanned produces an error state
-        length.assert_max_bit_size::<2>();
+        scan_mode.assert_max_bit_size::<2>();
 
         JSON {
             json: self.json,
@@ -633,7 +640,8 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      * @brief Check for missing tokens that we could have missed in `build_transcript`
      * @details If we had a json string where a NUMERIC_TOKEN or LITERAL_TOKEN is directly succeeded by a VALUE_SEPARATOR_TOKEN, END_OBJECT_TOKEN, END_ARRAY_TOKEN,
      *          we will have missed the latter token.
-     *          We pick these up via the lookup table PROCESS_RAW_TRANSCRIPT_TABLE
+     *          We pick these up via the lookup table PROCESS_RAW_TRANSCRIPT_TABLE. 
+     *          The entries in self.raw_transcript currently look like false}, true], null, where the grammar tokens are counted as part of the token.
      **/
     fn capture_missing_tokens(&mut self) {
         let mut transcript_ptr: Field = 0;
