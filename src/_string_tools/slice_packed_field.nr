@@ -586,7 +586,7 @@ fn divmod_31(numerator: u16) -> (u16, u16) {
 ///
 /// The return value is a path mask that indicates which fields contain actual data up until the second to last limb.
 ///
-pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [u1; OutputFields] {
+pub fn get_last_limb_path<let OutputFields: u32>(last_limb_index: Field) -> [bool; OutputFields] {
     // The + 1 offset fixes a special case: when there are 0 bytes of data, last_limb_index becomes -1,
     // which would cause an error when trying to access the array. By adding 1, we turn -1 into 0,
     // which points to a special "empty" entry in the table. For all other cases,
@@ -796,11 +796,11 @@ mod test {
         fn returns_expected_values() {
             // test cases taken from documentation on `LAST_LIMB_PATH`, note that indices are offset by 1 from
             // the value passed to `get_last_limb_path`.
-            let mut test_cases: [[u1; 36]] = [[0; 36]; 36];
+            let mut test_cases: [[bool; 36]] = [[false; 36]; 36];
             for i in 0..36 {
-                test_cases[i] = [0; 36];
+                test_cases[i] = [false; 36];
                 for j in 0..i {
-                    test_cases[i][j] = 1;
+                    test_cases[i][j] = true;
                 }
             }
             for i in 0..35 {
