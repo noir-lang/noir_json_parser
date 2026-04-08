@@ -6,7 +6,6 @@ use crate::json_tables::TOKEN_ENDS_OBJECT_OR_ARRAY;
 use crate::keyhash::FieldHasher;
 
 use crate::utils::cast_num_to_u32;
-use dep::noir_sort;
 
 pub(crate) struct KeyIndexData {
     pub(crate) json_index: Field,

@@ -46,7 +46,7 @@ unconstrained fn __slice_200_bits_from_field(f: Field) -> (Field, Field, bool) {
     lo *= 0x100000000; // 56 + 56 + 56 + 32 bits = 200 bits?
     lo += res200.lolo as Field;
 
-    let mut hi = res54 as Field;
+    let hi = res54 as Field;
 
     let mut PLO = PLO_200;
     let mut borrow: bool = false;

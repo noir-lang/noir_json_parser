@@ -116,7 +116,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
                 "get_string: entry exists but is not a string!",
             );
         }
-        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
+        let parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
         let parsed_string: BoundedVec<u8, StringBytes> = process_escape_sequences(
             BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32),
         );
@@ -181,7 +181,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
 
-        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
+        let parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
         let parsed_string: BoundedVec<u8, StringBytes> = process_escape_sequences(
             BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32),
         );
@@ -221,7 +221,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             "get_string_from_array_unchecked: entry exists but is not a string!",
         );
 
-        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
+        let parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
         process_escape_sequences(BoundedVec::from_parts_unchecked(
             parsed_string,
             entry.json_length as u32,
@@ -242,7 +242,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             valid = valid & child.is_some();
         }
 
-        let mut final = target.get_string(keys[PathDepth - 1]);
+        let final = target.get_string(keys[PathDepth - 1]);
         if final.is_some() & valid {
             final
         } else {
@@ -282,7 +282,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         K: KeyHashable,
     {
         let (exists, entry, _) = self.get_json_entry(key);
-        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
+        let parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
 
         let parsed_string: BoundedVec<u8, StringBytes> =
             BoundedVec::from_parts_unchecked(parsed_string, entry.json_length as u32);
@@ -312,7 +312,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
 
-        let mut parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
+        let parsed_string: [u8; StringBytes] = self.extract_string_entry(entry);
 
         if valid {
             Option::some(
@@ -354,7 +354,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             valid = valid & child.is_some();
         }
 
-        let mut final = target.get_value(keys[PathDepth - 1]);
+        let final = target.get_value(keys[PathDepth - 1]);
         if final.is_some() & valid {
             final
         } else {
