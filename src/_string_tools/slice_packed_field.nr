@@ -840,7 +840,7 @@ mod test {
         let mut slices: [Field; 46 + 3] = [0; 46 + 3];
         for i in 0..46 {
             for j in 0..31 {
-                let mut idx = i * 31 + j;
+                let idx = i * 31 + j;
                 slices[i] *= 0x100;
                 if (idx < 1405) {
                     slices[i] += text[idx] as Field;
