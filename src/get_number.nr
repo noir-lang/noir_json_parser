@@ -59,7 +59,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             (entry.entry_type - NUMERIC_TOKEN as Field) * exists as Field == 0,
             "get_number: entry exists but is not a number!",
         );
-        let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
+        let parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
 
         if exists {
             Option::some(extract_number_from_array(parsed_string, entry.json_length))
@@ -80,7 +80,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             entry.entry_type == NUMERIC_TOKEN as Field,
             "get_number_unchecked: entry exists but is not a number!",
         );
-        let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
+        let parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
 
         extract_number_from_array(parsed_string, entry.json_length)
     }
@@ -98,7 +98,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
 
-        let mut parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
+        let parsed_string: [u8; U64_LENGTH_AS_BASE10_STRING] = self.extract_string_entry(entry);
         let result = extract_number_from_array(parsed_string, entry.json_length);
 
         if valid {

@@ -871,7 +871,7 @@ unconstrained fn __capture_missing_tokens<let MaxNumTokens: u32>(
 #[test]
 fn test_numbers() {
     let text = "{ \"a\": 9, \"b\": 99, \"c\": 999, \"d\": 9999, \"e\": 99999, \"f\": 999999, \"g\": 9999999, \"h\": 99999999, \"i\": 999999999, \"j\": 9999999999, \"k\": 99999999999, \"l\": 999999999999, \"m\": 9999999999999, \"n\": 99999999999999, \"o\": 999999999999999, \"p\": 999999999999999,\"q\": 9999999999999999, \"r\": 99999999999999999, \"s\": 999999999999999999, \"t\": 9999999999999999999, \"u\": 18446744073709551615}";
-    let mut json: JSON<372, 16, 100, 24, 2> = JSON::parse_json_from_string(text);
+    let json: JSON<372, 16, 100, 24, 2> = JSON::parse_json_from_string(text);
 
     let a = json.get_number_unchecked("a".as_bytes());
     let b = json.get_number_unchecked("b".as_bytes());
@@ -921,7 +921,7 @@ fn test_numbers() {
 #[test]
 fn test_parent_array() {
     let text = "[0,10,21,32,44]";
-    let mut json: JSON<15, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+    let json: JSON<15, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
     assert(json.get_length() == 5);
     assert(json.get_number_from_array_unchecked(0) == 0);
     assert(json.get_number_from_array_unchecked(1) == 10);
@@ -933,7 +933,7 @@ fn test_parent_array() {
 #[test]
 fn test_escaped_strings() {
     let text = "{   \"name\": \"\\\"Ade\\nel Solangi\\\"\", \"testA\": false, \"testB\": true, \"testC\": null }                                                                   ";
-    let mut json: JSON<148, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+    let json: JSON<148, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
     let result: BoundedVec<u8, 19> = json.get_string_unchecked("name".as_bytes());
     assert(result.storage() == BoundedVec::from_array("\"Ade\nel Solangi\"".as_bytes()).storage());
     assert(result.len() == 16);
@@ -942,7 +942,7 @@ fn test_escaped_strings() {
 #[test]
 fn test_parse_json() {
     let text = "{ \"foo\": 1234, \"bar\": { \"foo\": 9876, \"bar\": true }, \"baz\": \"hello\" }";
-    let mut json: JSON<68, 7, 30, 30, 2> = JSON::parse_json_from_string(text);
+    let json: JSON<68, 7, 30, 30, 2> = JSON::parse_json_from_string(text);
 
     let result = json.get_string_unchecked("baz".as_bytes());
     assert(result.storage() == "hello".as_bytes());
@@ -964,7 +964,7 @@ fn test_parse_json() {
     let result: Option<u64> = json.get_number("fooo".as_bytes());
     assert(result.is_some() == false);
 
-    let mut nested_json = json.get_object("bar".as_bytes()).unwrap();
+    let nested_json = json.get_object("bar".as_bytes()).unwrap();
     let result: Option<u64> = nested_json.get_number(BoundedVec::from_parts_unchecked(
         "foounusedkeybyteslolol".as_bytes(),
         3,
@@ -982,7 +982,7 @@ fn test_parse_json() {
 #[test]
 fn test_literal() {
     let text = "{   \"name\": \"Adeel Solangi\", \"testA\": false, \"testB\": true, \"testC\": null }                                                                   ";
-    let mut json: JSON<142, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+    let json: JSON<142, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
 
     let result: JSONLiteral = json.get_literal_unchecked("testA".as_bytes());
     assert(result.is_false() == true);
@@ -998,7 +998,7 @@ fn test_literal() {
 #[test]
 fn test_arrays() {
     let text = "{   \"name\": \"Adeel Solangi\", \"age\": 62, \"portfolio\": { \"vibe_ratings\": [1,2],\"elemental_lorem\": false }}                                                 ";
-    let mut json: JSON<153, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
+    let json: JSON<153, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
 
     assert(json.key_exists(BoundedVec::from_parts_unchecked("foo".as_bytes(), 3)) == false);
     assert(json.key_exists(BoundedVec::from_parts_unchecked("name".as_bytes(), 4)));

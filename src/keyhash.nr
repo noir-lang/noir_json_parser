@@ -62,7 +62,7 @@ impl<let KeyFields: u32> ByteHasher<KeyFields> {
 
         let hashed_full = poseidon::poseidon2::Poseidon2::hash(key_fields, KeyFields);
 
-        let mut r = slice_200_bits_from_field(hashed_full);
+        let r = slice_200_bits_from_field(hashed_full);
         r
     }
 }
