@@ -73,8 +73,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             (entry.entry_type - LITERAL_TOKEN as Field) * exists as Field == 0,
             "get_literal: entry exists but is not a literal!",
         );
-        let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
-            self.extract_string_entry(entry);
+        let parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] = self.extract_string_entry(entry);
 
         if exists {
             Option::some(extract_literal_from_array(parsed_string, entry.json_length))
@@ -95,8 +94,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             entry.entry_type == LITERAL_TOKEN as Field,
             "get_literal_unchecked: entry exists but is not a literal!",
         );
-        let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
-            self.extract_string_entry(entry);
+        let parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] = self.extract_string_entry(entry);
 
         extract_literal_from_array(parsed_string, entry.json_length)
     }
@@ -114,8 +112,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             );
         }
 
-        let mut parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] =
-            self.extract_string_entry(entry);
+        let parsed_string: [u8; MAX_LITERAL_LENGTH_AS_STRING] = self.extract_string_entry(entry);
         let result = extract_literal_from_array(parsed_string, entry.json_length);
 
         if valid {

@@ -697,7 +697,7 @@ pub fn slice_fields<let InputFields: u32, let OutputFields: u32>(
     // 4.5, 21.5
     // process remaining bytes
     num_remaining_bytes.assert_max_bit_size::<16>();
-    let mut (num_whole_limbs, num_overflow_bytes) = divmod_31(num_remaining_bytes as u16);
+    let (num_whole_limbs, num_overflow_bytes) = divmod_31(num_remaining_bytes as u16);
     // 44, 65.5
     // extracts the tail portion of the starting field (bytes we want to keep) and discards the head.
     let (_, tail) = slice_field(data[start_index as u32], num_underflow_bytes as u32);
@@ -823,7 +823,7 @@ mod test {
         let mut slices: [Field; 3] = [0; 3];
         for i in 0..3 {
             for k in 0..31 {
-                let mut idx = i * 31 + k;
+                let idx = i * 31 + k;
                 slices[i] *= 0x100;
                 if (idx < num_bytes) {
                     slices[i] += bytes[idx + start] as Field;
@@ -851,7 +851,7 @@ mod test {
         let num_bytes = 0;
         let start_byte: u32 = 0;
         // Safety: this is a test
-        let mut expected_slices: [Field; 3] =
+        let expected_slices: [Field; 3] =
             unsafe { build_slices_for_test(text, start_byte, num_bytes) };
         let result_slices: [Field; 3] =
             slice_fields(slices, start_byte as Field, num_bytes as Field);
@@ -865,7 +865,7 @@ mod test {
         let mut slices: [Field; 46 + 3] = [0; 46 + 3];
         for i in 0..46 {
             for j in 0..31 {
-                let mut idx = i * 31 + j;
+                let idx = i * 31 + j;
                 slices[i] *= 0x100;
                 if (idx < 1405) {
                     slices[i] += text[idx] as Field;
@@ -883,7 +883,7 @@ mod test {
             for j in 0..18 {
                 let start_byte: u32 = byte_positions[j];
                 // Safety: this is a test
-                let mut expected_slices: [Field; 3] =
+                let expected_slices: [Field; 3] =
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =
                     slice_fields(slices, start_byte as Field, num_bytes as Field);
@@ -892,7 +892,7 @@ mod test {
 
             for j in 0..18 {
                 let start_byte: u32 = text.len() - num_bytes - byte_positions[j];
-                let mut expected_slices: [Field; 3] =
+                let expected_slices: [Field; 3] =
                     // Safety: this is a test
                     unsafe { build_slices_for_test(text, start_byte, num_bytes) };
                 let result_slices: [Field; 3] =

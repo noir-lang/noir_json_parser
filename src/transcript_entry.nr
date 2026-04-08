@@ -16,7 +16,7 @@ impl ValidationFlags {
 
     unconstrained fn __from_field(f: Field) -> Self {
         let bytes: [u8; 4] = f.to_be_bytes();
-        let mut push_layer = bytes[3] != 0;
+        let push_layer = bytes[3] != 0;
         let push_layer_type_of_root = bytes[2] != 0;
         let pop_layer = bytes[1] != 0;
         let error = bytes[0] as Field;

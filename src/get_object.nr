@@ -93,7 +93,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 fn test_object() {
     let text = "{ \"foo\": [ [1,{ \"bartholomew tony Harrison III\": { \"hello\": \"world\" }},3], [[3,4]], [[]], [], { \"bar\": [\"b\", \"a\", \"z\" ]} ]}";
 
-    let mut json: JSON<123, 7, 60, 60, 2> = JSON::parse_json_from_string(text);
+    let json: JSON<123, 7, 60, 60, 2> = JSON::parse_json_from_string(text);
 
     let first = json.get_array_unchecked("foo".as_bytes());
     assert(first.get_length() == 5);

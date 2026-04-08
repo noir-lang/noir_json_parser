@@ -373,7 +373,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         preserve_num_entries: false,
     };
 
-    let mut end_object_flags = TokenFlags {
+    let end_object_flags = TokenFlags {
         create_json_entry: true,
         is_end_of_object_or_array: true,
         is_start_of_object_or_array: false,
@@ -383,7 +383,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
         preserve_num_entries: false,
     };
 
-    let mut end_array_flags = TokenFlags {
+    let end_array_flags = TokenFlags {
         create_json_entry: true,
         is_end_of_object_or_array: true,
         is_start_of_object_or_array: false,
