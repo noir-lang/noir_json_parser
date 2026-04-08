@@ -462,6 +462,7 @@ unconstrained fn generate_token_flags_table() -> [Field; NUM_TOKENS * 2] {
 
 #[test]
 fn test_generate_token_flags_table() {
+    // Safety: test code
     unsafe {
         let r = generate_token_flags_table();
         assert(r == TOKEN_FLAGS_TABLE);
@@ -470,6 +471,7 @@ fn test_generate_token_flags_table() {
 
 #[test]
 fn test_make_json_capture_table() {
+    // Safety: test code
     unsafe {
         let r = make_json_capture_table();
         assert(r == JSON_CAPTURE_TABLE);
@@ -478,6 +480,7 @@ fn test_make_json_capture_table() {
 
 #[test]
 fn test_make_validation_flags() {
+    // Safety: test code
     unsafe {
         let f = make_token_validation_table();
         assert(f == TOKEN_VALIDATION_TABLE);
@@ -485,6 +488,7 @@ fn test_make_validation_flags() {
 }
 #[test]
 fn test_make_ascii_to_token_table() {
+    // Safety: test code
     unsafe {
         let r = make_ascii_to_token_table();
         assert(r == ASCII_TO_TOKEN_TABLE);
@@ -493,6 +497,7 @@ fn test_make_ascii_to_token_table() {
 
 #[test]
 fn test_make_process_raw_transcript_table() {
+    // Safety: test code
     unsafe {
         let r = make_process_raw_transcript_table();
         assert(r == PROCESS_RAW_TRANSCRIPT_TABLE);
