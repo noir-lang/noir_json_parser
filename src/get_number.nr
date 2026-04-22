@@ -115,4 +115,26 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         let result = self.get_number_from_array(array_index);
         result.expect(f"array index out of bounds")
     }
+
+    /// if the root JSON is an object, get a nested numeric value out of the JSON, which may be several keys deep
+    pub fn get_number_from_path<let KeyBytes: u32, let PathDepth: u32>(
+        self,
+        keys: [BoundedVec<u8, KeyBytes>; PathDepth],
+    ) -> Option<u64> {
+        let mut target = self;
+        let mut valid = true;
+        for i in 0..PathDepth - 1 {
+            let child = self.get_object(keys[i]);
+
+            target = child.unwrap_unchecked();
+            valid = valid & child.is_some();
+        }
+
+        let final = target.get_number(keys[PathDepth - 1]);
+        if final.is_some() & valid {
+            final
+        } else {
+            Option::none()
+        }
+    }
 }
