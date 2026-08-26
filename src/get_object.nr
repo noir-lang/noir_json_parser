@@ -111,19 +111,16 @@ fn test_object() {
     let not_real = B.get_object("bartholomew tony Harrison IV".as_bytes());
     assert(not_real.is_some() == false);
 
-    let C = B.get_object_unchecked(BoundedVec::from_parts_unchecked(
+    let C = B.get_object_unchecked(BoundedVec::from_parts(
         "bartholomew tony Harrison III".as_bytes(),
         29,
     ));
     assert_eq(JSONEntry::from(C.json_entries_packed[C.root_index_in_transcript]).num_children, 1);
 
-    let C = B.get_object(BoundedVec::from_parts_unchecked(
-        "bartholomew tony Harrison III".as_bytes(),
-        28,
-    ));
+    let C = B.get_object(BoundedVec::from_parts("bartholomew tony Harrison III".as_bytes(), 28));
     assert(C.is_some() == false);
 
-    let C = B.get_object(BoundedVec::from_parts_unchecked(
+    let C = B.get_object(BoundedVec::from_parts(
         "bartholomew tony Harrison IIIekurfgaeoiurh".as_bytes(),
         29,
     ));
