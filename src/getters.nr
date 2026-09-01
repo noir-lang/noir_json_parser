@@ -206,12 +206,12 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             let mut fake_entry = JSONEntry::new();
             fake_entry.json_pointer = key.json_index;
             fake_entry.json_length = key.json_length;
-            result[i] = BoundedVec::from_parts_unchecked(
+            result[i] = BoundedVec::from_parts(
                 self.extract_string_entry(fake_entry),
                 key.json_length as u32,
             );
         }
-        BoundedVec::from_parts_unchecked(result, key_indices.len())
+        BoundedVec::from_parts(result, key_indices.len())
     }
 
     /// Helper function to get an entry from an array at a given index
@@ -344,7 +344,7 @@ unconstrained fn __get_keys_at_root<let MaxNumKeys: u32, let MaxNumValues: u32>(
     }
     assert_eq(result_ptr as Field, root_object.num_children);
 
-    BoundedVec::from_parts_unchecked(result, result_ptr as u32)
+    BoundedVec::from_parts(result, result_ptr as u32)
 }
 
 #[test]

@@ -129,7 +129,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             if (valid) {
                 r[i] = f(
                     JSONValue {
-                        value: BoundedVec::from_parts_unchecked(
+                        value: BoundedVec::from_parts(
                             parsed_string,
                             child_entry.json_length as u32,
                         ),

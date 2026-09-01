@@ -878,9 +878,9 @@ fn test_numbers() {
     let c = json.get_number_unchecked("c".as_bytes());
     let d = json.get_number_unchecked("d".as_bytes());
     let e = json.get_number_unchecked("e".as_bytes());
-    let f = json.get_number_unchecked(BoundedVec::from_parts_unchecked("ftrololol".as_bytes(), 1));
+    let f = json.get_number_unchecked(BoundedVec::from_parts("ftrololol".as_bytes(), 1));
     let g = json.get_number("g".as_bytes()).unwrap();
-    let h = json.get_number(BoundedVec::from_parts_unchecked("h".as_bytes(), 1)).unwrap();
+    let h = json.get_number(BoundedVec::from_parts("h".as_bytes(), 1)).unwrap();
     let i = json.get_number_unchecked("i".as_bytes());
     let j = json.get_number_unchecked("j".as_bytes());
     let k = json.get_number_unchecked("k".as_bytes());
@@ -965,10 +965,8 @@ fn test_parse_json() {
     assert(result.is_some() == false);
 
     let nested_json = json.get_object("bar".as_bytes()).unwrap();
-    let result: Option<u64> = nested_json.get_number(BoundedVec::from_parts_unchecked(
-        "foounusedkeybyteslolol".as_bytes(),
-        3,
-    ));
+    let result: Option<u64> =
+        nested_json.get_number(BoundedVec::from_parts("foounusedkeybyteslolol".as_bytes(), 3));
     assert(result.is_some() == true);
     assert(result.unwrap() == 9876);
 
@@ -1000,10 +998,10 @@ fn test_arrays() {
     let text = "{   \"name\": \"Adeel Solangi\", \"age\": 62, \"portfolio\": { \"vibe_ratings\": [1,2],\"elemental_lorem\": false }}                                                 ";
     let json: JSON<153, 10, 60, 60, 2> = JSON::parse_json_from_string(text);
 
-    assert(json.key_exists(BoundedVec::from_parts_unchecked("foo".as_bytes(), 3)) == false);
-    assert(json.key_exists(BoundedVec::from_parts_unchecked("name".as_bytes(), 4)));
-    assert(json.key_exists(BoundedVec::from_parts_unchecked("age".as_bytes(), 3)));
-    assert(json.key_exists(BoundedVec::from_parts_unchecked("portfolio".as_bytes(), 9)));
+    assert(json.key_exists(BoundedVec::from_parts("foo".as_bytes(), 3)) == false);
+    assert(json.key_exists(BoundedVec::from_parts("name".as_bytes(), 4)));
+    assert(json.key_exists(BoundedVec::from_parts("age".as_bytes(), 3)));
+    assert(json.key_exists(BoundedVec::from_parts("portfolio".as_bytes(), 9)));
 }
 
 #[test(should_fail_with = "build_transcript: MaxNumTokens limit exceeded!")]
