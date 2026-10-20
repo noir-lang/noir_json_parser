@@ -41,16 +41,16 @@ fn extract_number_from_array(arr: [u8; U64_LENGTH_AS_BASE10_STRING], json_length
     parsed_number as u64
 }
 
-/// getter methods for extracting numeric values out of a JSON struct
+/// Getter methods for extracting numeric values out of a JSON struct.
 ///
-/// numeric values must fit into a `u64` type.
-/// decimal values and scientific notation are not yet supported
+/// Numeric values must fit into a `u64`.
+/// Decimal values and scientific notation are not yet supported.
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
-    /// if the root JSON is an object, extract a numeric value given by `key`
+    /// If the root JSON is an object, extracts the numeric value given by `key`.
     ///
-    /// returns an Option<u64> which will be null if the key does not exist
-    pub(crate) fn get_number<K>(self, key: K) -> Option<u64>
+    /// Returns an `Option<u64>`, which is `none` if the key does not exist.
+    pub fn get_number<K>(self, key: K) -> Option<u64>
     where
         K: KeyHashable,
     {
@@ -68,10 +68,10 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /// if the root JSON is an object, extract a u64 value given by `key`
+    /// If the root JSON is an object, extracts the numeric value given by `key`.
     ///
-    /// will revert if the number does not exist
-    pub(crate) fn get_number_unchecked<K>(self, key: K) -> u64
+    /// Reverts if the number does not exist.
+    pub fn get_number_unchecked<K>(self, key: K) -> u64
     where
         K: KeyHashable,
     {
@@ -85,9 +85,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         extract_number_from_array(parsed_string, entry.json_length)
     }
 
-    /// if the root JSON is an array, extract a numeric value given by the position of the target in the source array
+    /// If the root JSON is an array, extracts the numeric value at the given position in the array.
     ///
-    /// returns an Option<u64> which will be null if the number does not exist
+    /// Returns an `Option<u64>`, which is `none` if the number does not exist.
     pub fn get_number_from_array(self, array_index: Field) -> Option<u64> {
         let (entry, valid, _) = self.get_entry_from_array(array_index);
         if valid {
@@ -108,9 +108,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /// if the root JSON is an array, extract a numeric value given by the position of the target in the source array
+    /// If the root JSON is an array, extracts the numeric value at the given position in the array.
     ///
-    /// will revert if the number does not exist
+    /// Reverts if the number does not exist.
     pub fn get_number_from_array_unchecked(self, array_index: Field) -> u64 {
         let result = self.get_number_from_array(array_index);
         result.expect(f"array index out of bounds")
