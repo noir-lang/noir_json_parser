@@ -21,16 +21,22 @@ impl JSONLiteral {
         );
         JSONLiteral { value: is_true as Field * 2 + is_null as Field }
     }
-    pub(crate) fn is_true(self) -> bool {
+    /// returns true if the literal is `true`
+    pub fn is_true(self) -> bool {
         self.value == 2
     }
-    pub(crate) fn is_null(self) -> bool {
+    /// returns true if the literal is `null`
+    pub fn is_null(self) -> bool {
         self.value == 1
     }
-    pub(crate) fn is_false(self) -> bool {
+    /// returns true if the literal is `false`
+    pub fn is_false(self) -> bool {
         self.value == 0
     }
-    pub(crate) fn to_bool(self) -> bool {
+    /// converts the literal into a bool: `true` maps to true, `false` and `null` both map to false
+    ///
+    /// use `is_null` first if `null` must be distinguished from `false`
+    pub fn to_bool(self) -> bool {
         self.value == 2
     }
 }

@@ -39,7 +39,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    // if the root JSON is an object, extract a child object given by `key`
+    /// if the root JSON is an object, extract a child object given by `key`
     ///
     /// will revert if the requested object does not exist
     pub fn get_object_unchecked<K>(self, key: K) -> Self

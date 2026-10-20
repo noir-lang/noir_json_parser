@@ -26,13 +26,21 @@ pub struct JSONValue<let MaxLength: u32> {
 }
 
 impl<let MaxLength: u32> JSONValue<MaxLength> {
-    fn is_string(self) -> bool {
+    /// returns the raw bytes of the value as they appear in the JSON source.
+    /// strings exclude the surrounding quotes and keep escape sequences unprocessed
+    pub fn value(self) -> BoundedVec<u8, MaxLength> {
+        self.value
+    }
+    /// returns true if the value is a JSON string
+    pub fn is_string(self) -> bool {
         self.value_type == STRING_TOKEN as Field
     }
-    fn is_number(self) -> bool {
+    /// returns true if the value is a JSON number
+    pub fn is_number(self) -> bool {
         self.value_type == NUMERIC_TOKEN as Field
     }
-    fn is_literal(self) -> bool {
+    /// returns true if the value is a JSON literal (`true`, `false` or `null`)
+    pub fn is_literal(self) -> bool {
         self.value_type == LITERAL_TOKEN as Field
     }
 }

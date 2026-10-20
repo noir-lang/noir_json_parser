@@ -246,7 +246,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
 
     /// if the root JSON is an object, extract a JSONValue given by `key`
     ///
-    /// will revert if the string does not exist
+    /// will revert if the key does not exist
     ///
     /// the `StringBytes` parameter defines the maximum allowable length of the returned value
     pub fn get_value_unchecked<let StringBytes: u32, K>(self, key: K) -> JSONValue<StringBytes>

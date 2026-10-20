@@ -110,7 +110,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     }
 
     /// returns a bool that describes whether a given key exists at the root of the JSON
-    pub(crate) fn key_exists<K>(self, key: K) -> bool
+    ///
+    /// `key` can be a `str`, a `[u8; N]` or a `BoundedVec<u8, N>`
+    pub fn key_exists<K>(self, key: K) -> bool
     where
         K: KeyHashable,
     {
