@@ -50,7 +50,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract a numeric value given by `key`
     ///
     /// returns an Option<u64> which will be null if the key does not exist
-    pub(crate) fn get_number<K>(self, key: K) -> Option<u64>
+    pub fn get_number<K>(self, key: K) -> Option<u64>
     where
         K: KeyHashable,
     {
@@ -71,7 +71,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract a u64 value given by `key`
     ///
     /// will revert if the number does not exist
-    pub(crate) fn get_number_unchecked<K>(self, key: K) -> u64
+    pub fn get_number_unchecked<K>(self, key: K) -> u64
     where
         K: KeyHashable,
     {

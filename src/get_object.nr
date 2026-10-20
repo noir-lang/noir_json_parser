@@ -17,7 +17,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract a child object given by `key`
     ///
     /// returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value
-    pub(crate) fn get_object<K>(self, key: K) -> Option<Self>
+    pub fn get_object<K>(self, key: K) -> Option<Self>
     where
         K: KeyHashable,
     {
@@ -42,7 +42,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     // if the root JSON is an object, extract a child object given by `key`
     ///
     /// will revert if the requested object does not exist
-    pub(crate) fn get_object_unchecked<K>(self, key: K) -> Self
+    pub fn get_object_unchecked<K>(self, key: K) -> Self
     where
         K: KeyHashable,
     {

@@ -64,7 +64,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract a literal value given by `key`
     ///
     /// returns an Option<JSONLiteral> which will be null if the literal does not exist
-    pub(crate) fn get_literal<K>(self, key: K) -> Option<JSONLiteral>
+    pub fn get_literal<K>(self, key: K) -> Option<JSONLiteral>
     where
         K: KeyHashable,
     {
@@ -85,7 +85,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
     /// if the root JSON is an object, extract a literal value given by `key`
     ///
     /// will revert if the literal does not exist
-    pub(crate) fn get_literal_unchecked<K>(self, key: K) -> JSONLiteral
+    pub fn get_literal_unchecked<K>(self, key: K) -> JSONLiteral
     where
         K: KeyHashable,
     {
