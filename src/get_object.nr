@@ -4,9 +4,9 @@ use crate::getters::KeyHashable;
 use crate::json::JSON;
 use crate::json_entry::JSONEntry;
 
-/// getter methods for extracting object types out of a JSON struct
+/// Getter methods for extracting objects out of a JSON struct.
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
-    /// Updates the JSON object to point to a specific object entry
+    /// Updates the JSON object to point to a specific object entry.
     pub(crate) fn update_json_object(mut self, entry: JSONEntry, key_index: u32) -> Self {
         self.root_id = entry.id;
         self.layer_type_of_root = OBJECT_LAYER;
@@ -14,9 +14,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self
     }
 
-    /// if the root JSON is an object, extract a child object given by `key`
+    /// If the root JSON is an object, extracts the child object given by `key`.
     ///
-    /// returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value
+    /// Returns an `Option<JSON>`. If the object exists, the returned JSON object has the requested object as its root value.
     pub fn get_object<K>(self, key: K) -> Option<Self>
     where
         K: KeyHashable,
@@ -39,9 +39,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /// if the root JSON is an object, extract a child object given by `key`
+    /// If the root JSON is an object, extracts the child object given by `key`.
     ///
-    /// will revert if the requested object does not exist
+    /// Reverts if the requested object does not exist.
     pub fn get_object_unchecked<K>(self, key: K) -> Self
     where
         K: KeyHashable,
@@ -58,9 +58,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.update_json_object(entry, key_index)
     }
 
-    /// if the root JSON is an array, extract an object given by the position of the target in the source array
+    /// If the root JSON is an array, extracts the object at the given position in the array.
     ///
-    /// returns an Option<JSON> where, if the object exists, the JSON object will have the requested object as its root value
+    /// Returns an `Option<JSON>`. If the object exists, the returned JSON object has the requested object as its root value.
     pub fn get_object_from_array(self, array_index: Field) -> Option<Self> {
         let (entry, valid, entry_index) = self.get_entry_from_array(array_index);
         if valid {
@@ -80,9 +80,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         }
     }
 
-    /// if the root JSON is an array, extract an object given by the position of the target in the source array
+    /// If the root JSON is an array, extracts the object at the given position in the array.
     ///
-    /// will revert if the object does not exist
+    /// Reverts if the object does not exist.
     pub fn get_object_from_array_unchecked(self, array_index: Field) -> Self {
         let result = self.get_object_from_array(array_index);
         result.expect(f"array index out of bounds")

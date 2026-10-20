@@ -26,20 +26,20 @@ pub struct JSONValue<let MaxLength: u32> {
 }
 
 impl<let MaxLength: u32> JSONValue<MaxLength> {
-    /// returns the raw bytes of the value as they appear in the JSON source.
-    /// strings exclude the surrounding quotes and keep escape sequences unprocessed
+    /// Returns the raw bytes of the value as they appear in the JSON source.
+    /// Strings exclude the surrounding quotes and keep escape sequences unprocessed.
     pub fn value(self) -> BoundedVec<u8, MaxLength> {
         self.value
     }
-    /// returns true if the value is a JSON string
+    /// Returns true if the value is a JSON string.
     pub fn is_string(self) -> bool {
         self.value_type == STRING_TOKEN as Field
     }
-    /// returns true if the value is a JSON number
+    /// Returns true if the value is a JSON number.
     pub fn is_number(self) -> bool {
         self.value_type == NUMERIC_TOKEN as Field
     }
-    /// returns true if the value is a JSON literal (`true`, `false` or `null`)
+    /// Returns true if the value is a JSON literal (`true`, `false` or `null`).
     pub fn is_literal(self) -> bool {
         self.value_type == LITERAL_TOKEN as Field
     }
@@ -234,40 +234,40 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         assert(depth == 0, "validate_tokens: unclosed objects or arrays");
     }
 
-    /// Parses [`Self::transcript`] to populate [`Self::json_entries_packed`] and [`Self::key_data`]
-    /// Given a processed transcript of json tokens, compute a list of json entries that describes the values within the JSON blob
+    /// Parses [`Self::transcript`] to populate [`Self::json_entries_packed`] and [`Self::key_data`].
+    /// Given a processed transcript of JSON tokens, computes a list of JSON entries that describe the values within the JSON blob.
     ///
-    /// [`Self::json_entries_packed`] is a [JSONEntry] struct whose members have been packed into a single Field element.
+    /// [`Self::json_entries_packed`] holds [JSONEntry] structs whose members have been packed into a single Field element.
     ///
     /// A 'value' here is either an Object, Array, String, Numeric or Literal.
-    ///         e.g. "[ 1, 2, 3 ]" contains 4 values (3 Numeric types and the Array that contains them)
+    ///         For example, "[ 1, 2, 3 ]" contains 4 values (3 Numeric values and the Array that contains them).
     ///
-    ///         To avoid branches and if statements, we construct a state transition function out of the lookup table TOKEN_FLAGS_TABLE
-    ///         This table takes as an input the following:
-    ///             1. The token value of an element in the transcript
-    ///             2. The layer type the previous token is located in (i.e. are we in an array or an object?)
+    ///         To avoid branches and if statements, we construct a state transition function out of the lookup table TOKEN_FLAGS_TABLE.
+    ///         This table takes the following inputs:
+    ///             1. The token value of an element in the transcript.
+    ///             2. The layer type the previous token is located in (i.e. are we in an array or an object?).
     ///         The table outputs the following data:
-    ///             1. Should we create a new json entry? (i.e. is the token a STRING_TOKEN, LITERAL_TOKEN, NUMERIC_TOKEN, END_ARRAY_TOKEN, END_OBJECT_TOKEN)
+    ///             1. Should we create a new JSON entry? (i.e. is the token a STRING_TOKEN, LITERAL_TOKEN, NUMERIC_TOKEN, END_ARRAY_TOKEN or END_OBJECT_TOKEN?)
     ///             2. Is the token `}` or `]`?
     ///             3. Is the token `{` or `[`?
     ///             4. Given the current layer type and the token being queried, what should the new layer type be?
     ///             5. Is the token `KEY_TOKEN`?
-    ///             6. Is the token a `STRING_TOKEN`, `NUMERIC_TOKEN` OR `VALUE_TOKEN`?
-    ///             7. Is the token one that we should skip over? `,` or `:`
+    ///             6. Is the token a `STRING_TOKEN`, `NUMERIC_TOKEN` or `VALUE_TOKEN`?
+    ///             7. Is the token one that we should skip over (`,` or `:`)?
     ///
-    /// ## explanation of `parent_context_stack`
+    /// ## Explanation of `parent_context_stack`
     /// When recording a JSONEntry, we need to understand how many children (if any) a JSONEntry has,
-    /// as well as a way of accessing children given the parent JSONEntry object
-    /// Note: OBJECT_TOKEN and ARRAY_TOKEN have children. single values (NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN) do not.
+    /// as well as a way of accessing children given the parent JSONEntry object.
+    /// Note: OBJECT_TOKEN and ARRAY_TOKEN have children. Single values (NUMERIC_TOKEN, LITERAL_TOKEN, STRING_TOKEN) do not.
     /// We define a "context stack" via `parent_context_stack` to track this data.
-    /// The front of `parent_context_stack` contains a JSONContextStackEntry (packed into a single Field for the purposes of efficient lookups) for the current parent
-    /// If we parse a token that creates a new parent (BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN), we push a new parent onto the stack
-    /// If we reach the end of an object or array (END_OBJECT_TOKEN, END_ARRAY_TOKEN) we pop the current parent off of the stack
-    /// Note: "stack" is used loosely here. We have a fixed-size array of packed JSONContextStackEntry vals and a pointer to the head of the stack.
-    /// (the array size defines the maximum number of entities the stack can contain, currently set at 32)
-    /// Note: the size param `32` is a magic number we should replace with a defined const global variable
-    /// To push: we increment the pointer by 1 and write a new entry at the pointer value
-    /// To pop: we decrement the pointer by 1 (we don't need to delete data because new data is written every time the pointer is incremented)
+    /// The front of `parent_context_stack` contains a JSONContextStackEntry (packed into a single Field for efficient lookups) for the current parent.
+    /// If we parse a token that creates a new parent (BEGIN_OBJECT_TOKEN or BEGIN_ARRAY_TOKEN), we push a new parent onto the stack.
+    /// If we reach the end of an object or array (END_OBJECT_TOKEN or END_ARRAY_TOKEN), we pop the current parent off the stack.
+    /// Note: "stack" is used loosely here. We have a fixed-size array of packed JSONContextStackEntry values and a pointer to the head of the stack.
+    /// The array size defines the maximum number of entries the stack can contain, currently 32.
+    /// Note: the size `32` is a magic number that should be replaced with a global constant.
+    /// To push, we increment the pointer by 1 and write a new entry at the pointer value.
+    /// To pop, we decrement the pointer by 1 (we don't need to delete data because new data is written every time the pointer is incremented).
     fn create_json_entries(&mut self) {
         let mut parent_context_stack: [Field; 32] = [0; 32];
         let mut entry_ptr = 0;

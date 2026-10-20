@@ -7,7 +7,7 @@ use crate::keyhash::ByteHasher;
 use crate::keymap::KeyIndexData;
 use crate::utils::cast_num_to_u32;
 
-/// records data used to reason about whether a key exists in a json blob
+/// Records data used to reason about whether a key exists in a JSON blob.
 pub struct KeySearchResult {
     found: bool, // does the key exist?
     target_lt_smallest_entry: bool, // is the target keyhash smaller than the smallest keyhash in self.key_hashes?
@@ -42,12 +42,12 @@ impl<let N: u32> KeyHashable for str<N> {
     }
 }
 
-/// helper methods for extracting data out of a processed JSON object
+/// Helper methods for extracting data out of a processed JSON object.
 impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let MaxNumValues: u32, let MaxKeyFields: u32> JSON<NumBytes, NumPackedFields, MaxNumTokens, MaxNumValues, MaxKeyFields> {
 
-    /// If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
+    /// If the root JSON is an object, extracts the `JSONEntry` that describes the array, object or value that `key` maps to.
     ///
-    /// returns an Option<JSONEntry> which will be null if the entry does not exist
+    /// Returns `(exists, entry, key_index)`, where `exists` is false if the key does not exist.
     pub(crate) fn get_json_entry<K>(self, key: K) -> (bool, JSONEntry, u32)
     where
         K: KeyHashable,
@@ -59,9 +59,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         (exists, entry, key_index)
     }
 
-    /// If the root JSON is an object, extract a JSONEntry that describes an array, object or value that maps to a given key
+    /// If the root JSON is an object, extracts the `JSONEntry` that describes the array, object or value that `key` maps to.
     ///
-    /// will revert if the key does not exist
+    /// Reverts if the key does not exist.
     pub(crate) fn get_json_entry_unchecked<K>(self, key: K) -> JSONEntry
     where
         K: KeyHashable,
@@ -69,7 +69,7 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.get_json_entry_unchecked_with_key_index(key).0
     }
 
-    /// same as `get_json_entry_unchecked` but also returns the position of the JSONEntry in `self.json_entries_packed`
+    /// Same as `get_json_entry_unchecked`, but also returns the position of the `JSONEntry` in `self.json_entries_packed`.
     pub(crate) fn get_json_entry_unchecked_with_key_index<K>(self, key: K) -> (JSONEntry, u32)
     where
         K: KeyHashable,
@@ -89,9 +89,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         (entry, key_index)
     }
 
-    /// helper method that will extract an array of bytes that describes the value associated with a JSONEntry object
+    /// Helper method that extracts the bytes of the value associated with a `JSONEntry`.
     ///
-    /// e.g. if the JSONEntry describes "foo" : "bar" in the JSON, `extract_string_entry` will return "foo"
+    /// For example, if the `JSONEntry` describes `"foo": "bar"` in the JSON, `extract_string_entry` returns "bar".
     pub(crate) fn extract_string_entry<let StringBytes: u32>(
         self,
         entry: JSONEntry,
@@ -109,9 +109,9 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         result
     }
 
-    /// returns a bool that describes whether a given key exists at the root of the JSON
+    /// Returns whether the given key exists at the root of the JSON.
     ///
-    /// `key` can be a `str`, a `[u8; N]` or a `BoundedVec<u8, N>`
+    /// `key` can be a `str`, a `[u8; N]` or a `BoundedVec<u8, N>`.
     pub fn key_exists<K>(self, key: K) -> bool
     where
         K: KeyHashable,
@@ -119,11 +119,11 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         self.key_exists_impl(key).0
     }
 
-    /// implementation of `key_exists`. returns both a boolean and also the position in `self.json_entries_packed` of the key
+    /// Implementation of `key_exists`. Returns both a boolean and the position of the key in `self.json_entries_packed`.
     ///
-    /// algorithm is O(1) because of the preprocessing we have done
-    /// Method computes a key hash and checks whether key hash exists in the list of sorted preprocessed key hashes
-    /// If it does *not* exist, we can find two adjacent entries in `key_hashes` where `key_hashes[i]` < target_key_hash < `key_hashes[i+1]`
+    /// The algorithm is O(1) because of the preprocessing done when parsing.
+    /// It computes the key hash and checks whether it exists in the sorted list of preprocessed key hashes.
+    /// If it does *not* exist, there are two adjacent entries in `key_hashes` such that `key_hashes[i] < target_key_hash < key_hashes[i+1]`.
     pub(crate) fn key_exists_impl<K>(self, key: K) -> (bool, u32)
     where
         K: KeyHashable,
@@ -216,18 +216,18 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
         BoundedVec::from_parts(result, key_indices.len())
     }
 
-    /// Helper function to get an entry from an array at a given index
+    /// Helper function that gets the entry at the given index of an array.
     ///
     /// # Arguments
     ///
-    /// * `array_index` - The index within the array
+    /// * `array_index` - The index within the array.
     ///
     /// # Returns
     ///
-    /// (entry, valid, entry_index) where:
-    ///   - entry: The JSONEntry at the given index
-    ///   - valid: Indicates if the index is within bounds
-    ///   - entry_index: The actual index in json_entries_packed where the entry is stored
+    /// `(entry, valid, entry_index)`, where:
+    ///   - `entry`: The `JSONEntry` at the given index.
+    ///   - `valid`: Whether the index is within bounds.
+    ///   - `entry_index`: The index in `json_entries_packed` where the entry is stored.
     pub(crate) fn get_entry_from_array(self, array_index: Field) -> (JSONEntry, bool, u32) {
         assert_eq(
             self.layer_type_of_root,
@@ -265,11 +265,11 @@ unconstrained fn find_key_in_map<let MaxNumValues: u32>(
     found_index
 }
 
-/// figures out if `target` exists as a key in `self.key_hashes`
+/// Figures out whether `target` exists as a key in `key_hashes`.
 ///
-/// if `target` does not exist, we return the two indices of adjacent
-/// entries in `self.key_hashes`, lhs_index, rhs_index, where
-/// lhs_index < key_hash < rhs_index
+/// If `target` does not exist, returns the indices of the two adjacent
+/// entries in `key_hashes`, `lhs_index` and `rhs_index`, such that
+/// `key_hashes[lhs_index] < target < key_hashes[rhs_index]`.
 unconstrained fn search_for_key_in_map<let MaxNumValues: u32>(
     key_hashes: [Field; MaxNumValues],
     target: Field,
