@@ -1,5 +1,10 @@
 # noir_json_parse
 
+> [!WARNING]
+> **This library is experimental software. It has not been fully audited and is not guaranteed to be secure. Expect bugs!**
+>
+> noir_json_parser is provided "as is", without warranty of any kind (see [LICENSE](LICENSE)). Bugs in this library can lead to under-constrained circuits, allowing invalid proofs to be accepted. Do not rely on it to protect real assets or sensitive data without your own independent review.
+
 A JSON parsing library for the Noir Language. This library adheres to the IETF RFC 8259 specifications (mostly, see [edge_cases](#edge_cases)).
 
 Features:
