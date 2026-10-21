@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.5.0](https://github.com/noir-lang/noir_json_parser/compare/v0.4.0...v0.5.0) (2026-10-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* Update to new stdlib interface ([#96](https://github.com/noir-lang/noir_json_parser/issues/96))
+* fix a bunch of visibility issues ([#38](https://github.com/noir-lang/noir_json_parser/issues/38))
+
+### Features
+
+* Make get functions public ([#91](https://github.com/noir-lang/noir_json_parser/issues/91)) ([601ec49](https://github.com/noir-lang/noir_json_parser/commit/601ec4999c5f3c7a7d175edacdcf37233d36a8a8))
+* Removes redundant `_var` and `_unchecked_var` function variants ([#90](https://github.com/noir-lang/noir_json_parser/issues/90)) ([37908a7](https://github.com/noir-lang/noir_json_parser/commit/37908a71789464caff9b6a4333ef8232fd93f830))
+
+
+### Bug Fixes
+
+* Add missing generic ([#44](https://github.com/noir-lang/noir_json_parser/issues/44)) ([b6b35ef](https://github.com/noir-lang/noir_json_parser/commit/b6b35efa1e26dcb071acd0b9bd33f1c8247b9bf1))
+* Add validation for literals ([#64](https://github.com/noir-lang/noir_json_parser/issues/64)) ([8adc6a8](https://github.com/noir-lang/noir_json_parser/commit/8adc6a84e51e59fb1c224ac3206604186f869083))
+* Do not cast numbers to bool ([#45](https://github.com/noir-lang/noir_json_parser/issues/45)) ([eb041f7](https://github.com/noir-lang/noir_json_parser/commit/eb041f7f72c2370a0063c8b2e1ed0ee64b5b21ff))
+* Make some pub(crate) functions pub again ([#105](https://github.com/noir-lang/noir_json_parser/issues/105)) ([6d98514](https://github.com/noir-lang/noir_json_parser/commit/6d985143fa473f191a735ac984c4241d1471cfb3))
+* Update poseidon version ([#95](https://github.com/noir-lang/noir_json_parser/issues/95)) ([2f282e5](https://github.com/noir-lang/noir_json_parser/commit/2f282e5687558014c284e5bf331109fea213d335))
+* Update to new stdlib interface ([#96](https://github.com/noir-lang/noir_json_parser/issues/96)) ([1241315](https://github.com/noir-lang/noir_json_parser/commit/1241315956511331d1fd5ae5eeee002f2de801c9))
+
+
+### Miscellaneous Chores
+
+* Fix a bunch of visibility issues ([#38](https://github.com/noir-lang/noir_json_parser/issues/38)) ([e45c9b9](https://github.com/noir-lang/noir_json_parser/commit/e45c9b9ba2419ac5310408939baed36def342db1))
+
 ## [0.4.0](https://github.com/noir-lang/noir_json_parser/compare/v0.3.0...v0.4.0) (2025-02-13)
 
 
