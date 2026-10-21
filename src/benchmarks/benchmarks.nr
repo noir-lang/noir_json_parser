@@ -18,52 +18,50 @@ comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
 
     quote {
         #[export]
-        fn $parse_json_from_string(s: str<1024>) -> $typ{
+        fn $parse_json_from_string(s: str<1024>) -> $typ {
             $JSON::parse_json_from_string(s)
         }
 
         #[export]
-        fn $get_array(s: $typ, key: [u8; 1024]) -> Option<$typ>{
-            $JSON::get_array(s,key)
+        fn $get_array(s: $typ, key: [u8; 1024]) -> Option<$typ> {
+            $JSON::get_array(s, key)
         }
 
         #[export]
-        fn $get_object(s: $typ, key: [u8; 1024]) -> Option<$typ>{
-            $JSON::get_object(s,key)
+        fn $get_object(s: $typ, key: [u8; 1024]) -> Option<$typ> {
+            $JSON::get_object(s, key)
         }
 
         #[export]
-        fn $get_literal(s: $typ, key: [u8; 1024]) -> Option<$JSONLiteral>{
-            $JSON::get_literal(s,key)
+        fn $get_literal(s: $typ, key: [u8; 1024]) -> Option<$JSONLiteral> {
+            $JSON::get_literal(s, key)
         }
 
         #[export]
-        fn $get_number(s: $typ, key: [u8; 1024]) -> Option<u64>{
-            $JSON::get_number(s,key)
+        fn $get_number(s: $typ, key: [u8; 1024]) -> Option<u64> {
+            $JSON::get_number(s, key)
         }
 
         #[export]
-        fn $get_string(s: $typ, key: [u8; 1024]) -> Option<BoundedVec<u8, 1024>>{
-            $JSON::get_string(s,key)
+        fn $get_string(s: $typ, key: [u8; 1024]) -> Option<BoundedVec<u8, 1024>> {
+            $JSON::get_string(s, key)
         }
 
         #[export]
-        fn $get_value(s: $typ, key: [u8; 1024]) -> Option<$JSONValue>{
-            $JSON::get_value(s,key)
+        fn $get_value(s: $typ, key: [u8; 1024]) -> Option<$JSONValue> {
+            $JSON::get_value(s, key)
         }
 
         #[export]
-        fn $key_exists(s: $typ, key: BoundedVec<u8, 1024>) -> bool{
+        fn $key_exists(s: $typ, key: BoundedVec<u8, 1024>) -> bool {
             $JSON::key_exists(s, key)
         }
-        
+
         #[export]
-        fn $get_keys_at_root(s: $typ) -> BoundedVec<BoundedVec<u8, 1024>, 1024>{
+        fn $get_keys_at_root(s: $typ) -> BoundedVec<BoundedVec<u8, 1024>, 1024> {
             $JSON::get_keys_at_root(s)
         }
-
-        
-}
+    }
 }
 
 #[make_bench(quote { JSON512b })]
