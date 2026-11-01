@@ -644,12 +644,15 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
      *          We pick these up via the lookup table PROCESS_RAW_TRANSCRIPT_TABLE
      **/
     fn capture_missing_tokens(&mut self) {
-        let mut transcript_ptr: Field = 0;
-        // hmm probably need a null transcript value?!?!
-        // Safety: check the comments below
+        // Safety: checked by `validate_captured_tokens`
         let updated_transcript = unsafe {
             __capture_missing_tokens::<MaxNumTokens>(self.raw_transcript, self.transcript_length)
         };
+        self.validate_captured_tokens(updated_transcript);
+    }
+
+    fn validate_captured_tokens(&mut self, updated_transcript: [Field; MaxNumTokens]) {
+        let mut transcript_ptr: Field = 0;
         // 26? gates per iteration
         let range_valid: [u32; MaxNumTokens] = get_validity_flags(self.transcript_length);
         for i in 0..MaxNumTokens {
@@ -716,6 +719,18 @@ impl<let NumBytes: u32, let NumPackedFields: u32, let MaxNumTokens: u32, let Max
             assert(diff * update == 0);
             // 1 gate
             transcript_ptr += update;
+        }
+
+        // `keyswap` and `create_json_entries` read the whole transcript, so every entry after the
+        // last token must be empty, otherwise a prover could append tokens to the JSON
+        let transcript_length = cast_num_to_u32(transcript_ptr);
+        for i in 0..MaxNumTokens {
+            if i >= transcript_length {
+                assert(
+                    updated_transcript[i] == 0,
+                    "capture_missing_tokens: nonzero transcript padding",
+                );
+            }
         }
         self.transcript = updated_transcript;
 
@@ -1177,4 +1192,61 @@ fn test_invalid_literal_3() {
 fn test_invalid_literal_4() {
     let text = "{ \"hello \", \"world\" n}";
     let _: JSON<26, 10, 20, 20, 2> = JSON::parse_json_from_string(text);
+}
+
+#[test]
+fn test_capture_missing_tokens_one_spare_token() {
+    // `[`, `1` and the captured `]` leave exactly one unused transcript entry
+    let json: JSON<3, 2, 4, 4, 2> = JSON::parse_json_from_string("[1]");
+    assert(json.get_number_from_array_unchecked(0) == 1);
+}
+
+#[test(should_fail_with = "capture_missing_tokens: nonzero transcript padding")]
+fn test_capture_missing_tokens_rejects_appended_token() {
+    // the prover must not be able to close the truncated object `{"x":"a"` via the padding
+    let mut json: JSON<16, 2, 16, 8, 2> = JSON::parse_json_from_string("{\"x\":\"a\"}");
+    json.json[8] = 32;
+    json = json.build_transcript();
+    // Safety: the hint is deliberately modified
+    let mut transcript =
+        unsafe { __capture_missing_tokens(json.raw_transcript, json.transcript_length) };
+    transcript[json.transcript_length] = TranscriptEntry::to_field(
+        TranscriptEntry {
+            token: crate::enums::Token::END_OBJECT_TOKEN as Field,
+            index: 8,
+            length: 0,
+        },
+    );
+    json.validate_captured_tokens(transcript);
+}
+
+#[test(should_fail_with = "capture_missing_tokens: nonzero transcript padding")]
+fn test_capture_missing_tokens_rejects_appended_root_array() {
+    // A complete root array followed, in the padding, by the tokens of a second top-level array
+    // whose one element is the substring "INTEGRITY" of the input. The tokens are well formed, so
+    // only the padding check rejects them.
+    let mut json: JSON<64, 3, 32, 16, 2> =
+        JSON::parse_json_from_string("[\"UNEVALUATED\",\"MEETS_BASIC_INTEGRITY\"]");
+    json = json.build_transcript();
+    // Safety: the hint is deliberately modified
+    let mut transcript =
+        unsafe { __capture_missing_tokens(json.raw_transcript, json.transcript_length) };
+    let mut n = 0;
+    for i in 0..32 {
+        if transcript[i] != 0 {
+            n = i + 1;
+        }
+    }
+    let tail = [
+        (crate::enums::Token::VALUE_SEPARATOR_TOKEN, 39, 0),
+        (crate::enums::Token::BEGIN_ARRAY_TOKEN, 39, 0),
+        (crate::enums::Token::STRING_TOKEN, 28, 9),
+        (crate::enums::Token::END_ARRAY_TOKEN, 39, 0),
+    ];
+    for k in 0..4 {
+        let (token, index, length) = tail[k];
+        transcript[n + k] =
+            TranscriptEntry::to_field(TranscriptEntry { token: token as Field, index, length });
+    }
+    json.validate_captured_tokens(transcript);
 }
