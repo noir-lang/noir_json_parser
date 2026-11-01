@@ -10,6 +10,12 @@ jobs:
   test:
     name: Benchmark library
     runs-on: ubuntu-latest
+    permissions:
+      # contents permission to update benchmark contents in gh-pages branch
+      contents: write
+      # pull-requests permission to post benchmark results as PR comments
+      pull-requests: write
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -17,12 +23,12 @@ jobs:
       - name: Install Nargo
         uses: noir-lang/noirup@v0.1.5
         with:
-          toolchain: nightly-2026-04-08
+          toolchain: 1.0.0
 
       - name: Install bb
         run: |
           curl -L https://bbup.aztec.network | bash
-          ~/.bb/bbup -v 4.0.0-nightly.20260120
+          ~/.bb/bbup -v 6.0.0
           sudo apt install libc++-dev
 
       - name: Build Noir benchmark programs
