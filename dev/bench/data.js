@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793636171992,
+  "lastUpdate": 1793636181020,
   "repoUrl": "https://github.com/noir-lang/noir_json_parser",
   "entries": {
     "ACIR Opcodes": [
@@ -6291,6 +6291,120 @@ window.BENCHMARK_DATA = {
           {
             "name": "parse_json_from_string_JSON512b_Bench.json/main",
             "value": 1344,
+            "unit": "circuit_size"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mike@aztec.foundation",
+            "name": "Michael Connor",
+            "username": "iAmMichaelConnor"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd89cde31e373bde41bfc8a77ef61340ee337239",
+          "message": "chore: test with Noir 1.0.0 and bb 6.0.0 (#110)",
+          "timestamp": "2026-11-03T00:10:04+08:00",
+          "tree_id": "666d7a98eef8aee20f736cd99a13aad7d21eeb3c",
+          "url": "https://github.com/noir-lang/noir_json_parser/commit/cd89cde31e373bde41bfc8a77ef61340ee337239"
+        },
+        "date": 1793636181008,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "get_array_JSON16kb_Bench.json/main",
+            "value": 76856,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_array_JSON512b_Bench.json/main",
+            "value": 5400,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_keys_at_root_JSON16kb_Bench.json/main",
+            "value": 5142491,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_keys_at_root_JSON512b_Bench.json/main",
+            "value": 5119166,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_literal_JSON16kb_Bench.json/main",
+            "value": 27804,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_literal_JSON512b_Bench.json/main",
+            "value": 4479,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_number_JSON16kb_Bench.json/main",
+            "value": 28068,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_number_JSON512b_Bench.json/main",
+            "value": 4835,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_object_JSON16kb_Bench.json/main",
+            "value": 76856,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_object_JSON512b_Bench.json/main",
+            "value": 5400,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_string_JSON16kb_Bench.json/main",
+            "value": 59563,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_string_JSON512b_Bench.json/main",
+            "value": 37227,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_value_JSON16kb_Bench.json/main",
+            "value": 32573,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "get_value_JSON512b_Bench.json/main",
+            "value": 9248,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "key_exists_JSON16kb_Bench.json/main",
+            "value": 28922,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "key_exists_JSON512b_Bench.json/main",
+            "value": 8089,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "parse_json_from_string_JSON16kb_Bench.json/main",
+            "value": 1071217,
+            "unit": "circuit_size"
+          },
+          {
+            "name": "parse_json_from_string_JSON512b_Bench.json/main",
+            "value": 43757,
             "unit": "circuit_size"
           }
         ]
