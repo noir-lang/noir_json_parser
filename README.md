@@ -15,7 +15,7 @@ Features:
 
 ## Noir version compatibility
 
-This library is tested with all Noir stable releases from v0.37.0.
+This library is tested with all Noir stable releases from v1.0.0.
 
 # Usage and Interface
 

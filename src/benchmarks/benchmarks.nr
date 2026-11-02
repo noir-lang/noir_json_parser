@@ -16,39 +16,41 @@ comptime fn make_bench(m: Module, params: Quoted) -> Quoted {
     let JSONValue = quote { crate::json::JSONValue<1024> };
     let typ = params.as_type();
 
+    // The inputs must fit the smallest benchmarked type, JSON512b: at most 512 bytes of JSON, and
+    // keys shorter than 31 * MaxKeyFields = 62 bytes
     quote {
         #[export]
-        fn $parse_json_from_string(s: str<1024>) -> $typ {
+        fn $parse_json_from_string(s: str<512>) -> $typ {
             $JSON::parse_json_from_string(s)
         }
 
         #[export]
-        fn $get_array(s: $typ, key: [u8; 1024]) -> Option<$typ> {
+        fn $get_array(s: $typ, key: [u8; 61]) -> Option<$typ> {
             $JSON::get_array(s, key)
         }
 
         #[export]
-        fn $get_object(s: $typ, key: [u8; 1024]) -> Option<$typ> {
+        fn $get_object(s: $typ, key: [u8; 61]) -> Option<$typ> {
             $JSON::get_object(s, key)
         }
 
         #[export]
-        fn $get_literal(s: $typ, key: [u8; 1024]) -> Option<$JSONLiteral> {
+        fn $get_literal(s: $typ, key: [u8; 61]) -> Option<$JSONLiteral> {
             $JSON::get_literal(s, key)
         }
 
         #[export]
-        fn $get_number(s: $typ, key: [u8; 1024]) -> Option<u64> {
+        fn $get_number(s: $typ, key: [u8; 61]) -> Option<u64> {
             $JSON::get_number(s, key)
         }
 
         #[export]
-        fn $get_string(s: $typ, key: [u8; 1024]) -> Option<BoundedVec<u8, 1024>> {
+        fn $get_string(s: $typ, key: [u8; 61]) -> Option<BoundedVec<u8, 1024>> {
             $JSON::get_string(s, key)
         }
 
         #[export]
-        fn $get_value(s: $typ, key: [u8; 1024]) -> Option<$JSONValue> {
+        fn $get_value(s: $typ, key: [u8; 61]) -> Option<$JSONValue> {
             $JSON::get_value(s, key)
         }
 
