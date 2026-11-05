@@ -235,7 +235,7 @@ impl std::cmp::Eq for JSONEntry {
         let num_children = (self.num_children == other.num_children);
         let json_pointer = (self.json_pointer == other.json_pointer);
         let json_length = (self.json_length == other.json_length);
-        array_ptr | entry | child | num_children | json_pointer | json_length
+        array_ptr & entry & child & num_children & json_pointer & json_length
     }
 }
 

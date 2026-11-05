@@ -56,7 +56,6 @@ impl TokenFlags {
         // 10 gates
         // Safety: check the comments below
         let r = unsafe { TokenFlags::__from_field(f) };
-
         // asserts the relation of r and f
         assert(r.to_field() == f);
         r
